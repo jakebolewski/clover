@@ -13,9 +13,9 @@ using namespace Coal;
  * MemObject
  */
 
-MemObject::MemObject(Context *ctx, Type type, cl_mem_flags flags, 
-                     void *host_ptr, cl_int *errcode_ret)
-: p_type(type), p_ctx(ctx), p_flags(flags), p_host_ptr(host_ptr), 
+MemObject::MemObject(Context *ctx, cl_mem_flags flags, void *host_ptr, 
+                     cl_int *errcode_ret)
+: p_ctx(ctx), p_flags(flags), p_host_ptr(host_ptr), 
   p_references(1), p_dtor_callback(0), p_devicebuffers(0), p_num_devices(0)
 {
     clRetainContext((cl_context)ctx);
@@ -171,11 +171,6 @@ bool MemObject:: dereference()
     return (p_references == 0);
 }
 
-MemObject::Type MemObject::type() const
-{
-    return p_type;
-}
-
 Context *MemObject::context() const
 {
     return p_ctx;
@@ -188,11 +183,11 @@ cl_mem_flags MemObject::flags() const
 
 void *MemObject::host_ptr() const
 {
-    if (p_type != SubBuffer)
+    if (type() != SubBuffer)
         return p_host_ptr;
     else
     {
-        class SubBuffer *subbuf = (class SubBuffer *)this;
+        const class SubBuffer *subbuf = (const class SubBuffer *)this;
         char *tmp = (char *)subbuf->parent()->host_ptr();
         
         if (!tmp) return 0;
@@ -266,7 +261,7 @@ cl_int MemObject::info(cl_context_info param_name,
     switch (param_name)
     {
         case CL_MEM_TYPE:
-            switch (p_type)
+            switch (type())
             {
                 case Buffer:
                 case SubBuffer:
@@ -310,17 +305,17 @@ cl_int MemObject::info(cl_context_info param_name,
             break;
             
         case CL_MEM_ASSOCIATED_MEMOBJECT:
-            if (p_type != SubBuffer)
+            if (type() != SubBuffer)
                 SIMPLE_ASSIGN(cl_mem, 0)
             else
-                SIMPLE_ASSIGN(cl_mem, subbuf->parent())
+                SIMPLE_ASSIGN(cl_mem, subbuf->parent());
             break;
             
         case CL_MEM_OFFSET:
-            if (p_type != SubBuffer)
+            if (type() != SubBuffer)
                 SIMPLE_ASSIGN(cl_mem, 0)
             else
-                SIMPLE_ASSIGN(cl_mem, subbuf->offset())
+                SIMPLE_ASSIGN(cl_mem, subbuf->offset());
             break;
             
         default:
@@ -345,7 +340,7 @@ cl_int MemObject::info(cl_context_info param_name,
 
 Buffer::Buffer(Context *ctx, size_t size, void *host_ptr, cl_mem_flags flags, 
                cl_int *errcode_ret)
-: MemObject(ctx, MemObject::Buffer, flags, host_ptr, errcode_ret), p_size(size)
+: MemObject(ctx, flags, host_ptr, errcode_ret), p_size(size)
 {
     if (size == 0)
     {
@@ -359,13 +354,18 @@ size_t Buffer::size() const
     return p_size;
 }
 
+MemObject::Type Buffer::type() const
+{
+    return MemObject::Buffer;
+}
+
 /*
  * SubBuffer
  */
 
 SubBuffer::SubBuffer(class Buffer *parent, size_t offset, size_t size, 
                      cl_mem_flags flags, cl_int *errcode_ret)
-: MemObject(parent->context(), MemObject::SubBuffer, flags, 0, errcode_ret), p_size(size),
+: MemObject(parent->context(), flags, 0, errcode_ret), p_size(size),
   p_offset(offset), p_parent(parent)
 {
     if (size == 0)
@@ -412,6 +412,11 @@ size_t SubBuffer::size() const
     return p_size;
 }
 
+MemObject::Type SubBuffer::type() const
+{
+    return MemObject::SubBuffer;
+}
+
 size_t SubBuffer::offset() const
 {
     return p_offset;
@@ -429,7 +434,7 @@ Buffer *SubBuffer::parent() const
 Image2D::Image2D(Context *ctx, size_t width, size_t height, size_t row_pitch, 
                  const cl_image_format *format, void *host_ptr, 
                  cl_mem_flags flags, cl_int *errcode_ret)
-: MemObject(ctx, MemObject::Image2D, flags, host_ptr, errcode_ret), 
+: MemObject(ctx, flags, host_ptr, errcode_ret), 
   p_width(width), p_height(height), p_row_pitch(row_pitch), p_format(*format)
 {
     // NOTE for images : pitches must be NULL if host_ptr is NULL
@@ -437,10 +442,15 @@ Image2D::Image2D(Context *ctx, size_t width, size_t height, size_t row_pitch,
 
 size_t Image2D::size() const
 {
-    if (p_row_pitch)
-        return p_height * p_row_pitch;
+    if (row_pitch())
+        return height() * row_pitch();
     else
-        return p_height * p_width * Image2D::pixel_size(p_format);
+        return height() * width() * pixel_size(format());
+}
+
+MemObject::Type Image2D::type() const
+{
+    return MemObject::Image2D;
 }
 
 size_t Image2D::width() const
@@ -461,6 +471,102 @@ size_t Image2D::row_pitch() const
 cl_image_format Image2D::format() const
 {
     return p_format;
+}
+
+cl_int Image2D::imageInfo(cl_context_info param_name,
+                         size_t param_value_size,
+                         void *param_value,
+                         size_t *param_value_size_ret)
+{
+    void *value = 0;
+    int value_length = 0;
+    class Image3D *image3D = (class Image3D *)this;
+    
+    union {
+        cl_image_format cl_image_format_var;
+        size_t size_t_var;
+    };
+    
+    switch (param_name)
+    {
+        case CL_IMAGE_FORMAT:
+            SIMPLE_ASSIGN(cl_image_format, format());
+            break;
+            
+        case CL_IMAGE_ELEMENT_SIZE:
+            SIMPLE_ASSIGN(size_t, element_size(p_format));
+            break;
+            
+        case CL_IMAGE_ROW_PITCH:
+            SIMPLE_ASSIGN(size_t, row_pitch());
+            break;
+            
+        case CL_IMAGE_SLICE_PITCH:
+            if (type() == Image3D)
+                SIMPLE_ASSIGN(size_t, image3D->slice_pitch())
+            else
+                SIMPLE_ASSIGN(size_t, 0);
+            break;
+            
+        case CL_IMAGE_WIDTH:
+            SIMPLE_ASSIGN(size_t, width());
+            break;
+            
+        case CL_IMAGE_HEIGHT:
+            SIMPLE_ASSIGN(size_t, height());
+            break;
+            
+        case CL_IMAGE_DEPTH:
+            if (type() == Image3D)
+                SIMPLE_ASSIGN(size_t, image3D->depth())
+            else
+                SIMPLE_ASSIGN(size_t, 0);
+            break;
+        default:
+            return CL_INVALID_VALUE;
+    }
+    
+    if (param_value && param_value_size < value_length)
+        return CL_INVALID_VALUE;
+    
+    if (param_value_size_ret)
+        *param_value_size_ret = value_length;
+        
+    if (param_value)
+        memcpy(param_value, value, value_length);
+    
+    return CL_SUCCESS;
+}
+
+size_t Image2D::element_size(const cl_image_format &format)
+{
+    switch (format.image_channel_data_type)
+    {
+        case CL_SNORM_INT8:
+        case CL_UNORM_INT8:
+        case CL_SIGNED_INT8:
+        case CL_UNSIGNED_INT8:
+            return 1;
+        case CL_SNORM_INT16:
+        case CL_UNORM_INT16:
+        case CL_SIGNED_INT16:
+        case CL_UNSIGNED_INT16:
+            return 2;
+        case CL_SIGNED_INT32:
+        case CL_UNSIGNED_INT32:
+            return 4;
+        case CL_FLOAT:
+            return sizeof(float);
+        case CL_HALF_FLOAT:
+            return 2;
+        case CL_UNORM_SHORT_565:
+        case CL_UNORM_SHORT_555:
+            return 2;
+        case CL_UNORM_INT_101010:
+            return 4;
+        default:
+            return 0;
+    }
 }
 
 size_t Image2D::pixel_size(const cl_image_format &format)
@@ -499,30 +605,13 @@ size_t Image2D::pixel_size(const cl_image_format &format)
     
     switch (format.image_channel_data_type)
     {
-        case CL_SNORM_INT8:
-        case CL_UNORM_INT8:
-        case CL_SIGNED_INT8:
-        case CL_UNSIGNED_INT8:
-            return multiplier * 1;
-        case CL_SNORM_INT16:
-        case CL_UNORM_INT16:
-        case CL_SIGNED_INT16:
-        case CL_UNSIGNED_INT16:
-            return multiplier * 2;
-        case CL_SIGNED_INT32:
-        case CL_UNSIGNED_INT32:
-            return multiplier * 4;
-        case CL_FLOAT:
-            return multiplier * sizeof(float);
-        case CL_HALF_FLOAT:
-            return multiplier * 2;
         case CL_UNORM_SHORT_565:
         case CL_UNORM_SHORT_555:
             return 2;
         case CL_UNORM_INT_101010:
             return 4;
         default:
-            return 0;
+            return multiplier * element_size(format);
     }
 }
 
@@ -534,32 +623,26 @@ Image3D::Image3D(Context *ctx, size_t width, size_t height, size_t depth,
                  size_t row_pitch, size_t slice_pitch, 
                  const cl_image_format *format, void *host_ptr, 
                  cl_mem_flags flags, cl_int *errcode_ret)
-: MemObject(ctx, MemObject::Image3D, flags, host_ptr, errcode_ret),
-  p_width(width), p_height(height), p_depth(depth), p_row_pitch(row_pitch),
-  p_slice_pitch(slice_pitch), p_format(*format)
+: Image2D(ctx, width, height, row_pitch, format, host_ptr, flags, errcode_ret),
+  p_depth(depth), p_slice_pitch(slice_pitch)
 {
     
 }
 
 size_t Image3D::size() const
 {
-    if (p_slice_pitch)
-        return p_depth * p_slice_pitch;
+    if (slice_pitch())
+        return depth() * slice_pitch();
     else
-        if (p_row_pitch)
-            return p_depth * p_height * p_row_pitch;
+        if (row_pitch())
+            return depth() * height() * row_pitch();
         else
-            return p_depth * p_height * p_width * Image2D::pixel_size(p_format);
+            return depth() * height() * width() * pixel_size(format());
 }
 
-size_t Image3D::width() const
+MemObject::Type Image3D::type() const
 {
-    return p_width;
-}
-
-size_t Image3D::height() const
-{
-    return p_height;
+    return MemObject::Image3D;
 }
 
 size_t Image3D::depth() const
@@ -567,17 +650,7 @@ size_t Image3D::depth() const
     return p_depth;
 }
 
-size_t Image3D::row_pitch() const
-{
-    return p_row_pitch;
-}
-
 size_t Image3D::slice_pitch() const
 {
     return p_slice_pitch;
-}
-
-cl_image_format Image3D::format() const
-{
-    return p_format;
 }

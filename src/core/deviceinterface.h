@@ -20,7 +20,7 @@ class DeviceInterface
                             void *param_value, 
                             size_t *param_value_size_ret) = 0;
                             
-        virtual DeviceBuffer *createDeviceBuffer(MemObject *buffer, cl_int *rs);
+        virtual DeviceBuffer *createDeviceBuffer(MemObject *buffer, cl_int *rs) = 0;
 };
 
 class DeviceBuffer

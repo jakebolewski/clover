@@ -338,7 +338,7 @@ DeviceBuffer *CPUDevice::createDeviceBuffer(MemObject *buffer, cl_int *rs)
  * CPUBuffer
  */
 CPUBuffer::CPUBuffer(CPUDevice *device, MemObject *buffer, cl_int *rs)
-: p_device(device), p_buffer(buffer), p_data(0)
+: p_device(device), p_buffer(buffer), p_data(0), p_data_malloced(false)
 {
     if (buffer->type() == MemObject::SubBuffer)
     {
@@ -362,9 +362,7 @@ CPUBuffer::CPUBuffer(CPUDevice *device, MemObject *buffer, cl_int *rs)
 
 CPUBuffer::~CPUBuffer()
 {
-    if (p_data && 
-        !(p_buffer->flags() & CL_MEM_USE_HOST_PTR) && 
-        !p_buffer->type() == MemObject::SubBuffer)
+    if (p_data_malloced)
     {
         free((void *)p_data);
     }
@@ -390,6 +388,8 @@ cl_int CPUBuffer::allocate()
         
         if (!p_data)
             return CL_MEM_OBJECT_ALLOCATION_FAILURE;
+        
+        p_data_malloced = true;
     }
     
     if (p_buffer->type() != MemObject::SubBuffer &&

@@ -172,6 +172,7 @@ int main()
     cl_platform_id *platforms;
     cl_int result;
     cl_uint num;
+    int i;
     
     // Get the platforms
     result = clGetPlatformIDs(0, 0, &num);
@@ -198,7 +199,7 @@ int main()
         return 1;
     }
     
-    for (int i=0; i<num; ++i)
+    for (i=0; i<num; ++i)
     {
         platform_info(platforms[i]);
     }
@@ -223,6 +224,7 @@ void platform_info(cl_platform_id platform)
     // Display info about the platform
     char buf[512];
     cl_int result;
+    int i;
     
     printf("Platform : {\n");
     
@@ -262,7 +264,7 @@ void platform_info(cl_platform_id platform)
         return;
     }
     
-    for (int i=0; i<num; ++i)
+    for (i=0; i<num; ++i)
     {
         device_info(devices[i]);
     }

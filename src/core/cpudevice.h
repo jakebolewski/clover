@@ -37,6 +37,7 @@ class CPUBuffer : public DeviceBuffer
         CPUDevice *p_device;
         MemObject *p_buffer;
         void *p_data;
+        bool p_data_malloced;
 };
 
 }

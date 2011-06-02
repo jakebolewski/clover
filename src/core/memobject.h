@@ -26,17 +26,17 @@ class MemObject
          *       the private variables and check the values passed in argument.
          * @sa init
          */
-        MemObject(Context *ctx, Type type, cl_mem_flags flags, void *host_ptr,
+        MemObject(Context *ctx, cl_mem_flags flags, void *host_ptr,
                   cl_int *errcode_ret);
         ~MemObject();
         
         virtual cl_int init();
         virtual size_t size() const = 0; /*!< @warning this is a device-independent size */
+        virtual Type type() const = 0;
         
         void reference();
         bool dereference();
         
-        Type type() const;
         Context *context() const;
         cl_mem_flags flags() const;
         void *host_ptr() const;
@@ -53,7 +53,6 @@ class MemObject
                     size_t *param_value_size_ret);
         
     private:
-        Type p_type;
         Context *p_ctx;
         unsigned int p_references, p_num_devices, p_devices_to_allocate;
         cl_mem_flags p_flags;
@@ -71,6 +70,7 @@ class Buffer : public MemObject
                cl_int *errcode_ret);
         
         size_t size() const;
+        Type type() const;
     private:
         size_t p_size;
         
@@ -83,6 +83,8 @@ class SubBuffer : public MemObject
                   cl_mem_flags flags, cl_int *errcode_ret);
         
         size_t size() const;
+        Type type() const;
+        
         size_t offset() const;
         class Buffer *parent() const;
         
@@ -98,12 +100,20 @@ class Image2D : public MemObject
                 const cl_image_format *format, void *host_ptr, 
                 cl_mem_flags flags, cl_int *errcode_ret);
         
-        size_t size() const;
+        virtual size_t size() const;
+        virtual Type type() const;
+        
         size_t width() const;
         size_t height() const;
         size_t row_pitch() const;
         cl_image_format format() const;
         
+        cl_int imageInfo(cl_context_info param_name,
+                         size_t param_value_size,
+                         void *param_value,
+                         size_t *param_value_size_ret);
+        
+        static size_t element_size(const cl_image_format &format);
         static size_t pixel_size(const cl_image_format &format);
         
     private:
@@ -111,7 +121,7 @@ class Image2D : public MemObject
         cl_image_format p_format;
 };
 
-class Image3D : public MemObject
+class Image3D : public Image2D
 {
     public:
         Image3D(Context *ctx, size_t width, size_t height, size_t depth, 
@@ -120,16 +130,13 @@ class Image3D : public MemObject
                 cl_mem_flags flags, cl_int *errcode_ret);
         
         size_t size() const;
-        size_t width() const;
-        size_t height() const;
+        Type type() const;
+        
         size_t depth() const;
-        size_t row_pitch() const;
         size_t slice_pitch() const;
-        cl_image_format format() const;
         
     private:
-        size_t p_width, p_height, p_depth, p_row_pitch, p_slice_pitch;
-        cl_image_format p_format;
+        size_t p_depth, p_slice_pitch;
 };
 
 }

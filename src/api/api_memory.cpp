@@ -174,7 +174,14 @@ clGetImageInfo(cl_mem           image,
                void *           param_value,
                size_t *         param_value_size_ret)
 {
-    return 0;
+    if (!image || (image->type() != Coal::MemObject::Image2D && 
+                   image->type() != Coal::MemObject::Image3D))
+        return CL_INVALID_MEM_OBJECT;
+    
+    Coal::Image2D *image2d = (Coal::Image2D *)image;
+    
+    return image2d->imageInfo(param_name, param_value_size, param_value,
+                              param_value_size_ret);
 }
 
 cl_int
