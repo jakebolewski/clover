@@ -30,7 +30,9 @@ class DeviceBuffer
         virtual ~DeviceBuffer() {}
         
         virtual cl_int allocate() = 0;
+        
         virtual DeviceInterface *device() const = 0;
+        virtual bool allocated() const = 0;
 };
 
 }

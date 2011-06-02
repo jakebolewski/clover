@@ -4,6 +4,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 using namespace Coal;
 
@@ -82,6 +83,7 @@ cl_int MemObject::init()
     if (rs != CL_SUCCESS)
         return rs;
     
+    p_devices_to_allocate = p_num_devices;
     devices = (DeviceInterface **)malloc(p_num_devices * 
                                         sizeof(DeviceInterface *));
     
@@ -92,14 +94,40 @@ cl_int MemObject::init()
                          p_num_devices * sizeof(DeviceInterface *), devices, 0);
     
     if (rs != CL_SUCCESS)
+    {
+        free((void *)devices);
         return rs;
+    }
     
     // Allocate a table of DeviceBuffers
     p_devicebuffers = (DeviceBuffer **)malloc(p_num_devices * 
                                              sizeof(DeviceBuffer *));
     
     if (!p_devicebuffers)
+    {
+        free((void *)devices);
         return CL_OUT_OF_HOST_MEMORY;
+    }
+    
+    // If we have more than one device, the allocation on the devices is
+    // defered to first use, so host_ptr can become invalid. So, copy it in
+    // a RAM location and keep it. Also, set a flag telling CPU devices that
+    // they don't need to reallocate and re-copy host_ptr
+    if (p_num_devices > 1 && (p_flags & CL_MEM_COPY_HOST_PTR))
+    {
+        void *tmp_hostptr = malloc(size());
+        
+        if (!tmp_hostptr)
+        {
+            free((void *)devices);
+            return CL_OUT_OF_HOST_MEMORY;
+        }
+        
+        memcpy(tmp_hostptr, p_host_ptr, size());
+        
+        p_host_ptr = tmp_hostptr;
+        // Now, the client application can safely free() its host_ptr
+    }
     
     // Create a DeviceBuffer for each device
     for (int i=0; i<p_num_devices; ++i)
@@ -114,6 +142,9 @@ cl_int MemObject::init()
             return rs;
         }
     }
+    
+    free((void *)devices);
+    devices = 0;
     
     // If we have only one device, already allocate the buffer
     if (p_num_devices == 1)
@@ -168,6 +199,25 @@ DeviceBuffer *MemObject::deviceBuffer(DeviceInterface *device) const
     }
     
     return 0;
+}
+
+void MemObject::deviceAllocated(DeviceBuffer *buffer)
+{
+    (void) buffer;
+    
+    // Decrement the count of devices that must be allocated. If it becomes
+    // 0, it means we don't need to keep a copied host_ptr and that we can
+    // free() it.
+    p_devices_to_allocate--;
+    
+    if (p_devices_to_allocate == 0 &&
+        p_num_devices > 1 && 
+        (p_flags & CL_MEM_COPY_HOST_PTR))
+    {
+        free(p_host_ptr);
+        p_host_ptr = 0;
+    }
+        
 }
 
 void MemObject::setDestructorCallback(void (CL_CALLBACK *pfn_notify)
@@ -274,6 +324,14 @@ Image2D::Image2D(Context *ctx, size_t width, size_t height, size_t row_pitch,
     // NOTE for images : pitches must be NULL if host_ptr is NULL
 }
 
+size_t Image2D::size() const
+{
+    if (p_row_pitch)
+        return p_height * p_row_pitch;
+    else
+        return p_height * p_width * Image2D::pixel_size(p_format);
+}
+
 size_t Image2D::width() const
 {
     return p_width;
@@ -294,6 +352,69 @@ cl_image_format Image2D::format() const
     return p_format;
 }
 
+size_t Image2D::pixel_size(const cl_image_format &format)
+{
+    size_t multiplier;
+    
+    switch (format.image_channel_order)
+    {
+        case CL_R:
+        case CL_Rx:
+        case CL_A:
+        case CL_INTENSITY:
+        case CL_LUMINANCE:
+            multiplier = 1;
+            break;
+         
+        case CL_RG:
+        case CL_RGx:
+        case CL_RA:
+            multiplier = 2;
+            break;
+            
+        case CL_RGB:
+        case CL_RGBx:
+            multiplier = 3;
+            break;
+            
+        case CL_RGBA:
+        case CL_ARGB:
+        case CL_BGRA:
+            multiplier = 4;
+        
+        default:
+            return 0;
+    }
+    
+    switch (format.image_channel_data_type)
+    {
+        case CL_SNORM_INT8:
+        case CL_UNORM_INT8:
+        case CL_SIGNED_INT8:
+        case CL_UNSIGNED_INT8:
+            return multiplier * 1;
+        case CL_SNORM_INT16:
+        case CL_UNORM_INT16:
+        case CL_SIGNED_INT16:
+        case CL_UNSIGNED_INT16:
+            return multiplier * 2;
+        case CL_SIGNED_INT32:
+        case CL_UNSIGNED_INT32:
+            return multiplier * 4;
+        case CL_FLOAT:
+            return multiplier * sizeof(float);
+        case CL_HALF_FLOAT:
+            return multiplier * 2;
+        case CL_UNORM_SHORT_565:
+        case CL_UNORM_SHORT_555:
+            return 2;
+        case CL_UNORM_INT_101010:
+            return 4;
+        default:
+            return 0;
+    }
+}
+
 /*
  * Image3D
  */
@@ -307,6 +428,17 @@ Image3D::Image3D(Context *ctx, size_t width, size_t height, size_t depth,
   p_slice_pitch(slice_pitch), p_format(*format)
 {
     
+}
+
+size_t Image3D::size() const
+{
+    if (p_slice_pitch)
+        return p_depth * p_slice_pitch;
+    else
+        if (p_row_pitch)
+            return p_depth * p_height * p_row_pitch;
+        else
+            return p_depth * p_height * p_width * Image2D::pixel_size(p_format);
 }
 
 size_t Image3D::width() const

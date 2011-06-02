@@ -31,6 +31,7 @@ class MemObject
         ~MemObject();
         
         virtual cl_int init();
+        virtual size_t size() const = 0; /*!< @warning this is a device-independent size */
         
         void reference();
         bool dereference();
@@ -41,6 +42,8 @@ class MemObject
         void *host_ptr() const;
         DeviceBuffer *deviceBuffer(DeviceInterface *device) const;
         
+        void deviceAllocated(DeviceBuffer *buffer); /*!< @note called by the DeviceBuffers */
+        
         void setDestructorCallback(void (CL_CALLBACK *pfn_notify)(cl_mem memobj,
                                                              void *user_data),
                                    void *user_data);
@@ -48,7 +51,7 @@ class MemObject
     private:
         Type p_type;
         Context *p_ctx;
-        unsigned int p_references, p_num_devices;
+        unsigned int p_references, p_num_devices, p_devices_to_allocate;
         cl_mem_flags p_flags;
         void *p_host_ptr;
         DeviceBuffer **p_devicebuffers;
@@ -91,10 +94,13 @@ class Image2D : public MemObject
                 const cl_image_format *format, void *host_ptr, 
                 cl_mem_flags flags, cl_int *errcode_ret);
         
+        size_t size() const;
         size_t width() const;
         size_t height() const;
         size_t row_pitch() const;
         cl_image_format format() const;
+        
+        static size_t pixel_size(const cl_image_format &format);
         
     private:
         size_t p_width, p_height, p_row_pitch;
@@ -109,6 +115,7 @@ class Image3D : public MemObject
                 const cl_image_format *format, void *host_ptr, 
                 cl_mem_flags flags, cl_int *errcode_ret);
         
+        size_t size() const;
         size_t width() const;
         size_t height() const;
         size_t depth() const;

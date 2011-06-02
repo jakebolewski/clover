@@ -31,6 +31,7 @@ class CPUBuffer : public DeviceBuffer
         cl_int allocate();
         DeviceInterface *device() const;
         void *data() const;
+        bool allocated() const;
         
     private:
         CPUDevice *p_device;
