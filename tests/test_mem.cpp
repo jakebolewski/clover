@@ -153,11 +153,64 @@ START_TEST (test_create_sub_buffer)
 }
 END_TEST
 
+START_TEST (test_read_write_subbuf)
+{
+    cl_context ctx;
+    cl_mem buf, subbuf;
+    cl_int result;
+    char s[] = "Hello, world !";
+    
+    cl_buffer_region create_info = {    // "Hello, [world] !"
+        .origin = 7,
+        .size = 5
+    };
+    
+    ctx = clCreateContextFromType(0, CL_DEVICE_TYPE_CPU, 0, 0, &result);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to create a valid context"
+    );
+    
+    buf = clCreateBuffer(ctx, CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR,
+                         sizeof(s), s, &result);
+    fail_if(
+        result != CL_SUCCESS,
+        "cannot create a valid CL_MEM_USE_HOST_PTR read-write buffer"
+    );
+    
+    subbuf = clCreateSubBuffer(buf, CL_MEM_WRITE_ONLY,
+                            CL_BUFFER_CREATE_TYPE_REGION,
+                            (void *)&create_info, &result);
+    fail_if(
+        result != CL_SUCCESS || subbuf == 0,
+        "cannot create a valid sub-buffer"
+    );
+    
+    ////
+    char *hostptr;
+    char *valid_hostptr = s;
+    
+    valid_hostptr += create_info.origin;
+    
+    result = clGetMemObjectInfo(subbuf, CL_MEM_HOST_PTR, sizeof(char *),
+                                (void *)&hostptr, 0);
+    fail_if(
+        result != CL_SUCCESS || hostptr != valid_hostptr,
+        "the host ptr of a subbuffer must point to a subportion of its parent buffer"
+    );
+    
+    clReleaseMemObject(subbuf);
+    clReleaseMemObject(buf);
+    clReleaseContext(ctx);
+}
+END_TEST
+
 TCase *cl_mem_tcase_create(void)
 {
     TCase *tc = NULL;
     tc = tcase_create("mem");
     tcase_add_test(tc, test_create_buffer);
     tcase_add_test(tc, test_create_sub_buffer);
+    tcase_add_test(tc, test_read_write_subbuf);
     return tc;
 }

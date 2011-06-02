@@ -47,6 +47,10 @@ class MemObject
         void setDestructorCallback(void (CL_CALLBACK *pfn_notify)(cl_mem memobj,
                                                              void *user_data),
                                    void *user_data);
+        cl_int info(cl_context_info param_name,
+                    size_t param_value_size,
+                    void *param_value,
+                    size_t *param_value_size_ret);
         
     private:
         Type p_type;

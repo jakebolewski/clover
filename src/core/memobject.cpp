@@ -1,6 +1,7 @@
 #include "memobject.h"
 #include "context.h"
 #include "deviceinterface.h"
+#include "propertylist.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -187,7 +188,19 @@ cl_mem_flags MemObject::flags() const
 
 void *MemObject::host_ptr() const
 {
-    return p_host_ptr;
+    if (p_type != SubBuffer)
+        return p_host_ptr;
+    else
+    {
+        class SubBuffer *subbuf = (class SubBuffer *)this;
+        char *tmp = (char *)subbuf->parent()->host_ptr();
+        
+        if (!tmp) return 0;
+        
+        tmp += subbuf->offset();
+        
+        return (void *)tmp;
+    }
 }
 
 DeviceBuffer *MemObject::deviceBuffer(DeviceInterface *device) const
@@ -226,6 +239,104 @@ void MemObject::setDestructorCallback(void (CL_CALLBACK *pfn_notify)
 {
     p_dtor_callback = pfn_notify;
     p_dtor_userdata = user_data;
+}
+
+// HACK for the union
+typedef void * void_p;
+
+cl_int MemObject::info(cl_context_info param_name,
+                       size_t param_value_size,
+                       void *param_value,
+                       size_t *param_value_size_ret)
+{
+    void *value = 0;
+    int value_length = 0;
+    class SubBuffer *subbuf = (class SubBuffer *)this;
+    
+    union {
+        cl_mem_object_type cl_mem_object_type_var;
+        cl_mem_flags cl_mem_flags_var;
+        size_t size_t_var;
+        void_p void_p_var;
+        cl_uint cl_uint_var;
+        cl_context cl_context_var;
+        cl_mem cl_mem_var;
+    };
+    
+    switch (param_name)
+    {
+        case CL_MEM_TYPE:
+            switch (p_type)
+            {
+                case Buffer:
+                case SubBuffer:
+                    cl_mem_object_type_var = CL_MEM_OBJECT_BUFFER;
+                    break;
+                    
+                case Image2D:
+                    cl_mem_object_type_var = CL_MEM_OBJECT_IMAGE2D;
+                    break;
+                    
+                case Image3D:
+                    cl_mem_object_type_var = CL_MEM_OBJECT_IMAGE3D;
+                    break;
+            }
+            value = (void *)&cl_mem_object_type_var;
+            value_length = sizeof(cl_mem_object_type);
+            break;
+            
+        case CL_MEM_FLAGS:
+            SIMPLE_ASSIGN(cl_mem_flags, p_flags);
+            break;
+            
+        case CL_MEM_SIZE:
+            SIMPLE_ASSIGN(size_t, size());
+            break;
+            
+        case CL_MEM_HOST_PTR:
+            SIMPLE_ASSIGN(void_p, host_ptr());
+            break;
+            
+        case CL_MEM_MAP_COUNT:
+            SIMPLE_ASSIGN(cl_uint, 0); // TODO
+            break;
+            
+        case CL_MEM_REFERENCE_COUNT:
+            SIMPLE_ASSIGN(cl_uint, p_references);
+            break;
+            
+        case CL_MEM_CONTEXT:
+            SIMPLE_ASSIGN(cl_context, p_ctx);
+            break;
+            
+        case CL_MEM_ASSOCIATED_MEMOBJECT:
+            if (p_type != SubBuffer)
+                SIMPLE_ASSIGN(cl_mem, 0)
+            else
+                SIMPLE_ASSIGN(cl_mem, subbuf->parent())
+            break;
+            
+        case CL_MEM_OFFSET:
+            if (p_type != SubBuffer)
+                SIMPLE_ASSIGN(cl_mem, 0)
+            else
+                SIMPLE_ASSIGN(cl_mem, subbuf->offset())
+            break;
+            
+        default:
+            return CL_INVALID_VALUE;
+    }
+    
+    if (param_value && param_value_size < value_length)
+        return CL_INVALID_VALUE;
+    
+    if (param_value_size_ret)
+        *param_value_size_ret = value_length;
+        
+    if (param_value)
+        memcpy(param_value, value, value_length);
+    
+    return CL_SUCCESS;
 }
 
 /*
