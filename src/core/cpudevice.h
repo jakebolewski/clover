@@ -18,8 +18,10 @@ class CPUDevice : public DeviceInterface
                     size_t param_value_size, 
                     void *param_value, 
                     size_t *param_value_size_ret);
-        
         DeviceBuffer *createDeviceBuffer(MemObject *buffer, cl_int *rs);
+        
+        static unsigned int numCPUs();
+        static float cpuMhz();
 };
 
 class CPUBuffer : public DeviceBuffer

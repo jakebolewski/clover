@@ -5,8 +5,14 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
+
+#include <iostream>
+#include <fstream>
+#include <sstream>
 
 using namespace Coal;
+using namespace std;
 
 /*
  * CPUDevice
@@ -56,8 +62,7 @@ cl_int CPUDevice::info(cl_device_info param_name,
             break;
         
         case CL_DEVICE_MAX_COMPUTE_UNITS:
-            // TODO: multithreading
-            SIMPLE_ASSIGN(cl_uint, 1);
+            SIMPLE_ASSIGN(cl_uint, numCPUs());
             break;
         
         case CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS:
@@ -103,8 +108,7 @@ cl_int CPUDevice::info(cl_device_info param_name,
             break;
         
         case CL_DEVICE_MAX_CLOCK_FREQUENCY:
-            // TODO: 1Ghz, get the real speed somewhere
-            SIMPLE_ASSIGN(cl_uint, 1000000000);
+            SIMPLE_ASSIGN(cl_uint, cpuMhz());
             break;
         
         case CL_DEVICE_ADDRESS_BITS:
@@ -166,6 +170,7 @@ cl_int CPUDevice::info(cl_device_info param_name,
         case CL_DEVICE_SINGLE_FP_CONFIG:
             // TODO: Check what an x86 SSE engine can support.
             SIMPLE_ASSIGN(cl_device_fp_config, 
+                          CL_FP_DENORM |
                           CL_FP_INF_NAN |
                           CL_FP_ROUND_TO_NEAREST);
             break;
@@ -332,6 +337,38 @@ cl_int CPUDevice::info(cl_device_info param_name,
 DeviceBuffer *CPUDevice::createDeviceBuffer(MemObject *buffer, cl_int *rs)
 {
     return (DeviceBuffer *)new CPUBuffer(this, buffer, rs);
+}
+
+unsigned int CPUDevice::numCPUs()
+{
+    return sysconf(_SC_NPROCESSORS_ONLN);
+}
+
+float CPUDevice::cpuMhz()
+{
+    filebuf fb;
+    fb.open("/proc/cpuinfo", ios::in);
+    istream is(&fb);
+
+    float cpuMhz = 0.0;
+
+    while (!is.eof())
+    {
+        string key, value;
+
+        getline(is, key, ':');
+        is.ignore(1);
+        getline(is, value);
+
+        if (key.compare(0, 7, "cpu MHz") == 0)
+        {
+            istringstream ss(value);
+            ss >> cpuMhz;
+            break;
+        }
+    }
+
+    return cpuMhz;
 }
 
 /*
