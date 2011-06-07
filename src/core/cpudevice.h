@@ -3,10 +3,14 @@
 
 #include "deviceinterface.h"
 
+#include <pthread.h>
+#include <list>
+
 namespace Coal
 {
 
 class MemObject;
+class Event;
 
 class CPUDevice : public DeviceInterface
 {
@@ -19,9 +23,21 @@ class CPUDevice : public DeviceInterface
                     void *param_value, 
                     size_t *param_value_size_ret);
         DeviceBuffer *createDeviceBuffer(MemObject *buffer, cl_int *rs);
+        void pushEvent(Event *event);
         
-        static unsigned int numCPUs();
-        static float cpuMhz();
+        Event *getEvent(bool &stop);
+        
+        unsigned int numCPUs();
+        float cpuMhz();
+        
+    private:
+        unsigned int p_cores, p_num_events;
+        pthread_t *p_workers;
+        
+        std::list<Event *> p_events;
+        pthread_cond_t p_events_cond;
+        pthread_mutex_t p_events_mutex;
+        bool p_stop;
 };
 
 class CPUBuffer : public DeviceBuffer

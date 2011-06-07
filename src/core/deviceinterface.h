@@ -8,6 +8,7 @@ namespace Coal
 
 class DeviceBuffer;
 class MemObject;
+class Event;
 
 class DeviceInterface
 {
@@ -21,6 +22,7 @@ class DeviceInterface
                             size_t *param_value_size_ret) = 0;
                             
         virtual DeviceBuffer *createDeviceBuffer(MemObject *buffer, cl_int *rs) = 0;
+        virtual void pushEvent(Event *event) = 0;
 };
 
 class DeviceBuffer

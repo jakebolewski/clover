@@ -498,6 +498,7 @@ cl_int Image2D::imageInfo(cl_context_info param_name,
             break;
             
         case CL_IMAGE_ROW_PITCH:
+            // TODO: What was given when the image was created or width*size ?
             SIMPLE_ASSIGN(size_t, row_pitch());
             break;
             

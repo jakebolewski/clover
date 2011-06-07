@@ -60,6 +60,8 @@ clReleaseCommandQueue(cl_command_queue command_queue)
 {
     if (!command_queue)
         return CL_INVALID_COMMAND_QUEUE;
+    
+    // TODO: Flush command queue
         
     if (command_queue->dereference())
         delete command_queue;

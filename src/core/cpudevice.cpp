@@ -2,6 +2,7 @@
 #include "memobject.h"
 #include "config.h"
 #include "propertylist.h"
+#include "commandqueue.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -15,19 +16,142 @@ using namespace Coal;
 using namespace std;
 
 /*
+ * Worker code
+ */
+
+static void *worker(void *data)
+{
+    CPUDevice *device = (CPUDevice *)data;
+    bool stop = false;
+    Event *event;
+    
+    while (true)
+    {
+        event = device->getEvent(stop);
+        
+        if (stop) break;
+        if (!event) continue;
+        
+        // Run the event
+    }
+}
+
+/*
  * CPUDevice
  */
 
-CPUDevice::CPUDevice() : DeviceInterface::DeviceInterface()
+CPUDevice::CPUDevice() 
+: DeviceInterface::DeviceInterface(), p_cores(0), p_workers(0), p_stop(false),
+  p_num_events(0)
 {
+    // Initialize the locking machinery
+    pthread_cond_init(&p_events_cond, 0);
+    pthread_mutex_init(&p_events_mutex, 0);
     
+    // Create 4 worker threads
+    p_workers = (pthread_t *)malloc(numCPUs() * sizeof(pthread_t));
+    
+    for (int i=0; i<numCPUs(); ++i)
+    {
+        pthread_create(&p_workers[i], 0, &worker, this);
+    }
 }
 
 CPUDevice::~CPUDevice()
 {
+    // Terminate the workers and wait for them
+    pthread_mutex_lock(&p_events_mutex);
     
+    p_stop = true;
+    
+    pthread_cond_broadcast(&p_events_cond);
+    pthread_mutex_unlock(&p_events_mutex);
+    
+    for (int i=0; i<numCPUs(); ++i)
+    {
+        pthread_join(p_workers[i], 0);
+    }
+    
+    // Free allocated memory
+    free((void *)p_workers);
+    pthread_mutex_destroy(&p_events_mutex);
+    pthread_cond_destroy(&p_events_cond);
 }
-        
+
+DeviceBuffer *CPUDevice::createDeviceBuffer(MemObject *buffer, cl_int *rs)
+{
+    return (DeviceBuffer *)new CPUBuffer(this, buffer, rs);
+}
+
+void CPUDevice::pushEvent(Event *event)
+{
+    // Add an event in the list
+    pthread_mutex_lock(&p_events_mutex);
+    
+    p_events.push_back(event);
+    p_num_events++;                 // Way faster than STL list::size() !
+    
+    pthread_cond_broadcast(&p_events_cond);
+    pthread_mutex_unlock(&p_events_mutex);
+}
+
+Event *CPUDevice::getEvent(bool &stop)
+{
+    // Return the first event in the list, if any. Remove it if it is a
+    // single-shot event.
+    pthread_mutex_lock(&p_events_mutex);
+    
+    while (p_num_events == 0)
+        pthread_cond_wait(&p_events_cond, &p_events_mutex);
+    
+    Event *event = p_events.front();
+    
+    // If event is single-shot, remove it
+    if (event->isSingleShot())
+    {
+        p_num_events--;
+        p_events.pop_front();
+    }
+    
+    pthread_mutex_unlock(&p_events_mutex);
+    
+    return event;
+}
+
+unsigned int CPUDevice::numCPUs()
+{
+    if (p_cores) return p_cores;
+    
+    return (p_cores = sysconf(_SC_NPROCESSORS_ONLN));
+}
+
+float CPUDevice::cpuMhz()
+{
+    filebuf fb;
+    fb.open("/proc/cpuinfo", ios::in);
+    istream is(&fb);
+
+    float cpuMhz = 0.0;
+
+    while (!is.eof())
+    {
+        string key, value;
+
+        getline(is, key, ':');
+        is.ignore(1);
+        getline(is, value);
+
+        if (key.compare(0, 7, "cpu MHz") == 0)
+        {
+            istringstream ss(value);
+            ss >> cpuMhz;
+            break;
+        }
+    }
+
+    return cpuMhz;
+}
+
 cl_int CPUDevice::info(cl_device_info param_name, 
                        size_t param_value_size, 
                        void *param_value, 
@@ -108,7 +232,7 @@ cl_int CPUDevice::info(cl_device_info param_name,
             break;
         
         case CL_DEVICE_MAX_CLOCK_FREQUENCY:
-            SIMPLE_ASSIGN(cl_uint, cpuMhz());
+            SIMPLE_ASSIGN(cl_uint, cpuMhz() * 1000000);
             break;
         
         case CL_DEVICE_ADDRESS_BITS:
@@ -332,43 +456,6 @@ cl_int CPUDevice::info(cl_device_info param_name,
         memcpy(param_value, value, value_length);
     
     return CL_SUCCESS;
-}
-
-DeviceBuffer *CPUDevice::createDeviceBuffer(MemObject *buffer, cl_int *rs)
-{
-    return (DeviceBuffer *)new CPUBuffer(this, buffer, rs);
-}
-
-unsigned int CPUDevice::numCPUs()
-{
-    return sysconf(_SC_NPROCESSORS_ONLN);
-}
-
-float CPUDevice::cpuMhz()
-{
-    filebuf fb;
-    fb.open("/proc/cpuinfo", ios::in);
-    istream is(&fb);
-
-    float cpuMhz = 0.0;
-
-    while (!is.eof())
-    {
-        string key, value;
-
-        getline(is, key, ':');
-        is.ignore(1);
-        getline(is, value);
-
-        if (key.compare(0, 7, "cpu MHz") == 0)
-        {
-            istringstream ss(value);
-            ss >> cpuMhz;
-            break;
-        }
-    }
-
-    return cpuMhz;
 }
 
 /*
