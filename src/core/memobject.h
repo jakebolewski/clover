@@ -31,6 +31,7 @@ class MemObject
         ~MemObject();
         
         virtual cl_int init();
+        virtual bool allocate(DeviceInterface *device);
         virtual size_t size() const = 0; /*!< @warning this is a device-independent size */
         virtual Type type() const = 0;
         
@@ -84,6 +85,7 @@ class SubBuffer : public MemObject
         
         size_t size() const;
         Type type() const;
+        bool allocate(DeviceInterface *device);
         
         size_t offset() const;
         class Buffer *parent() const;

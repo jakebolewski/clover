@@ -150,13 +150,21 @@ cl_int MemObject::init()
     // If we have only one device, already allocate the buffer
     if (p_num_devices == 1)
     {
-        rs = p_devicebuffers[0]->allocate();
-        
-        if (rs != CL_SUCCESS)
-            return rs;
+        if (!p_devicebuffers[0]->allocate())
+            return CL_MEM_OBJECT_ALLOCATION_FAILURE;
     }
     
     return CL_SUCCESS;
+}
+
+bool MemObject::allocate(DeviceInterface *device)
+{
+    DeviceBuffer *buffer = deviceBuffer(device);
+    
+    if (!buffer->allocated())
+    {
+        return buffer->allocate();
+    }
 }
 
 void MemObject::reference()
@@ -415,6 +423,11 @@ size_t SubBuffer::size() const
 MemObject::Type SubBuffer::type() const
 {
     return MemObject::SubBuffer;
+}
+
+bool SubBuffer::allocate(DeviceInterface *device)
+{
+    return p_parent->allocate(device);
 }
 
 size_t SubBuffer::offset() const

@@ -1,5 +1,7 @@
 #include <CL/cl.h>
 
+#include <core/events.h>
+
 // Enqueued Commands APIs
 cl_int
 clEnqueueReadBuffer(cl_command_queue    command_queue,
@@ -12,7 +14,29 @@ clEnqueueReadBuffer(cl_command_queue    command_queue,
                     const cl_event *    event_wait_list,
                     cl_event *          event)
 {
-    return 0;
+    cl_int rs = CL_SUCCESS;
+    
+    Coal::ReadBufferEvent *command = new Coal::ReadBufferEvent(
+        (Coal::CommandQueue *)command_queue,
+        (Coal::MemObject *)buffer,
+        offset, cb, ptr,
+        num_events_in_wait_list, (const Coal::Event **)event_wait_list, &rs);
+    
+    if (rs != CL_SUCCESS)
+    {
+        delete command;
+        return rs;
+    }
+    
+    command_queue->queueEvent((Coal::Event *)command);
+    
+    if (event)
+        *event = (cl_event)command;
+    
+    if (blocking_read)
+        return clWaitForEvents(1, (cl_event *)&command);
+    
+    return CL_SUCCESS;
 }
 
 cl_int

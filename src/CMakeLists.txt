@@ -29,6 +29,7 @@ set(COAL_SRC_FILES
     core/context.cpp
     core/commandqueue.cpp
     core/memobject.cpp
+    core/events.cpp
 )
 
 configure_file(builtins/coal-internal.h.in

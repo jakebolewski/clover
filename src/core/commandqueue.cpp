@@ -5,6 +5,7 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 using namespace Coal;
 
@@ -250,8 +251,15 @@ Event::Event(CommandQueue *parent,
              cl_int *errcode_ret)
 : p_references(1), p_parent(parent), 
   p_num_events_in_wait_list(num_events_in_wait_list), p_event_wait_list(0),
-  p_device_data(0)
+  p_device_data(0), p_status(Queued)
 {
+    // Shared checks
+    if (!parent)
+    {
+        *errcode_ret = CL_INVALID_COMMAND_QUEUE;
+        return;
+    }
+    
     // Retain our parent
     clRetainCommandQueue((cl_command_queue)p_parent);
     
@@ -309,6 +317,7 @@ Event::Event(CommandQueue *parent,
 
 Event::~Event()
 {
+    // NOTE: May be called by CPUBuffer::worker, check for locking stuff
     if (p_event_wait_list)
         free((void *)p_event_wait_list);
     
@@ -406,7 +415,9 @@ void Event::waitForStatus(EventStatus status)
     pthread_mutex_lock(&p_state_mutex);
     
     while (p_status != status)
+    {
         pthread_cond_wait(&p_state_change_cond, &p_state_mutex);
+    }
     
     pthread_mutex_unlock(&p_state_mutex);
 }

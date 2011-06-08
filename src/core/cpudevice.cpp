@@ -3,10 +3,12 @@
 #include "config.h"
 #include "propertylist.h"
 #include "commandqueue.h"
+#include "events.h"
 
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <stdio.h>
 
 #include <iostream>
 #include <fstream>
@@ -22,7 +24,7 @@ using namespace std;
 static void *worker(void *data)
 {
     CPUDevice *device = (CPUDevice *)data;
-    bool stop = false;
+    bool stop = false, success;
     Event *event;
     
     while (true)
@@ -32,8 +34,29 @@ static void *worker(void *data)
         if (stop) break;
         if (!event) continue;
         
-        // Run the event
+        Event::EventType t = event->type();
+        success = true;
+        
+        if (t == Event::ReadBuffer)
+        {
+            ReadBufferEvent *e = (ReadBufferEvent *)event;
+            CPUBuffer *buf = (CPUBuffer *)e->buffer()->deviceBuffer(device);
+            char *data = (char *)buf->data();
+            
+            data += e->offset();
+            
+            memcpy(e->ptr(), data, e->cb());
+        }
+        
+        if (success)
+        {
+            // Validate the event
+            event->setStatus(Event::Complete);
+            clReleaseEvent((cl_event)event);
+        }
     }
+    
+    return 0;
 }
 
 /*
@@ -497,13 +520,13 @@ void *CPUBuffer::data() const
     return p_data;
 }
         
-cl_int CPUBuffer::allocate()
+bool CPUBuffer::allocate()
 {
     size_t buf_size = p_buffer->size();
     
     if (buf_size == 0)
         // Something went wrong...
-        return CL_MEM_OBJECT_ALLOCATION_FAILURE;
+        return false;
     
     if (!p_data)
     {
@@ -511,7 +534,7 @@ cl_int CPUBuffer::allocate()
         p_data = malloc(buf_size);
         
         if (!p_data)
-            return CL_MEM_OBJECT_ALLOCATION_FAILURE;
+            return false;
         
         p_data_malloced = true;
     }
@@ -525,7 +548,7 @@ cl_int CPUBuffer::allocate()
     // Say to the memobject that we are allocated
     p_buffer->deviceAllocated(this);
     
-    return CL_SUCCESS;
+    return true;
 }
 
 DeviceInterface *CPUBuffer::device() const

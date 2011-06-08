@@ -157,6 +157,8 @@ START_TEST (test_read_write_subbuf)
 {
     cl_context ctx;
     cl_mem buf, subbuf;
+    cl_command_queue queue;
+    cl_device_id device;
     cl_int result;
     char s[] = "Hello, world !";
     
@@ -165,13 +167,25 @@ START_TEST (test_read_write_subbuf)
         .size = 5
     };
     
-    ctx = clCreateContextFromType(0, CL_DEVICE_TYPE_CPU, 0, 0, &result);
+    result = clGetDeviceIDs(0, CL_DEVICE_TYPE_CPU, 1, &device, 0);
+    fail_if(
+        result != CL_SUCCESS,
+        "cannot get a device"
+    );
+    
+    ctx = clCreateContext(0, 1, &device, 0, 0, &result);
     fail_if(
         result != CL_SUCCESS,
         "unable to create a valid context"
     );
     
-    buf = clCreateBuffer(ctx, CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR,
+    queue = clCreateCommandQueue(ctx, device, 0, &result);
+    fail_if(
+        result != CL_SUCCESS || queue == 0,
+        "cannot create a command queue"
+    );
+    
+    buf = clCreateBuffer(ctx, CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR,
                          sizeof(s), s, &result);
     fail_if(
         result != CL_SUCCESS,
@@ -197,6 +211,18 @@ START_TEST (test_read_write_subbuf)
     fail_if(
         result != CL_SUCCESS || hostptr != valid_hostptr,
         "the host ptr of a subbuffer must point to a subportion of its parent buffer"
+    );
+    
+    char data[16];
+    
+    result = clEnqueueReadBuffer(queue, subbuf, 1, 0, 5, data, 0, 0, 0);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to read the buffer"
+    );
+    fail_if(
+        strncmp(data, "world", 5),
+        "the subbuffer must contain \"world\""
     );
     
     clReleaseMemObject(subbuf);
