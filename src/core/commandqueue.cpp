@@ -161,6 +161,34 @@ void CommandQueue::queueEvent(Event *event)
     pushEventsOnDevice();
 }
 
+void CommandQueue::cleanEvents()
+{
+    // NOTE: This function must only be called from the main thread
+    pthread_mutex_lock(&p_event_list_mutex);
+    
+    std::list<Event *>::iterator it = p_events.begin();
+    
+    for (; it != p_events.end(); ++it)
+    {
+        Event *event = *it;
+        
+        if (event->status() == Event::Complete)
+        {
+            // We cannot be deleted from inside us
+            event->setReleaseParent(false);
+            
+            p_events.erase(it);
+            clReleaseEvent((cl_event)event);
+        }
+    }
+    
+    pthread_mutex_unlock(&p_event_list_mutex);
+    
+    // Check now if we have to be deleted
+    if (p_references == 0)
+        delete this;
+}
+
 void CommandQueue::pushEventsOnDevice()
 {
     pthread_mutex_lock(&p_event_list_mutex);
@@ -185,11 +213,7 @@ void CommandQueue::pushEventsOnDevice()
         
         // If the event is completed, remove it
         if (event->status() == Event::Complete)
-        {
-            p_events.erase(it);
             continue;
-            // TODO: When to clReleaseEvent(event) ?
-        }
         
         // If we encounter a barrier, check if it's the first in the list
         if (event->type() == Event::Barrier)
@@ -251,7 +275,7 @@ Event::Event(CommandQueue *parent,
              cl_int *errcode_ret)
 : p_references(1), p_parent(parent), 
   p_num_events_in_wait_list(num_events_in_wait_list), p_event_wait_list(0),
-  p_device_data(0), p_status(Queued)
+  p_device_data(0), p_status(Queued), p_release_parent(true)
 {
     // Shared checks
     if (!parent)
@@ -317,14 +341,21 @@ Event::Event(CommandQueue *parent,
 
 Event::~Event()
 {
-    // NOTE: May be called by CPUBuffer::worker, check for locking stuff
     if (p_event_wait_list)
         free((void *)p_event_wait_list);
     
     pthread_mutex_destroy(&p_state_mutex);
     pthread_cond_destroy(&p_state_change_cond);
     
-    clReleaseCommandQueue((cl_command_queue)p_parent);
+    if (p_release_parent)
+        clReleaseCommandQueue((cl_command_queue)p_parent);
+    else
+        p_parent->dereference();  // Dereference but don't delete
+}
+
+void Event::setReleaseParent(bool release)
+{
+    p_release_parent = release;
 }
 
 bool Event::isSingleShot() const

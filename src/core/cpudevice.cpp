@@ -49,11 +49,7 @@ static void *worker(void *data)
         }
         
         if (success)
-        {
-            // Validate the event
             event->setStatus(Event::Complete);
-            clReleaseEvent((cl_event)event);
-        }
     }
     
     return 0;

@@ -39,6 +39,7 @@ class CommandQueue
         
         cl_int checkProperties() const;
         void pushEventsOnDevice();
+        void cleanEvents();
         
     private:
         Context *p_ctx;
@@ -57,6 +58,8 @@ class Event
               cl_uint num_events_in_wait_list, 
               const Event **event_wait_list,
               cl_int *errcode_ret);
+        
+        void setReleaseParent(bool release);
         ~Event();
         
         enum EventType
@@ -131,6 +134,7 @@ class Event
         
         pthread_cond_t p_state_change_cond;
         pthread_mutex_t p_state_mutex;
+        bool p_release_parent;
         
         unsigned int p_references;
         EventStatus p_status;
