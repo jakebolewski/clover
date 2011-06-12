@@ -160,9 +160,9 @@ START_TEST (test_read_write_subbuf)
     cl_command_queue queue;
     cl_device_id device;
     cl_int result;
-    char s[] = "Hello, world !";
+    char s[] = "Hello, Denis !";
     
-    cl_buffer_region create_info = {    // "Hello, [world] !"
+    cl_buffer_region create_info = {    // "Hello, [denis] !"
         .origin = 7,
         .size = 5
     };
@@ -213,16 +213,32 @@ START_TEST (test_read_write_subbuf)
         "the host ptr of a subbuffer must point to a subportion of its parent buffer"
     );
     
+    result = clEnqueueWriteBuffer(queue, subbuf, 1, 0, 5, "world", 0, 0, 0);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to write to the sub buffer"
+    );
+    
     char data[16];
     
     result = clEnqueueReadBuffer(queue, subbuf, 1, 0, 5, data, 0, 0, 0);
     fail_if(
         result != CL_SUCCESS,
-        "unable to read the buffer"
+        "unable to read the sub buffer"
     );
     fail_if(
         strncmp(data, "world", 5),
         "the subbuffer must contain \"world\""
+    );
+    
+    result = clEnqueueReadBuffer(queue, buf, 1, 0, sizeof(s), data, 0, 0, 0);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to read the buffer"
+    );
+    fail_if(
+        strncmp(data, "Hello, world !", sizeof(s)),
+        "the buffer must contain \"Hello, world !\""
     );
     
     clReleaseMemObject(subbuf);

@@ -13,7 +13,7 @@ int main(int argc, char **argv)
     Suite *s = NULL;
 
     if (argc < 2) {
-        printf("there is not enough arguments");
+        printf("test <test> [nofork]\n");
         return EXIT_FAILURE;
     }
     
@@ -35,6 +35,10 @@ int main(int argc, char **argv)
     }
 
     SRunner *sr = srunner_create(s);
+    
+    if (argc == 3 && !strcmp("nofork", argv[2]))
+        srunner_set_fork_status (sr, CK_NOFORK);
+    
     srunner_run_all(sr, CK_NORMAL);
 
     n_failed_tests = srunner_ntests_failed(sr);

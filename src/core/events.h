@@ -8,17 +8,18 @@ namespace Coal
 
 class MemObject;
 
-class ReadBufferEvent : public Event
+class RWBufferEvent : public Event
 {
     public:
-        ReadBufferEvent(CommandQueue *parent, 
-                        MemObject *buffer,
-                        size_t offset,
-                        size_t cb,
-                        void *ptr,
-                        cl_uint num_events_in_wait_list, 
-                        const Event **event_wait_list,
-                        cl_int *errcode_ret);
+        RWBufferEvent(CommandQueue *parent, 
+                      MemObject *buffer,
+                      size_t offset,
+                      size_t cb,
+                      void *ptr,
+                      EventType type,
+                      cl_uint num_events_in_wait_list, 
+                      const Event **event_wait_list,
+                      cl_int *errcode_ret);
         
         EventType type() const;
         
@@ -31,6 +32,7 @@ class ReadBufferEvent : public Event
         MemObject *p_buffer;
         size_t p_offset, p_cb;
         void *p_ptr;
+        EventType p_type;
 };
 
 }

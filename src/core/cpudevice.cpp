@@ -37,15 +37,18 @@ static void *worker(void *data)
         Event::EventType t = event->type();
         success = true;
         
-        if (t == Event::ReadBuffer)
+        if (t == Event::ReadBuffer || t == Event::WriteBuffer)
         {
-            ReadBufferEvent *e = (ReadBufferEvent *)event;
+            RWBufferEvent *e = (RWBufferEvent *)event;
             CPUBuffer *buf = (CPUBuffer *)e->buffer()->deviceBuffer(device);
             char *data = (char *)buf->data();
             
             data += e->offset();
             
-            memcpy(e->ptr(), data, e->cb());
+            if (t == Event::ReadBuffer)
+                memcpy(e->ptr(), data, e->cb());
+            else
+                memcpy(data, e->ptr(), e->cb());
         }
         
         if (success)

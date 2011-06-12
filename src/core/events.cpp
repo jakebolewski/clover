@@ -5,16 +5,21 @@
 
 using namespace Coal;
 
-ReadBufferEvent::ReadBufferEvent(CommandQueue *parent, 
+/*
+ * Read/Write buffers
+ */
+
+RWBufferEvent::RWBufferEvent(CommandQueue *parent, 
                                  MemObject *buffer,
                                  size_t offset,
                                  size_t cb,
                                  void *ptr,
+                                 EventType type,
                                  cl_uint num_events_in_wait_list, 
                                  const Event **event_wait_list,
                                  cl_int *errcode_ret)
 : Event(parent, num_events_in_wait_list, event_wait_list, errcode_ret),
-  p_buffer(buffer), p_offset(offset), p_cb(cb), p_ptr(ptr)
+  p_buffer(buffer), p_offset(offset), p_cb(cb), p_ptr(ptr), p_type(type)
 {
     // Correct buffer
     if (!buffer)
@@ -83,27 +88,27 @@ ReadBufferEvent::ReadBufferEvent(CommandQueue *parent,
     }
 }
 
-Event::EventType ReadBufferEvent::type() const
-{
-    return ReadBuffer;
-}
-
-MemObject *ReadBufferEvent::buffer() const
+MemObject *RWBufferEvent::buffer() const
 {
     return p_buffer;
 }
 
-size_t ReadBufferEvent::offset() const
+size_t RWBufferEvent::offset() const
 {
     return p_offset;
 }
 
-size_t ReadBufferEvent::cb() const
+size_t RWBufferEvent::cb() const
 {
     return p_cb;
 }
 
-void *ReadBufferEvent::ptr() const
+void *RWBufferEvent::ptr() const
 {
     return p_ptr;
+}
+
+Event::EventType RWBufferEvent::type() const
+{
+    return p_type;
 }
