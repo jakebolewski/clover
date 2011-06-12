@@ -110,6 +110,14 @@ clCreateUserEvent(cl_context    context,
     if (!errcode_ret)
         errcode_ret = &dummy_errcode;
     
+    if (!context)
+    {
+        *errcode_ret = CL_INVALID_CONTEXT;
+        return 0;
+    }
+    
+    *errcode_ret = CL_SUCCESS;
+    
     Coal::UserEvent *command = new Coal::UserEvent(
         (Coal::Context *)context, errcode_ret
     );
@@ -127,13 +135,13 @@ cl_int
 clSetUserEventStatus(cl_event   event,
                      cl_int     execution_status)
 {
-    if (!event)
+    Coal::Event *command = (Coal::Event *)event;
+    
+    if (!command || command->type() != Coal::Event::User)
         return CL_INVALID_EVENT;
     
     if (execution_status != CL_COMPLETE)
         return CL_INVALID_VALUE;
-    
-    Coal::Event *command = (Coal::Event *)event;
     
     if (command->status() != CL_SUBMITTED)
         return CL_INVALID_OPERATION;

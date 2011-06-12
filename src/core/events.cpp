@@ -129,3 +129,22 @@ Context *UserEvent::context() const
 {
     return p_context;
 }
+
+void UserEvent::addDependentCommandQueue(CommandQueue *queue)
+{
+    std::vector<CommandQueue *>::const_iterator it;
+    
+    for (it = p_dependent_queues.begin(); it != p_dependent_queues.end(); ++it)
+        if (*it == queue)
+            return;
+    
+    p_dependent_queues.push_back(queue);
+}
+
+void UserEvent::flushQueues()
+{
+    std::vector<CommandQueue *>::const_iterator it;
+    
+    for (it = p_dependent_queues.begin(); it != p_dependent_queues.end(); ++it)
+        (*it)->pushEventsOnDevice();
+}

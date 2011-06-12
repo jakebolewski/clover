@@ -244,12 +244,21 @@ void CommandQueue::pushEventsOnDevice()
         // Check that all the waiting-on events of this event are finished
         cl_uint count;
         const Event **event_wait_list;
+        bool skip_event = false;
         
         event_wait_list = event->waitEvents(count);
         
         for (int i=0; i<count; ++i)
+        {
             if (event_wait_list[i]->status() != Event::Complete)
-                continue;
+            {
+                skip_event = true;
+                break;
+            }
+        }
+        
+        if (skip_event)
+            continue;
             
         // The event can be pushed, if we need to
         if (!event->isDummy())
@@ -337,7 +346,12 @@ Event::Event(CommandQueue *parent,
     
     // Explore the events we are waiting on and reference them
     for (int i=0; i<num_events_in_wait_list; ++i)
+    {
         clRetainEvent((cl_event)event_wait_list[i]);
+        
+        if (event_wait_list[i]->type() == Event::User && parent)
+            ((UserEvent *)event_wait_list[i])->addDependentCommandQueue(parent);
+    }
 }
 
 Event::~Event()
@@ -424,6 +438,8 @@ void Event::setStatus(EventStatus status)
     // to the device.
     if (p_parent && status == Complete)
         p_parent->pushEventsOnDevice();
+    else if (type() == Event::User)
+        ((UserEvent *)this)->flushQueues();
 }
 
 void Event::setDeviceData(void *data)
@@ -449,7 +465,7 @@ void Event::waitForStatus(EventStatus status)
 {
     pthread_mutex_lock(&p_state_mutex);
     
-    while (p_status != status)
+    while (p_status != status && p_status > 0)
     {
         pthread_cond_wait(&p_state_change_cond, &p_state_mutex);
     }

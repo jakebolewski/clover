@@ -3,6 +3,8 @@
 
 #include "commandqueue.h"
 
+#include <vector>
+
 namespace Coal
 {
 
@@ -42,9 +44,12 @@ class UserEvent : public Event
         
         EventType type() const;
         Context *context() const;
+        void addDependentCommandQueue(CommandQueue *queue);  // We need to call pushOnDevice somewhere
+        void flushQueues();
         
     private:
         Context *p_context;
+        std::vector<CommandQueue *> p_dependent_queues;
 };
 
 }

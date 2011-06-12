@@ -35,7 +35,11 @@ clEnqueueReadBuffer(cl_command_queue    command_queue,
     command_queue->queueEvent(command);
     
     if (event)
+    {
+        // TODO: Ok to reference ?
         *event = (cl_event)command;
+        command->reference();
+    }
     
     if (blocking_read)
         return clWaitForEvents(1, (cl_event *)&command);
@@ -74,7 +78,10 @@ clEnqueueWriteBuffer(cl_command_queue   command_queue,
     command_queue->queueEvent(command);
     
     if (event)
+    {
         *event = (cl_event)command;
+        command->reference();
+    }
     
     if (blocking_write)
         return clWaitForEvents(1, (cl_event *)&command);
