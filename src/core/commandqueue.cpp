@@ -201,24 +201,25 @@ void CommandQueue::pushEventsOnDevice()
     //   be pushed
     
     std::list<Event *>::iterator it = p_events.begin();
+    bool first = true;
     
     for (; it != p_events.end(); ++it)
     {
-        // We cannot do out-of-order, so we can only push the first event.
-        if ((p_properties & CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE) == 0 &&
-            it != p_events.begin())
-            break;
-        
         Event *event = *it;
         
         // If the event is completed, remove it
         if (event->status() == Event::Complete)
             continue;
         
+        // We cannot do out-of-order, so we can only push the first event.
+        if ((p_properties & CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE) == 0 &&
+            !first)
+            break;
+        
         // If we encounter a barrier, check if it's the first in the list
         if (event->type() == Event::Barrier)
         {
-            if (it == p_events.begin())
+            if (first)
             {
                 // Remove the barrier, we don't need it anymore
                 p_events.erase(it);
@@ -230,6 +231,10 @@ void CommandQueue::pushEventsOnDevice()
                 break;
             }
         }
+        
+        // Completed events and first barriers are out, it remains real events
+        // that have to block in-order execution.
+        first = false;
         
         // If the event is not "pushable" (in Event::Queued state), skip it
         if (event->status() != Event::Queued)
