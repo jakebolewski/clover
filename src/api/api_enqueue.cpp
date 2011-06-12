@@ -16,6 +16,9 @@ clEnqueueReadBuffer(cl_command_queue    command_queue,
 {
     cl_int rs = CL_SUCCESS;
     
+    if (!command_queue)
+        return CL_INVALID_COMMAND_QUEUE;
+    
     Coal::RWBufferEvent *command = new Coal::RWBufferEvent(
         (Coal::CommandQueue *)command_queue,
         (Coal::MemObject *)buffer,
@@ -52,6 +55,9 @@ clEnqueueWriteBuffer(cl_command_queue   command_queue,
                      cl_event *         event)
 {
     cl_int rs = CL_SUCCESS;
+    
+    if (!command_queue)
+        return CL_INVALID_COMMAND_QUEUE;
     
     Coal::RWBufferEvent *command = new Coal::RWBufferEvent(
         (Coal::CommandQueue *)command_queue,

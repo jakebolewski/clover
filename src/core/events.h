@@ -35,6 +35,18 @@ class RWBufferEvent : public Event
         EventType p_type;
 };
 
+class UserEvent : public Event
+{
+    public:
+        UserEvent(Context *context, cl_int *errcode_ret);
+        
+        EventType type() const;
+        Context *context() const;
+        
+    private:
+        Context *p_context;
+};
+
 }
 
 #endif

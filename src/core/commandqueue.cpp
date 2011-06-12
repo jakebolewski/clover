@@ -2,6 +2,7 @@
 #include "context.h"
 #include "deviceinterface.h"
 #include "propertylist.h"
+#include "events.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -274,23 +275,18 @@ void CommandQueue::pushEventsOnDevice()
  * Event
  */
 
-Event::Event(CommandQueue *parent, 
+Event::Event(CommandQueue *parent,
+             EventStatus status,
              cl_uint num_events_in_wait_list, 
              const Event **event_wait_list,
              cl_int *errcode_ret)
 : p_references(1), p_parent(parent), 
   p_num_events_in_wait_list(num_events_in_wait_list), p_event_wait_list(0),
-  p_device_data(0), p_status(Queued), p_release_parent(true)
+  p_device_data(0), p_status(status), p_release_parent(true)
 {
-    // Shared checks
-    if (!parent)
-    {
-        *errcode_ret = CL_INVALID_COMMAND_QUEUE;
-        return;
-    }
-    
     // Retain our parent
-    clRetainCommandQueue((cl_command_queue)p_parent);
+    if (parent)
+        clRetainCommandQueue((cl_command_queue)p_parent);
     
     // Initialize the locking machinery
     pthread_cond_init(&p_state_change_cond, 0);
@@ -352,10 +348,13 @@ Event::~Event()
     pthread_mutex_destroy(&p_state_mutex);
     pthread_cond_destroy(&p_state_change_cond);
     
-    if (p_release_parent)
-        clReleaseCommandQueue((cl_command_queue)p_parent);
-    else
-        p_parent->dereference();  // Dereference but don't delete
+    if (p_parent)
+    {
+        if (p_release_parent)
+            clReleaseCommandQueue((cl_command_queue)p_parent);
+        else
+            p_parent->dereference();  // Dereference but don't delete
+    }
 }
 
 void Event::setReleaseParent(bool release)
@@ -423,7 +422,7 @@ void Event::setStatus(EventStatus status)
     
     // If the event is completed, inform our parent so it can push other events
     // to the device.
-    if (status == Complete)
+    if (p_parent && status == Complete)
         p_parent->pushEventsOnDevice();
 }
 
@@ -510,9 +509,19 @@ cl_int Event::info(cl_context_info param_name,
             break;
             
         case CL_EVENT_CONTEXT:
-            // Tail call to CommandQueue
-            return p_parent->info(CL_QUEUE_CONTEXT, param_value_size,
-                                  param_value, param_value_size_ret);
+            if (p_parent)
+            {
+                // Tail call to CommandQueue
+                return p_parent->info(CL_QUEUE_CONTEXT, param_value_size,
+                                    param_value, param_value_size_ret);
+            }
+            else
+            {
+                if (type() == User)
+                    SIMPLE_ASSIGN(cl_context, ((UserEvent *)this)->context())
+                else
+                    SIMPLE_ASSIGN(cl_context, 0);
+            }
             
         case CL_EVENT_COMMAND_TYPE:
             SIMPLE_ASSIGN(cl_command_type, type());

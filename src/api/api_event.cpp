@@ -1,6 +1,7 @@
 #include <CL/cl.h>
 
 #include <core/commandqueue.h>
+#include <core/events.h>
 
 // Event Object APIs
 cl_int
@@ -104,12 +105,40 @@ cl_event
 clCreateUserEvent(cl_context    context,
                   cl_int *      errcode_ret)
 {
-    return 0;
+    cl_int dummy_errcode;
+    
+    if (!errcode_ret)
+        errcode_ret = &dummy_errcode;
+    
+    Coal::UserEvent *command = new Coal::UserEvent(
+        (Coal::Context *)context, errcode_ret
+    );
+    
+    if (*errcode_ret != CL_SUCCESS)
+    {
+        delete command;
+        return 0;
+    }
+    
+    return (cl_event)command;
 }
 
 cl_int
 clSetUserEventStatus(cl_event   event,
                      cl_int     execution_status)
 {
-    return 0;
+    if (!event)
+        return CL_INVALID_EVENT;
+    
+    if (execution_status != CL_COMPLETE)
+        return CL_INVALID_VALUE;
+    
+    Coal::Event *command = (Coal::Event *)event;
+    
+    if (command->status() != CL_SUBMITTED)
+        return CL_INVALID_OPERATION;
+    
+    command->setStatus((Coal::Event::EventStatus)execution_status);
+    
+    return CL_SUCCESS;
 }

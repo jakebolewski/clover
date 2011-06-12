@@ -54,14 +54,6 @@ class CommandQueue
 class Event
 {
     public:
-        Event(CommandQueue *parent, 
-              cl_uint num_events_in_wait_list, 
-              const Event **event_wait_list,
-              cl_int *errcode_ret);
-        
-        void setReleaseParent(bool release);
-        ~Event();
-        
         enum EventType
         {
             NDRangeKernel = CL_COMMAND_NDRANGE_KERNEL,
@@ -103,6 +95,16 @@ class Event
             event_callback callback;
             void *user_data;
         };
+        
+    public:
+        Event(CommandQueue *parent, 
+              EventStatus status,
+              cl_uint num_events_in_wait_list, 
+              const Event **event_wait_list,
+              cl_int *errcode_ret);
+        
+        void setReleaseParent(bool release);
+        ~Event();
         
         virtual EventType type() const = 0;
         bool isSingleShot() const; /*!< Cannot be split on several execution units */

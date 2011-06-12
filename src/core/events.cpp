@@ -18,7 +18,7 @@ RWBufferEvent::RWBufferEvent(CommandQueue *parent,
                                  cl_uint num_events_in_wait_list, 
                                  const Event **event_wait_list,
                                  cl_int *errcode_ret)
-: Event(parent, num_events_in_wait_list, event_wait_list, errcode_ret),
+: Event(parent, Queued, num_events_in_wait_list, event_wait_list, errcode_ret),
   p_buffer(buffer), p_offset(offset), p_cb(cb), p_ptr(ptr), p_type(type)
 {
     // Correct buffer
@@ -111,4 +111,21 @@ void *RWBufferEvent::ptr() const
 Event::EventType RWBufferEvent::type() const
 {
     return p_type;
+}
+
+/*
+ * User event
+ */
+UserEvent::UserEvent(Context *context, cl_int *errcode_ret)
+: Event(0, Submitted, 0, 0, errcode_ret), p_context(context)
+{}
+        
+Event::EventType UserEvent::type() const
+{
+    return Event::User;
+}
+
+Context *UserEvent::context() const
+{
+    return p_context;
 }
