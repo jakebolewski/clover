@@ -31,12 +31,26 @@ static void *worker(void *data)
     {
         event = device->getEvent(stop);
         
+        // Ensure we have a good event and we don't have to stop
         if (stop) break;
         if (!event) continue;
         
+        // Get info about the event and its command queue
         Event::EventType t = event->type();
+        CommandQueue *queue = 0;
+        cl_command_queue_properties queue_props = 0;
         success = true;
         
+        event->info(CL_EVENT_COMMAND_QUEUE, sizeof(CommandQueue *), &queue, 0);
+        
+        if (queue)
+            queue->info(CL_QUEUE_PROPERTIES, sizeof(cl_command_queue_properties),
+                        &queue_props, 0);
+        
+        if (queue_props & CL_QUEUE_PROFILING_ENABLE)
+            event->updateTiming(Event::Start);
+        
+        // Execute the action
         if (t == Event::ReadBuffer || t == Event::WriteBuffer)
         {
             RWBufferEvent *e = (RWBufferEvent *)event;
@@ -51,18 +65,17 @@ static void *worker(void *data)
                 memcpy(data, e->ptr(), e->cb());
         }
         
+        // Cleanups
         if (success)
         {
             event->setStatus(Event::Complete);
             
-            // Clean the queue
-            CommandQueue *queue;
+            if (queue_props & CL_QUEUE_PROFILING_ENABLE)
+                event->updateTiming(Event::End);
             
-            if (event->info(CL_EVENT_COMMAND_QUEUE, sizeof(CommandQueue *), 
-                            &queue, 0) == CL_SUCCESS && queue)
-            {
+            // Clean the queue
+            if (queue)
                 queue->cleanEvents();
-            }
         }
     }
     
@@ -373,6 +386,7 @@ cl_int CPUDevice::info(cl_device_info param_name,
             break;
         
         case CL_DEVICE_PROFILING_TIMER_RESOLUTION:
+            // TODO
             SIMPLE_ASSIGN(size_t, 1000);        // 1000 nanoseconds = 1 ms
             break;
         

@@ -7,6 +7,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <time.h>
 
 using namespace Coal;
 
@@ -158,6 +159,10 @@ void CommandQueue::queueEvent(Event *event)
     
     pthread_mutex_unlock(&p_event_list_mutex);
     
+    // Timing info if needed
+    if (p_properties & CL_QUEUE_PROFILING_ENABLE)
+        event->updateTiming(Event::Queue);
+    
     // Explore the list for events we can push on the device
     pushEventsOnDevice();
 }
@@ -280,6 +285,9 @@ void CommandQueue::pushEventsOnDevice()
         // The event can be pushed, if we need to
         if (!event->isDummy())
         {
+            if (p_properties & CL_QUEUE_PROFILING_ENABLE)
+                event->updateTiming(Event::Submit);
+            
             event->setStatus(Event::Submitted);
             p_device->pushEvent(event);
         }
@@ -475,6 +483,23 @@ void Event::setDeviceData(void *data)
     p_device_data = data;
 }
 
+void Event::updateTiming(Timing timing)
+{
+    struct timespec tp;
+    cl_ulong rs;
+    
+    if (timing >= Max)
+        return;
+    
+    if (clock_gettime(CLOCK_MONOTONIC, &tp) != 0)
+        clock_gettime(CLOCK_REALTIME, &tp);
+    
+    rs = tp.tv_nsec;
+    rs += tp.tv_sec * 1000000;
+    
+    p_timing[timing] = rs;
+}
+
 Event::EventStatus Event::status() const
 {
     // HACK : We need const qualifier but we also need to lock a mutex
@@ -577,6 +602,68 @@ cl_int Event::info(cl_context_info param_name,
             
         case CL_EVENT_REFERENCE_COUNT:
             SIMPLE_ASSIGN(cl_uint, p_references);
+            break;
+            
+        default:
+            return CL_INVALID_VALUE;
+    }
+    
+    if (param_value && param_value_size < value_length)
+        return CL_INVALID_VALUE;
+    
+    if (param_value_size_ret)
+        *param_value_size_ret = value_length;
+        
+    if (param_value)
+        memcpy(param_value, value, value_length);
+    
+    return CL_SUCCESS;
+}
+
+cl_int Event::profilingInfo(cl_context_info param_name,
+                            size_t param_value_size,
+                            void *param_value,
+                            size_t *param_value_size_ret)
+{
+    if (type() == Event::User)
+        return CL_PROFILING_INFO_NOT_AVAILABLE;
+    
+    // Check that the Command Queue has profiling enabled
+    cl_command_queue_properties queue_props;
+    cl_int rs;
+    
+    rs = p_parent->info(CL_QUEUE_PROPERTIES, sizeof(cl_command_queue_properties),
+                        &queue_props, 0);
+    
+    if (rs != CL_SUCCESS)
+        return rs;
+    
+    if ((queue_props & CL_QUEUE_PROFILING_ENABLE) == 0)
+        return CL_PROFILING_INFO_NOT_AVAILABLE;
+    
+    if (status() != Event::Complete)
+        return CL_PROFILING_INFO_NOT_AVAILABLE;
+    
+    void *value = 0;
+    size_t value_length = 0;
+    cl_ulong cl_ulong_var;
+    
+    switch (param_name)
+    {
+        case CL_PROFILING_COMMAND_QUEUED:
+            SIMPLE_ASSIGN(cl_ulong, p_timing[Queue]);
+            break;
+            
+        case CL_PROFILING_COMMAND_SUBMIT:
+            SIMPLE_ASSIGN(cl_ulong, p_timing[Submit]);
+            break;
+            
+        case CL_PROFILING_COMMAND_START:
+            SIMPLE_ASSIGN(cl_ulong, p_timing[Start]);
+            break;
+            
+        case CL_PROFILING_COMMAND_END:
+            SIMPLE_ASSIGN(cl_ulong, p_timing[End]);
             break;
             
         default:

@@ -56,6 +56,7 @@ TARGET_LINK_LIBRARIES(OpenCL
         ${CLANG_LIBS}
         ${LLVM_LIBS_CORE}
         pthread
+        rt
 #        ${GALLIUM_LIBS}
 )
 

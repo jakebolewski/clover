@@ -205,7 +205,7 @@ START_TEST (test_events)
         "unable to create a valid context"
     );
     
-    queue = clCreateCommandQueue(ctx, device, 0, &result);
+    queue = clCreateCommandQueue(ctx, device, CL_QUEUE_PROFILING_ENABLE, &result);
     fail_if(
         result != CL_SUCCESS || queue == 0,
         "cannot create a command queue"
@@ -297,6 +297,26 @@ START_TEST (test_events)
     fail_if(
         result != CL_INVALID_OPERATION,
         "we cannot call clSetUserEventStatus two times for an event"
+    );
+    
+    // Get timing information about the event
+    cl_ulong timing_queued, timing_submit, timing_start, timing_end;
+    
+    result = clGetEventProfilingInfo(write_event, CL_PROFILING_COMMAND_QUEUED,
+                                     sizeof(cl_ulong), &timing_queued, 0);
+    result |= clGetEventProfilingInfo(write_event, CL_PROFILING_COMMAND_SUBMIT,
+                                     sizeof(cl_ulong), &timing_submit, 0);
+    result |= clGetEventProfilingInfo(write_event, CL_PROFILING_COMMAND_START,
+                                     sizeof(cl_ulong), &timing_start, 0);
+    result |= clGetEventProfilingInfo(write_event, CL_PROFILING_COMMAND_END,
+                                     sizeof(cl_ulong), &timing_end, 0);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to get timing information about a profiling-enabled event"
+    );
+    fail_if(
+        !(timing_queued <= timing_submit <= timing_start <= timing_end),
+        "something went wrong with the timings : they are unordered"
     );
     
     clReleaseEvent(write_event);

@@ -96,6 +96,15 @@ class Event
             void *user_data;
         };
         
+        enum Timing
+        {
+            Queue,
+            Submit,
+            Start,
+            End,
+            Max
+        };
+        
     public:
         Event(CommandQueue *parent, 
               EventStatus status,
@@ -115,6 +124,7 @@ class Event
         
         void setStatus(EventStatus status);
         void setDeviceData(void *data);
+        void updateTiming(Timing timing);
         EventStatus status() const;
         void waitForStatus(EventStatus status);
         void *deviceData();
@@ -129,6 +139,10 @@ class Event
                     size_t param_value_size,
                     void *param_value,
                     size_t *param_value_size_ret);
+        cl_int profilingInfo(cl_context_info param_name,
+                             size_t param_value_size,
+                             void *param_value,
+                             size_t *param_value_size_ret);
     private:
         CommandQueue *p_parent;
         cl_uint p_num_events_in_wait_list;
@@ -142,6 +156,8 @@ class Event
         EventStatus p_status;
         void *p_device_data;
         std::multimap<EventStatus, CallbackData> p_callbacks;
+        
+        cl_uint p_timing[Max];
 };
 
 }
