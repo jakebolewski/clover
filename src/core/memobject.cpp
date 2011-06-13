@@ -165,6 +165,8 @@ bool MemObject::allocate(DeviceInterface *device)
     {
         return buffer->allocate();
     }
+    
+    return true;
 }
 
 void MemObject::reference()

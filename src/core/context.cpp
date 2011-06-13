@@ -146,7 +146,7 @@ cl_int Context::info(cl_context_info param_name,
                      size_t *param_value_size_ret)
 {
     void *value = 0;
-    int value_length = 0;
+    size_t value_length = 0;
     
     union {
         cl_uint cl_uint_var;
