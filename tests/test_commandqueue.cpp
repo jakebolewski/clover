@@ -298,6 +298,11 @@ START_TEST (test_events)
         result != CL_INVALID_OPERATION,
         "we cannot call clSetUserEventStatus two times for an event"
     );
+    
+    clReleaseEvent(write_event);
+    clReleaseEvent(user_event);
+    clReleaseCommandQueue(queue);
+    clReleaseContext(ctx);
 }
 END_TEST
 

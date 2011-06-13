@@ -52,7 +52,18 @@ static void *worker(void *data)
         }
         
         if (success)
+        {
             event->setStatus(Event::Complete);
+            
+            // Clean the queue
+            CommandQueue *queue;
+            
+            if (event->info(CL_EVENT_COMMAND_QUEUE, sizeof(CommandQueue *), 
+                            &queue, 0) == CL_SUCCESS && queue)
+            {
+                queue->cleanEvents();
+            }
+        }
     }
     
     return 0;

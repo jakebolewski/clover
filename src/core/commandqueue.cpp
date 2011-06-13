@@ -164,12 +164,11 @@ void CommandQueue::queueEvent(Event *event)
 
 void CommandQueue::cleanEvents()
 {
-    // NOTE: This function must only be called from the main thread
     pthread_mutex_lock(&p_event_list_mutex);
     
-    std::list<Event *>::iterator it = p_events.begin();
+    std::list<Event *>::iterator it = p_events.begin(), oldit;
     
-    for (; it != p_events.end(); ++it)
+    while (it != p_events.end())
     {
         Event *event = *it;
         
@@ -177,9 +176,15 @@ void CommandQueue::cleanEvents()
         {
             // We cannot be deleted from inside us
             event->setReleaseParent(false);
+            oldit = it;
+            ++it;
             
-            p_events.erase(it);
+            p_events.erase(oldit);
             clReleaseEvent((cl_event)event);
+        }
+        else
+        {
+            ++it;
         }
     }
     
@@ -201,16 +206,19 @@ void CommandQueue::pushEventsOnDevice()
     // - If we are in-order, only the first event in Event::Queued state can
     //   be pushed
     
-    std::list<Event *>::iterator it = p_events.begin();
+    std::list<Event *>::iterator it = p_events.begin(), oldit;
     bool first = true;
     
-    for (; it != p_events.end(); ++it)
+    while (it != p_events.end())
     {
         Event *event = *it;
         
         // If the event is completed, remove it
         if (event->status() == Event::Complete)
+        {
+            ++it;
             continue;
+        }
         
         // We cannot do out-of-order, so we can only push the first event.
         if ((p_properties & CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE) == 0 &&
@@ -223,7 +231,10 @@ void CommandQueue::pushEventsOnDevice()
             if (first)
             {
                 // Remove the barrier, we don't need it anymore
-                p_events.erase(it);
+                oldit = it;
+                ++it;
+                
+                p_events.erase(oldit);
                 continue;
             }
             else
@@ -239,7 +250,10 @@ void CommandQueue::pushEventsOnDevice()
         
         // If the event is not "pushable" (in Event::Queued state), skip it
         if (event->status() != Event::Queued)
+        {
+            ++it;
             continue;
+        }
         
         // Check that all the waiting-on events of this event are finished
         cl_uint count;
@@ -258,7 +272,10 @@ void CommandQueue::pushEventsOnDevice()
         }
         
         if (skip_event)
+        {
+            ++it;
             continue;
+        }
             
         // The event can be pushed, if we need to
         if (!event->isDummy())
@@ -356,6 +373,9 @@ Event::Event(CommandQueue *parent,
 
 Event::~Event()
 {
+    for (int i=0; i<p_num_events_in_wait_list; ++i)
+        clReleaseEvent((cl_event)p_event_wait_list[i]);
+        
     if (p_event_wait_list)
         free((void *)p_event_wait_list);
     
@@ -403,13 +423,21 @@ bool Event::isDummy() const
 
 void Event::reference()
 {
+    pthread_mutex_lock(&p_state_mutex);
     p_references++;
+    pthread_mutex_unlock(&p_state_mutex);
 }
 
 bool Event::dereference()
 {
+    pthread_mutex_lock(&p_state_mutex);
+    
     p_references--;
-    return (p_references == 0);
+    bool destroy = (p_references == 0);
+    
+    pthread_mutex_unlock(&p_state_mutex);
+    
+    return destroy;
 }
 
 void Event::setStatus(EventStatus status)
