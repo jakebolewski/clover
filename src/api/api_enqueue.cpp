@@ -19,10 +19,10 @@ clEnqueueReadBuffer(cl_command_queue    command_queue,
     if (!command_queue)
         return CL_INVALID_COMMAND_QUEUE;
     
-    Coal::RWBufferEvent *command = new Coal::RWBufferEvent(
+    Coal::BufferEvent *command = new Coal::BufferEvent(
         (Coal::CommandQueue *)command_queue,
         (Coal::MemObject *)buffer,
-        offset, cb, ptr, Coal::Event::ReadBuffer,
+        offset, cb, ptr, 0, Coal::Event::ReadBuffer,
         num_events_in_wait_list, (const Coal::Event **)event_wait_list, &rs
     );
     
@@ -32,7 +32,13 @@ clEnqueueReadBuffer(cl_command_queue    command_queue,
         return rs;
     }
     
-    command_queue->queueEvent(command);
+    rs = command_queue->queueEvent(command);
+    
+    if (rs != CL_SUCCESS)
+    {
+        delete command;
+        return rs;
+    }
     
     if (event)
     {
@@ -63,11 +69,12 @@ clEnqueueWriteBuffer(cl_command_queue   command_queue,
     if (!command_queue)
         return CL_INVALID_COMMAND_QUEUE;
     
-    Coal::RWBufferEvent *command = new Coal::RWBufferEvent(
+    Coal::BufferEvent *command = new Coal::BufferEvent(
         (Coal::CommandQueue *)command_queue,
         (Coal::MemObject *)buffer,
-        offset, cb, (void *)ptr, Coal::Event::WriteBuffer,
-        num_events_in_wait_list, (const Coal::Event **)event_wait_list, &rs);
+        offset, cb, (void *)ptr, 0, Coal::Event::WriteBuffer,
+        num_events_in_wait_list, (const Coal::Event **)event_wait_list, &rs
+    );
     
     if (rs != CL_SUCCESS)
     {
@@ -75,7 +82,13 @@ clEnqueueWriteBuffer(cl_command_queue   command_queue,
         return rs;
     }
     
-    command_queue->queueEvent(command);
+    rs = command_queue->queueEvent(command);
+    
+    if (rs != CL_SUCCESS)
+    {
+        delete command;
+        return rs;
+    }
     
     if (event)
     {
@@ -189,7 +202,57 @@ clEnqueueMapBuffer(cl_command_queue command_queue,
                    cl_event *       event,
                    cl_int *         errcode_ret)
 {
-    return 0;
+    cl_int rs;
+    
+    if (!errcode_ret)
+        errcode_ret = &rs;
+    
+    *errcode_ret = CL_SUCCESS;
+    
+    if (!command_queue)
+    {
+        *errcode_ret = CL_INVALID_COMMAND_QUEUE;
+        return 0;
+    }
+    
+    Coal::BufferEvent *command = new Coal::BufferEvent(
+        (Coal::CommandQueue *)command_queue,
+        (Coal::MemObject *)buffer,
+        offset, cb, 0, map_flags, Coal::Event::MapBuffer,
+        num_events_in_wait_list, (const Coal::Event **)event_wait_list, errcode_ret
+    );
+    
+    if (*errcode_ret != CL_SUCCESS)
+    {
+        delete command;
+        return 0;
+    }
+    
+    *errcode_ret = command_queue->queueEvent(command);
+    
+    if (*errcode_ret != CL_SUCCESS)
+    {
+        delete command;
+        return 0;
+    }
+    
+    if (event)
+    {
+        *event = (cl_event)command;
+        command->reference();
+    }
+    
+    if (blocking_map)
+    {
+        *errcode_ret = clWaitForEvents(1, (cl_event *)&command);
+        
+        if (*errcode_ret != CL_SUCCESS)
+        {
+            clReleaseEvent((cl_event)command);
+        }
+    }
+    
+    return command->ptr();
 }
 
 void *

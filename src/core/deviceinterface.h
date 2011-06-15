@@ -23,6 +23,9 @@ class DeviceInterface
                             
         virtual DeviceBuffer *createDeviceBuffer(MemObject *buffer, cl_int *rs) = 0;
         virtual void pushEvent(Event *event) = 0;
+        
+        /** @note must set mapping address of MapBuffer events */
+        virtual cl_int initEventDeviceData(Event *event) = 0;
 };
 
 class DeviceBuffer

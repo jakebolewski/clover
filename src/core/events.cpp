@@ -9,17 +9,19 @@ using namespace Coal;
  * Read/Write buffers
  */
 
-RWBufferEvent::RWBufferEvent(CommandQueue *parent, 
-                                 MemObject *buffer,
-                                 size_t offset,
-                                 size_t cb,
-                                 void *ptr,
-                                 EventType type,
-                                 cl_uint num_events_in_wait_list, 
-                                 const Event **event_wait_list,
-                                 cl_int *errcode_ret)
+BufferEvent::BufferEvent(CommandQueue *parent, 
+                         MemObject *buffer,
+                         size_t offset,
+                         size_t cb,
+                         void *ptr,
+                         cl_map_flags map_flags,
+                         EventType type,
+                         cl_uint num_events_in_wait_list, 
+                         const Event **event_wait_list,
+                         cl_int *errcode_ret)
 : Event(parent, Queued, num_events_in_wait_list, event_wait_list, errcode_ret),
-  p_buffer(buffer), p_offset(offset), p_cb(cb), p_ptr(ptr), p_type(type)
+  p_buffer(buffer), p_offset(offset), p_cb(cb), p_ptr(ptr), 
+  p_map_flags(map_flags), p_type(type)
 {
     // Correct buffer
     if (!buffer)
@@ -51,6 +53,16 @@ RWBufferEvent::RWBufferEvent(CommandQueue *parent,
     {
         *errcode_ret = CL_INVALID_VALUE;
         return;
+    }
+    
+    // Map flags
+    if (type == Event::MapBuffer)
+    {
+        if (map_flags | ~(CL_MAP_READ | CL_MAP_WRITE))
+        {
+            *errcode_ret = CL_INVALID_VALUE;
+            return;
+        }
     }
     
     // Alignment of SubBuffers
@@ -88,27 +100,32 @@ RWBufferEvent::RWBufferEvent(CommandQueue *parent,
     }
 }
 
-MemObject *RWBufferEvent::buffer() const
+MemObject *BufferEvent::buffer() const
 {
     return p_buffer;
 }
 
-size_t RWBufferEvent::offset() const
+size_t BufferEvent::offset() const
 {
     return p_offset;
 }
 
-size_t RWBufferEvent::cb() const
+size_t BufferEvent::cb() const
 {
     return p_cb;
 }
 
-void *RWBufferEvent::ptr() const
+void *BufferEvent::ptr() const
 {
     return p_ptr;
 }
 
-Event::EventType RWBufferEvent::type() const
+void BufferEvent::setPtr(void *ptr)
+{
+    p_ptr = ptr;
+}
+
+Event::EventType BufferEvent::type() const
 {
     return p_type;
 }

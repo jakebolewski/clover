@@ -299,6 +299,16 @@ START_TEST (test_events)
         "we cannot call clSetUserEventStatus two times for an event"
     );
     
+    // Queue a map buffer
+    char *data;
+    
+    data = (char *) clEnqueueMapBuffer(queue, buf, 1, CL_MAP_READ, 0, sizeof(s),
+                                       0, 0, 0, &result);
+    fail_if(
+        result != CL_SUCCESS || !data || strncmp(data, s, sizeof(s)),
+        "unable to map a buffer containing what the buffer contains"
+    );
+    
     // Get timing information about the event
     cl_ulong timing_queued, timing_submit, timing_start, timing_end;
     

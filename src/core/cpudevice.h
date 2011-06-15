@@ -23,6 +23,7 @@ class CPUDevice : public DeviceInterface
                     void *param_value, 
                     size_t *param_value_size_ret);
         DeviceBuffer *createDeviceBuffer(MemObject *buffer, cl_int *rs);
+        cl_int initEventDeviceData(Event *event);
         void pushEvent(Event *event);
         
         Event *getEvent(bool &stop);

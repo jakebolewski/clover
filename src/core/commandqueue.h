@@ -26,7 +26,7 @@ class CommandQueue
         void reference();
         bool dereference();     /*!< @return true if reference becomes 0 */
         
-        void queueEvent(Event *event);
+        cl_int queueEvent(Event *event);
         
         cl_int info(cl_context_info param_name,
                     size_t param_value_size,

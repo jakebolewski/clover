@@ -150,8 +150,15 @@ cl_int CommandQueue::checkProperties() const
     return CL_SUCCESS;
 }
 
-void CommandQueue::queueEvent(Event *event)
+cl_int CommandQueue::queueEvent(Event *event)
 {
+    // Let the device initialize the event (for instance, a pointer at which
+    // memory would be mapped)
+    cl_int rs = p_device->initEventDeviceData(event);
+    
+    if (rs != CL_SUCCESS)
+        return rs;
+    
     // Append the event at the end of the list
     pthread_mutex_lock(&p_event_list_mutex);
     
@@ -165,6 +172,8 @@ void CommandQueue::queueEvent(Event *event)
     
     // Explore the list for events we can push on the device
     pushEventsOnDevice();
+    
+    return CL_SUCCESS;
 }
 
 void CommandQueue::cleanEvents()

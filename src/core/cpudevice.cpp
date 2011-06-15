@@ -51,18 +51,29 @@ static void *worker(void *data)
             event->updateTiming(Event::Start);
         
         // Execute the action
-        if (t == Event::ReadBuffer || t == Event::WriteBuffer)
+        switch (t)
         {
-            RWBufferEvent *e = (RWBufferEvent *)event;
-            CPUBuffer *buf = (CPUBuffer *)e->buffer()->deviceBuffer(device);
-            char *data = (char *)buf->data();
-            
-            data += e->offset();
-            
-            if (t == Event::ReadBuffer)
-                memcpy(e->ptr(), data, e->cb());
-            else
-                memcpy(data, e->ptr(), e->cb());
+            case Event::ReadBuffer:
+            case Event::WriteBuffer:
+            {
+                BufferEvent *e = (BufferEvent *)event;
+                CPUBuffer *buf = (CPUBuffer *)e->buffer()->deviceBuffer(device);
+                char *data = (char *)buf->data();
+                
+                data += e->offset();
+                
+                if (t == Event::ReadBuffer)
+                    memcpy(e->ptr(), data, e->cb());
+                else
+                    memcpy(data, e->ptr(), e->cb());
+                
+                break;
+            }
+            case Event::MapBuffer:
+                // All was already done in CPUBuffer::initEventDeviceData()
+                break;
+            default:
+                break;
         }
         
         // Cleanups
@@ -127,6 +138,22 @@ CPUDevice::~CPUDevice()
 DeviceBuffer *CPUDevice::createDeviceBuffer(MemObject *buffer, cl_int *rs)
 {
     return (DeviceBuffer *)new CPUBuffer(this, buffer, rs);
+}
+
+cl_int CPUDevice::initEventDeviceData(Event *event)
+{
+    if (event->type() == Event::MapBuffer)
+    {
+        BufferEvent *e = (BufferEvent *)event;
+        CPUBuffer *buf = (CPUBuffer *)e->buffer()->deviceBuffer(this);
+        char *data = (char *)buf->data();
+        
+        data += e->offset();
+        
+        e->setPtr((void *)data);
+    }
+    
+    return CL_SUCCESS;
 }
 
 void CPUDevice::pushEvent(Event *event)
