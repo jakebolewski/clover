@@ -38,6 +38,8 @@ class DeviceBuffer
         
         virtual DeviceInterface *device() const = 0;
         virtual bool allocated() const = 0;
+        
+        virtual void *nativeGlobalPointer() const = 0;
 };
 
 }

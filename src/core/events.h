@@ -40,6 +40,31 @@ class BufferEvent : public Event
         EventType p_type;
 };
 
+class NativeKernelEvent : public Event
+{
+    public:
+        NativeKernelEvent(CommandQueue *parent, 
+                          void (*user_func)(void *),
+                          void *args,
+                          size_t cb_args,
+                          cl_uint num_mem_objects,
+                          const MemObject **mem_list,
+                          const void **args_mem_loc,
+                          cl_uint num_events_in_wait_list, 
+                          const Event **event_wait_list, 
+                          cl_int *errcode_ret);
+        ~NativeKernelEvent();
+        
+        EventType type() const;
+        
+        void *function() const;
+        void *args() const;
+        
+    private:
+        void *p_user_func;
+        void *p_args;
+};
+
 class UserEvent : public Event
 {
     public:

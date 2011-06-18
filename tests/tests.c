@@ -3,6 +3,7 @@
 #include "test_context.h"
 #include "test_commandqueue.h"
 #include "test_mem.h"
+#include "test_kernel.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -28,6 +29,7 @@ int main(int argc, char **argv)
     TESTSUITE(context, "context");
     TESTSUITE(commandqueue, "commandqueue");
     TESTSUITE(mem, "mem");
+    TESTSUITE(kernel, "kernel");
 
     if (s == NULL) {
         printf("test case %s does not exist", argv[1]);

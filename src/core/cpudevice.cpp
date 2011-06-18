@@ -72,6 +72,17 @@ static void *worker(void *data)
             case Event::MapBuffer:
                 // All was already done in CPUBuffer::initEventDeviceData()
                 break;
+                
+            case Event::NativeKernel:
+            {
+                NativeKernelEvent *e = (NativeKernelEvent *)event;
+                void (*func)(void *) = (void (*)(void *))e->function();
+                void *args = e->args();
+                
+                func(args);
+                
+                break;
+            }
             default:
                 break;
         }
@@ -430,7 +441,8 @@ cl_int CPUDevice::info(cl_device_info param_name,
             break;
         
         case CL_DEVICE_EXECUTION_CAPABILITIES:
-            SIMPLE_ASSIGN(cl_device_exec_capabilities, CL_EXEC_KERNEL);
+            SIMPLE_ASSIGN(cl_device_exec_capabilities, CL_EXEC_KERNEL |
+                          CL_EXEC_NATIVE_KERNEL);
             break;
         
         case CL_DEVICE_QUEUE_PROPERTIES:
@@ -569,6 +581,11 @@ CPUBuffer::~CPUBuffer()
 void *CPUBuffer::data() const
 {
     return p_data;
+}
+
+void *CPUBuffer::nativeGlobalPointer() const
+{
+    return data();
 }
         
 bool CPUBuffer::allocate()

@@ -3,6 +3,10 @@
 #include "memobject.h"
 #include "deviceinterface.h"
 
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+
 using namespace Coal;
 
 /*
@@ -128,6 +132,130 @@ void BufferEvent::setPtr(void *ptr)
 Event::EventType BufferEvent::type() const
 {
     return p_type;
+}
+
+/*
+ * Native kernel
+ */
+NativeKernelEvent::NativeKernelEvent(CommandQueue *parent, 
+                                     void (*user_func)(void *), 
+                                     void *args, 
+                                     size_t cb_args, 
+                                     cl_uint num_mem_objects, 
+                                     const MemObject **mem_list, 
+                                     const void **args_mem_loc, 
+                                     cl_uint num_events_in_wait_list, 
+                                     const Event **event_wait_list,
+                                     cl_int *errcode_ret) 
+: Event (parent, Queued, num_events_in_wait_list, event_wait_list, errcode_ret),
+  p_user_func((void *)user_func), p_args(0)
+{
+    // Parameters sanity
+    if (!user_func)
+    {
+        *errcode_ret = CL_INVALID_VALUE;
+        return;
+    }
+    
+    if (!args && (cb_args || num_mem_objects))
+    {
+        *errcode_ret = CL_INVALID_VALUE;
+        return;
+    }
+    
+    if (args && !cb_args)
+    {
+        *errcode_ret = CL_INVALID_VALUE;
+        return;
+    }
+    
+    if (num_mem_objects && (!mem_list || !args_mem_loc))
+    {
+        *errcode_ret = CL_INVALID_VALUE;
+        return;
+    }
+    
+    if (!num_mem_objects && (mem_list || args_mem_loc))
+    {
+        *errcode_ret = CL_INVALID_VALUE;
+        return;
+    }
+    
+    // Check that the device can execute a native kernel
+    DeviceInterface *device;
+    cl_device_exec_capabilities caps;
+    
+    *errcode_ret = parent->info(CL_QUEUE_DEVICE, sizeof(DeviceInterface *), 
+                                &device, 0);
+    
+    if (*errcode_ret != CL_SUCCESS)
+        return;
+    
+    *errcode_ret = device->info(CL_DEVICE_EXECUTION_CAPABILITIES,
+                                sizeof(cl_device_exec_capabilities), &caps, 0);
+    
+    if (*errcode_ret != CL_SUCCESS)
+        return;
+    
+    if ((caps & CL_EXEC_NATIVE_KERNEL) == 0)
+    {
+        *errcode_ret = CL_INVALID_OPERATION;
+        return;
+    }
+    
+    // Copy the arguments in a new list
+    if (cb_args)
+    {
+        p_args = malloc(cb_args);
+        
+        if (!p_args)
+        {
+            *errcode_ret = CL_OUT_OF_HOST_MEMORY;
+            return;
+        }
+        
+        memcpy((void *)p_args, (void *)args, cb_args);
+        
+        // Replace memory objects with global pointers
+        for (int i=0; i<num_mem_objects; ++i)
+        {
+            const MemObject *buffer = mem_list[i];
+            const char *loc = (const char *)args_mem_loc[i];
+            
+            if (!buffer)
+            {
+                *errcode_ret = CL_INVALID_MEM_OBJECT;
+                return;
+            }
+            
+            // We need to do relocation : loc is in args, we need it in p_args
+            size_t delta = (char *)p_args - (char *)args;
+            loc += delta;
+            
+            *(void **)loc = buffer->deviceBuffer(device)->nativeGlobalPointer();
+        }
+    }
+}
+
+NativeKernelEvent::~NativeKernelEvent()
+{
+    if (p_args)
+        free((void *)p_args);
+}
+
+Event::EventType NativeKernelEvent::type() const
+{
+    return Event::NativeKernel;
+}
+
+void *NativeKernelEvent::function() const
+{
+    return p_user_func;
+}
+
+void *NativeKernelEvent::args() const
+{
+    return p_args;
 }
 
 /*

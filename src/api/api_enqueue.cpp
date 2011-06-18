@@ -319,7 +319,39 @@ clEnqueueNativeKernel(cl_command_queue  command_queue,
                       const cl_event *  event_wait_list,
                       cl_event *        event)
 {
-    return 0;
+    cl_int rs = CL_SUCCESS;
+    
+    if (!command_queue)
+        return CL_INVALID_COMMAND_QUEUE;
+    
+    Coal::NativeKernelEvent *command = new Coal::NativeKernelEvent(
+        (Coal::CommandQueue *)command_queue,
+        user_func, args, cb_args, num_mem_objects, 
+        (const Coal::MemObject **)mem_list, args_mem_loc,
+        num_events_in_wait_list, (const Coal::Event **)event_wait_list, &rs
+    );
+    
+    if (rs != CL_SUCCESS)
+    {
+        delete command;
+        return rs;
+    }
+    
+    rs = command_queue->queueEvent(command);
+    
+    if (rs != CL_SUCCESS)
+    {
+        delete command;
+        return rs;
+    }
+    
+    if (event)
+    {
+        *event = (cl_event)command;
+        command->reference();
+    }
+    
+    return CL_SUCCESS;
 }
 
 cl_int

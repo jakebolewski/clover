@@ -113,7 +113,7 @@ class Event
               cl_int *errcode_ret);
         
         void setReleaseParent(bool release);
-        ~Event();
+        virtual ~Event();
         
         virtual EventType type() const = 0;
         bool isSingleShot() const; /*!< Cannot be split on several execution units */

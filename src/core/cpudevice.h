@@ -50,6 +50,7 @@ class CPUBuffer : public DeviceBuffer
         bool allocate();
         DeviceInterface *device() const;
         void *data() const;
+        void *nativeGlobalPointer() const;
         bool allocated() const;
         
     private:
