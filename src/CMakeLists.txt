@@ -54,7 +54,7 @@ set_target_properties(OpenCL PROPERTIES
 
 TARGET_LINK_LIBRARIES(OpenCL
         ${CLANG_LIBS}
-        ${LLVM_LIBS_CORE}
+#        ${LLVM_LIBS_CORE}
         pthread
         rt
 #        ${GALLIUM_LIBS}
