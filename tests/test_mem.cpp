@@ -71,10 +71,10 @@ START_TEST (test_create_sub_buffer)
     cl_int result;
     char s[] = "Hello, world !";
     
-    cl_buffer_region create_info = {    // "Hello, [world] !"
-        .origin = 7,
-        .size = 5
-    };
+    cl_buffer_region create_info;    // "Hello, [world] !"
+    
+    create_info.origin = 7;
+    create_info.size = 5;
     
     ctx = clCreateContextFromType(0, CL_DEVICE_TYPE_CPU, 0, 0, &result);
     fail_if(

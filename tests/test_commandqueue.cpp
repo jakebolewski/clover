@@ -309,6 +309,12 @@ START_TEST (test_events)
         "unable to map a buffer containing what the buffer contains"
     );
     
+    result = clEnqueueUnmapMemObject(queue, buf, data, 0, 0, 0);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to unmap a mapped buffer"
+    );
+    
     // Get timing information about the event
     cl_ulong timing_queued, timing_submit, timing_start, timing_end;
     

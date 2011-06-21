@@ -15,17 +15,11 @@ using namespace Coal;
 
 BufferEvent::BufferEvent(CommandQueue *parent, 
                          MemObject *buffer,
-                         size_t offset,
-                         size_t cb,
-                         void *ptr,
-                         cl_map_flags map_flags,
-                         EventType type,
                          cl_uint num_events_in_wait_list, 
                          const Event **event_wait_list,
                          cl_int *errcode_ret)
 : Event(parent, Queued, num_events_in_wait_list, event_wait_list, errcode_ret),
-  p_buffer(buffer), p_offset(offset), p_cb(cb), p_ptr(ptr), 
-  p_map_flags(map_flags), p_type(type)
+  p_buffer(buffer)
 {
     // Correct buffer
     if (!buffer)
@@ -46,29 +40,6 @@ BufferEvent::BufferEvent(CommandQueue *parent,
         return;
     }
     
-    // Check for out-of-bounds reads
-    if (!ptr)
-    {
-        *errcode_ret = CL_INVALID_VALUE;
-        return;
-    }
-    
-    if (offset + cb > buffer->size())
-    {
-        *errcode_ret = CL_INVALID_VALUE;
-        return;
-    }
-    
-    // Map flags
-    if (type == Event::MapBuffer)
-    {
-        if (map_flags | ~(CL_MAP_READ | CL_MAP_WRITE))
-        {
-            *errcode_ret = CL_INVALID_VALUE;
-            return;
-        }
-    }
-    
     // Alignment of SubBuffers
     DeviceInterface *device = 0;
     cl_uint align;
@@ -76,7 +47,7 @@ BufferEvent::BufferEvent(CommandQueue *parent,
                                 &device, 0);
     
     if (errcode_ret != CL_SUCCESS) return;
-    
+
     if (buffer->type() == MemObject::SubBuffer)
     {
         *errcode_ret = device->info(CL_DEVICE_MEM_BASE_ADDR_ALIGN, sizeof(uint),
@@ -109,29 +80,157 @@ MemObject *BufferEvent::buffer() const
     return p_buffer;
 }
 
-size_t BufferEvent::offset() const
+ReadWriteBufferEvent::ReadWriteBufferEvent(CommandQueue *parent, 
+                                           MemObject *buffer,
+                                           size_t offset,
+                                           size_t cb,
+                                           void *ptr,
+                                           cl_uint num_events_in_wait_list, 
+                                           const Event **event_wait_list,
+                                           cl_int *errcode_ret)
+: BufferEvent(parent, buffer, num_events_in_wait_list, event_wait_list, errcode_ret),
+  p_offset(offset), p_cb(cb), p_ptr(ptr)
+{
+    // Check for out-of-bounds reads
+    if (!ptr)
+    {
+        *errcode_ret = CL_INVALID_VALUE;
+        return;
+    }
+    
+    if (offset + cb > buffer->size())
+    {
+        *errcode_ret = CL_INVALID_VALUE;
+        return;
+    }
+}
+
+size_t ReadWriteBufferEvent::offset() const
 {
     return p_offset;
 }
 
-size_t BufferEvent::cb() const
+size_t ReadWriteBufferEvent::cb() const
 {
     return p_cb;
 }
 
-void *BufferEvent::ptr() const
+void *ReadWriteBufferEvent::ptr() const
 {
     return p_ptr;
 }
 
-void BufferEvent::setPtr(void *ptr)
+ReadBufferEvent::ReadBufferEvent(CommandQueue *parent, 
+                                 MemObject *buffer,
+                                 size_t offset,
+                                 size_t cb,
+                                 void *ptr,
+                                 cl_uint num_events_in_wait_list, 
+                                 const Event **event_wait_list,
+                                 cl_int *errcode_ret)
+: ReadWriteBufferEvent(parent, buffer, offset, cb, ptr, num_events_in_wait_list,
+                       event_wait_list, errcode_ret)
+{}
+
+Event::Type ReadBufferEvent::type() const
+{
+    return Event::ReadBuffer;
+}
+
+WriteBufferEvent::WriteBufferEvent(CommandQueue *parent, 
+                                   MemObject *buffer,
+                                   size_t offset,
+                                   size_t cb,
+                                   void *ptr,
+                                   cl_uint num_events_in_wait_list, 
+                                   const Event **event_wait_list,
+                                   cl_int *errcode_ret)
+: ReadWriteBufferEvent(parent, buffer, offset, cb, ptr, num_events_in_wait_list,
+                       event_wait_list, errcode_ret)
+{}
+
+Event::Type WriteBufferEvent::type() const
+{
+    return Event::WriteBuffer;
+}
+
+MapBufferEvent::MapBufferEvent(CommandQueue *parent, 
+                               MemObject *buffer,
+                               size_t offset,
+                               size_t cb,
+                               cl_map_flags map_flags,
+                               cl_uint num_events_in_wait_list, 
+                               const Event **event_wait_list,
+                               cl_int *errcode_ret)
+: BufferEvent(parent, buffer, num_events_in_wait_list, event_wait_list, errcode_ret),
+  p_offset(offset), p_cb(cb), p_map_flags(map_flags)
+{
+    // Check flags
+    if (map_flags & ~(CL_MAP_READ | CL_MAP_WRITE))
+    {
+        *errcode_ret = CL_INVALID_VALUE;
+        return;
+    }
+    
+    // Check for out-of-bounds values
+    if (offset + cb > buffer->size())
+    {
+        printf("2\n");
+        *errcode_ret = CL_INVALID_VALUE;
+        return;
+    }
+}
+
+Event::Type MapBufferEvent::type() const
+{
+    return Event::MapBuffer;
+}
+
+size_t MapBufferEvent::offset() const
+{
+    return p_offset;
+}
+
+size_t MapBufferEvent::cb() const
+{
+    return p_cb;
+}
+
+void *MapBufferEvent::ptr() const
+{
+    return p_ptr;
+}
+
+void MapBufferEvent::setPtr(void *ptr)
 {
     p_ptr = ptr;
 }
 
-Event::EventType BufferEvent::type() const
+UnmapBufferEvent::UnmapBufferEvent(CommandQueue *parent, 
+                                   MemObject *buffer,
+                                   void *mapped_addr,
+                                   cl_uint num_events_in_wait_list, 
+                                   const Event **event_wait_list,
+                                   cl_int *errcode_ret)
+: BufferEvent(parent, buffer, num_events_in_wait_list, event_wait_list, errcode_ret),
+  p_mapping(mapped_addr)
 {
-    return p_type;
+    // TODO: Check that p_mapping is ok (will be done in the drivers)
+    if (!mapped_addr)
+    {
+        *errcode_ret = CL_INVALID_VALUE;
+        return;
+    }
+}
+
+Event::Type UnmapBufferEvent::type() const
+{
+    return Event::UnmapMemObject;
+}
+
+void *UnmapBufferEvent::mapping() const
+{
+    return p_mapping;
 }
 
 /*
@@ -243,7 +342,7 @@ NativeKernelEvent::~NativeKernelEvent()
         free((void *)p_args);
 }
 
-Event::EventType NativeKernelEvent::type() const
+Event::Type NativeKernelEvent::type() const
 {
     return Event::NativeKernel;
 }
@@ -265,7 +364,7 @@ UserEvent::UserEvent(Context *context, cl_int *errcode_ret)
 : Event(0, Submitted, 0, 0, errcode_ret), p_context(context)
 {}
         
-Event::EventType UserEvent::type() const
+Event::Type UserEvent::type() const
 {
     return Event::User;
 }

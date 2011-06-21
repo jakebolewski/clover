@@ -146,7 +146,7 @@ clSetUserEventStatus(cl_event   event,
     if (command->status() != CL_SUBMITTED)
         return CL_INVALID_OPERATION;
     
-    command->setStatus((Coal::Event::EventStatus)execution_status);
+    command->setStatus((Coal::Event::Status)execution_status);
     
     return CL_SUCCESS;
 }

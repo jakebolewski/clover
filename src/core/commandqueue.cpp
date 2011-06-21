@@ -319,7 +319,7 @@ void CommandQueue::pushEventsOnDevice()
  */
 
 Event::Event(CommandQueue *parent,
-             EventStatus status,
+             Status status,
              cl_uint num_events_in_wait_list, 
              const Event **event_wait_list,
              cl_int *errcode_ret)
@@ -457,7 +457,7 @@ bool Event::dereference()
     return destroy;
 }
 
-void Event::setStatus(EventStatus status)
+void Event::setStatus(Status status)
 {
     pthread_mutex_lock(&p_state_mutex);
     p_status = status;
@@ -465,9 +465,9 @@ void Event::setStatus(EventStatus status)
     pthread_cond_broadcast(&p_state_change_cond);
     
     // Call the callbacks
-    std::multimap<EventStatus, CallbackData>::const_iterator it;
-    std::pair<std::multimap<EventStatus, CallbackData>::const_iterator,
-              std::multimap<EventStatus, CallbackData>::const_iterator> ret;
+    std::multimap<Status, CallbackData>::const_iterator it;
+    std::pair<std::multimap<Status, CallbackData>::const_iterator,
+              std::multimap<Status, CallbackData>::const_iterator> ret;
 
     ret = p_callbacks.equal_range(status > 0 ? status : Complete);
     
@@ -509,21 +509,21 @@ void Event::updateTiming(Timing timing)
     p_timing[timing] = rs;
 }
 
-Event::EventStatus Event::status() const
+Event::Status Event::status() const
 {
     // HACK : We need const qualifier but we also need to lock a mutex
     Event *me = (Event *)(void *)this;
     
     pthread_mutex_lock(&me->p_state_mutex);
     
-    EventStatus ret = p_status;
+    Status ret = p_status;
     
     pthread_mutex_unlock(&me->p_state_mutex);
     
     return ret;
 }
 
-void Event::waitForStatus(EventStatus status)
+void Event::waitForStatus(Status status)
 {
     pthread_mutex_lock(&p_state_mutex);
     
@@ -557,8 +557,8 @@ void Event::setCallback(cl_int command_exec_callback_type,
     
     pthread_mutex_lock(&p_state_mutex);
     
-    p_callbacks.insert(std::pair<EventStatus, CallbackData>(
-        (EventStatus)command_exec_callback_type,
+    p_callbacks.insert(std::pair<Status, CallbackData>(
+        (Status)command_exec_callback_type,
         data));
     
     pthread_mutex_unlock(&p_state_mutex);

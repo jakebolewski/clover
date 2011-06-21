@@ -36,7 +36,7 @@ static void *worker(void *data)
         if (!event) continue;
         
         // Get info about the event and its command queue
-        Event::EventType t = event->type();
+        Event::Type t = event->type();
         CommandQueue *queue = 0;
         cl_command_queue_properties queue_props = 0;
         success = true;
@@ -56,7 +56,7 @@ static void *worker(void *data)
             case Event::ReadBuffer:
             case Event::WriteBuffer:
             {
-                BufferEvent *e = (BufferEvent *)event;
+                ReadWriteBufferEvent *e = (ReadWriteBufferEvent *)event;
                 CPUBuffer *buf = (CPUBuffer *)e->buffer()->deviceBuffer(device);
                 char *data = (char *)buf->data();
                 
@@ -153,15 +153,25 @@ DeviceBuffer *CPUDevice::createDeviceBuffer(MemObject *buffer, cl_int *rs)
 
 cl_int CPUDevice::initEventDeviceData(Event *event)
 {
-    if (event->type() == Event::MapBuffer)
+    switch (event->type())
     {
-        BufferEvent *e = (BufferEvent *)event;
-        CPUBuffer *buf = (CPUBuffer *)e->buffer()->deviceBuffer(this);
-        char *data = (char *)buf->data();
-        
-        data += e->offset();
-        
-        e->setPtr((void *)data);
+        case Event::MapBuffer:
+        {
+            MapBufferEvent *e = (MapBufferEvent *)event;
+            CPUBuffer *buf = (CPUBuffer *)e->buffer()->deviceBuffer(this);
+            char *data = (char *)buf->data();
+            
+            data += e->offset();
+            
+            e->setPtr((void *)data);
+            break;
+        }
+        case Event::UnmapMemObject:
+            // Nothing do to
+            break;
+       
+        default:
+            break;
     }
     
     return CL_SUCCESS;

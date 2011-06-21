@@ -19,10 +19,10 @@ clEnqueueReadBuffer(cl_command_queue    command_queue,
     if (!command_queue)
         return CL_INVALID_COMMAND_QUEUE;
     
-    Coal::BufferEvent *command = new Coal::BufferEvent(
+    Coal::ReadBufferEvent *command = new Coal::ReadBufferEvent(
         (Coal::CommandQueue *)command_queue,
         (Coal::MemObject *)buffer,
-        offset, cb, ptr, 0, Coal::Event::ReadBuffer,
+        offset, cb, ptr,
         num_events_in_wait_list, (const Coal::Event **)event_wait_list, &rs
     );
     
@@ -69,10 +69,10 @@ clEnqueueWriteBuffer(cl_command_queue   command_queue,
     if (!command_queue)
         return CL_INVALID_COMMAND_QUEUE;
     
-    Coal::BufferEvent *command = new Coal::BufferEvent(
+    Coal::WriteBufferEvent *command = new Coal::WriteBufferEvent(
         (Coal::CommandQueue *)command_queue,
         (Coal::MemObject *)buffer,
-        offset, cb, (void *)ptr, 0, Coal::Event::WriteBuffer,
+        offset, cb, (void *)ptr,
         num_events_in_wait_list, (const Coal::Event **)event_wait_list, &rs
     );
     
@@ -215,10 +215,10 @@ clEnqueueMapBuffer(cl_command_queue command_queue,
         return 0;
     }
     
-    Coal::BufferEvent *command = new Coal::BufferEvent(
+    Coal::MapBufferEvent *command = new Coal::MapBufferEvent(
         (Coal::CommandQueue *)command_queue,
         (Coal::MemObject *)buffer,
-        offset, cb, 0, map_flags, Coal::Event::MapBuffer,
+        offset, cb, map_flags,
         num_events_in_wait_list, (const Coal::Event **)event_wait_list, errcode_ret
     );
     
@@ -280,7 +280,41 @@ clEnqueueUnmapMemObject(cl_command_queue command_queue,
                         const cl_event *  event_wait_list,
                         cl_event *        event)
 {
-    return 0;
+    cl_int rs = CL_SUCCESS;
+    
+    if (!command_queue)
+    {
+        return CL_INVALID_COMMAND_QUEUE;
+    }
+    
+    Coal::UnmapBufferEvent *command = new Coal::UnmapBufferEvent(
+        (Coal::CommandQueue *)command_queue,
+        (Coal::MemObject *)memobj,
+        mapped_ptr,
+        num_events_in_wait_list, (const Coal::Event **)event_wait_list, &rs
+    );
+    
+    if (rs != CL_SUCCESS)
+    {
+        delete command;
+        return rs;
+    }
+    
+    rs = command_queue->queueEvent(command);
+    
+    if (rs != CL_SUCCESS)
+    {
+        delete command;
+        return rs;
+    }
+    
+    if (event)
+    {
+        *event = (cl_event)command;
+        command->reference();
+    }
+    
+    return rs;
 }
 
 cl_int

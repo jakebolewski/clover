@@ -54,7 +54,7 @@ class CommandQueue
 class Event
 {
     public:
-        enum EventType
+        enum Type
         {
             NDRangeKernel = CL_COMMAND_NDRANGE_KERNEL,
             TaskKernel = CL_COMMAND_TASK,
@@ -80,7 +80,7 @@ class Event
             Barrier
         };
         
-        enum EventStatus
+        enum Status
         {
             Queued = CL_QUEUED,
             Submitted = CL_SUBMITTED,
@@ -107,7 +107,7 @@ class Event
         
     public:
         Event(CommandQueue *parent, 
-              EventStatus status,
+              Status status,
               cl_uint num_events_in_wait_list, 
               const Event **event_wait_list,
               cl_int *errcode_ret);
@@ -115,18 +115,18 @@ class Event
         void setReleaseParent(bool release);
         virtual ~Event();
         
-        virtual EventType type() const = 0;
+        virtual Type type() const = 0;
         bool isSingleShot() const; /*!< Cannot be split on several execution units */
         bool isDummy() const;      /*!< Doesn't do anything, it's just an event type */
         
         void reference();
         bool dereference();     /*!< @return true if reference becomes 0 */
         
-        void setStatus(EventStatus status);
+        void setStatus(Status status);
         void setDeviceData(void *data);
         void updateTiming(Timing timing);
-        EventStatus status() const;
-        void waitForStatus(EventStatus status);
+        Status status() const;
+        void waitForStatus(Status status);
         void *deviceData();
         
         const Event **waitEvents(cl_uint &count) const;
@@ -153,9 +153,9 @@ class Event
         bool p_release_parent;
         
         unsigned int p_references;
-        EventStatus p_status;
+        Status p_status;
         void *p_device_data;
-        std::multimap<EventStatus, CallbackData> p_callbacks;
+        std::multimap<Status, CallbackData> p_callbacks;
         
         cl_uint p_timing[Max];
 };
