@@ -1,5 +1,6 @@
 #include "program.h"
 #include "context.h"
+#include "compiler.h"
 
 #include <string>
 #include <cstring>
@@ -8,11 +9,12 @@
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Bitcode/ReaderWriter.h>
 #include <llvm/LLVMContext.h>
+#include <llvm/Module.h>
 
 using namespace Coal;
 
 Program::Program(Context *ctx)
-: p_ctx(ctx), p_references(1), p_source(0), p_type(Invalid), p_module(0)
+: p_ctx(ctx), p_references(1), p_type(Invalid), p_module(0)
 {
     // Retain parent context
     clRetainContext((cl_context)ctx);
@@ -38,8 +40,6 @@ cl_int Program::loadSources(cl_uint count, const char **strings,
                             const size_t *lengths)
 {
     // Merge all strings into one big one
-    std::string source;
-    
     for (int i=0; i<count; ++i)
     {
         size_t len = 0;
@@ -61,18 +61,10 @@ cl_int Program::loadSources(cl_uint count, const char **strings,
         
         // Merge the string
         std::string part(data, len);
-        source += part;
+        p_source += part;
     }
     
-    // Create a LLVM memory object
-    const llvm::StringRef s_data(source);
-    const llvm::StringRef s_name("<source>");
-    
-    p_source = llvm::MemoryBuffer::getMemBuffer(s_data, s_name);
     p_type = Source;
-    
-    if (!p_source)
-        return CL_OUT_OF_HOST_MEMORY;
     
     return CL_SUCCESS;
 }
@@ -95,6 +87,8 @@ cl_int Program::loadBinary(const unsigned char *data, size_t length,
     if (!p_module)
         return CL_INVALID_BINARY;
     
+    p_type = Binary;
+    
     return CL_SUCCESS;
 }
 
@@ -103,6 +97,28 @@ cl_int Program::build(const char *options,
                                                      void *user_data),
                       void *user_data)
 {
+    // Do we need to compile a source ?
+    if (p_type == Source)
+    {
+        Compiler *compiler = new Compiler(options);
+        
+        const llvm::StringRef s_data(p_source);
+        const llvm::StringRef s_name("<source>");
+        
+        llvm::MemoryBuffer *buffer = llvm::MemoryBuffer::getMemBuffer(s_data,
+                                                                      s_name);
+        
+        p_module = compiler->compile(buffer);
+        delete compiler;
+        
+        // DEBUG
+        p_module->dump();
+    }
+    
+    // TODO: Asynchronous compile
+    if (pfn_notify)
+        pfn_notify((cl_program)this, user_data);
+    
     return CL_SUCCESS;
 }
 

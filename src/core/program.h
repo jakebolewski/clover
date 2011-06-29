@@ -2,6 +2,7 @@
 #define __PROGRAM_H__
 
 #include <CL/cl.h>
+#include <string>
 
 namespace llvm
 {
@@ -47,7 +48,7 @@ class Program
         unsigned int p_references;
         Type p_type;
         
-        llvm::MemoryBuffer *p_source;
+        std::string p_source;
         llvm::Module *p_module;
 };
 
