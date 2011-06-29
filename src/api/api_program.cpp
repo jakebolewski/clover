@@ -1,4 +1,5 @@
 #include "CL/cl.h"
+#include <core/program.h>
 
 // Program Object APIs
 cl_program
@@ -26,13 +27,24 @@ clCreateProgramWithBinary(cl_context            context,
 cl_int
 clRetainProgram(cl_program program)
 {
-    return 0;
+    if (!program)
+        return CL_INVALID_PROGRAM;
+    
+    program->reference();
+    
+    return CL_SUCCESS;
 }
 
 cl_int
 clReleaseProgram(cl_program program)
 {
-    return 0;
+    if (!program)
+        return CL_INVALID_PROGRAM;
+        
+    if (program->dereference())
+        delete program;
+    
+    return CL_SUCCESS;
 }
 
 cl_int

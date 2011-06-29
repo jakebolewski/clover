@@ -30,6 +30,8 @@ set(COAL_SRC_FILES
     core/commandqueue.cpp
     core/memobject.cpp
     core/events.cpp
+    core/program.cpp
+    core/compiler.cpp
 )
 
 configure_file(builtins/coal-internal.h.in
@@ -54,7 +56,7 @@ set_target_properties(OpenCL PROPERTIES
 
 TARGET_LINK_LIBRARIES(OpenCL
         ${CLANG_LIBS}
-#        ${LLVM_LIBS_CORE}
+        ${LLVM_LIBS_CORE}
         pthread
         rt
 #        ${GALLIUM_LIBS}
