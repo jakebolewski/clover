@@ -42,6 +42,7 @@ class Program
         bool dereference();
         
         Type type() const;
+        Context *context() const;
         
     private:
         Context *p_ctx;

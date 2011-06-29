@@ -22,7 +22,7 @@ Program::Program(Context *ctx)
 
 Program::~Program()
 {
-    
+    clReleaseContext((cl_context)p_ctx);
 }
 
 void Program::reference()
@@ -72,6 +72,13 @@ cl_int Program::loadSources(cl_uint count, const char **strings,
 cl_int Program::loadBinary(const unsigned char *data, size_t length,
                            cl_int *binary_status)
 {
+    // Sanity checks
+    if (!data || !length)
+    {
+        *binary_status = CL_INVALID_VALUE;
+        return CL_INVALID_VALUE;
+    }
+    
     // Load the data
     const llvm::StringRef s_data((const char *)data, length);
     const llvm::StringRef s_name("<binary>");
@@ -85,10 +92,14 @@ cl_int Program::loadBinary(const unsigned char *data, size_t length,
     p_module = ParseBitcodeFile(buffer, llvm::getGlobalContext());
     
     if (!p_module)
+    {
+        *binary_status = CL_INVALID_VALUE;
         return CL_INVALID_BINARY;
+    }
     
     p_type = Binary;
     
+    *binary_status = CL_SUCCESS;
     return CL_SUCCESS;
 }
 
@@ -111,6 +122,14 @@ cl_int Program::build(const char *options,
         p_module = compiler->compile(buffer);
         delete compiler;
         
+        if (!p_module)
+        {
+            if (pfn_notify)
+                pfn_notify((cl_program)this, user_data);
+            
+            return CL_BUILD_PROGRAM_FAILURE;
+        }
+        
         // DEBUG
         p_module->dump();
     }
@@ -125,4 +144,9 @@ cl_int Program::build(const char *options,
 Program::Type Program::type() const
 {
     return p_type;
+}
+
+Context *Program::context() const
+{
+    return p_ctx;
 }
