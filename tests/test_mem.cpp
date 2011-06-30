@@ -162,10 +162,10 @@ START_TEST (test_read_write_subbuf)
     cl_int result;
     char s[] = "Hello, Denis !";
     
-    cl_buffer_region create_info = {    // "Hello, [denis] !"
-        .origin = 7,
-        .size = 5
-    };
+    cl_buffer_region create_info;
+    
+    create_info.origin = 7;      // "Hello, [denis] !"
+    create_info.size = 5;
     
     result = clGetDeviceIDs(0, CL_DEVICE_TYPE_CPU, 1, &device, 0);
     fail_if(

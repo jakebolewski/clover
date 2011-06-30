@@ -113,6 +113,14 @@ cl_int Program::build(const char *options,
     {
         Compiler *compiler = new Compiler(options);
         
+        if (!compiler->valid())
+        {
+            if (pfn_notify)
+                pfn_notify((cl_program)this, user_data);
+            
+            return CL_BUILD_PROGRAM_FAILURE;
+        }
+        
         const llvm::StringRef s_data(p_source);
         const llvm::StringRef s_name("<source>");
         

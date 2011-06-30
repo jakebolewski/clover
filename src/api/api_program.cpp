@@ -84,7 +84,7 @@ clCreateProgramWithBinary(cl_context            context,
     
     *errcode_ret = context->info(CL_CONTEXT_DEVICES, 
                                  context_num_devices * sizeof(cl_device_id), 
-                                 &context_devices, 0);
+                                 context_devices, 0);
     
     if (*errcode_ret != CL_SUCCESS)
         return 0;
@@ -93,7 +93,7 @@ clCreateProgramWithBinary(cl_context            context,
     {
         bool found = false;
         
-        for (int j=0; j<context_num_devices; ++i)
+        for (int j=0; j<context_num_devices; ++j)
         {
             if (device_list[i] == context_devices[j])
             {
@@ -193,7 +193,7 @@ clBuildProgram(cl_program           program,
     
     result = context->info(CL_CONTEXT_DEVICES, 
                                  context_num_devices * sizeof(cl_device_id), 
-                                 &context_devices, 0);
+                                 context_devices, 0);
     
     if (result != CL_SUCCESS)
         return result;
@@ -202,7 +202,7 @@ clBuildProgram(cl_program           program,
     {
         bool found = false;
         
-        for (int j=0; j<context_num_devices; ++i)
+        for (int j=0; j<context_num_devices; ++j)
         {
             if (device_list[i] == context_devices[j])
             {
