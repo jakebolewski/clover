@@ -20,12 +20,12 @@ Compiler::Compiler(const char *options)
 : p_valid(false)
 {
     size_t len = std::strlen(options);
-    
+
     // Set codegen options
     clang::CodeGenOptions &codegen_opts = p_compiler.getCodeGenOpts();
     codegen_opts.DebugInfo = false;
     codegen_opts.AsmVerbose = true;
-    
+
     // Set diagnostic options
     clang::DiagnosticOptions &diag_opts = p_compiler.getDiagnosticOpts();
     diag_opts.Pedantic = true;
@@ -38,58 +38,58 @@ Compiler::Compiler(const char *options)
     diag_opts.MessageLength = 80;
     diag_opts.DumpBuildInformation = std::string();
     diag_opts.DiagnosticLogFile = std::string();
-    
+
     // Set frontend options
     clang::FrontendOptions &frontend_opts = p_compiler.getFrontendOpts();
     frontend_opts.ProgramAction = clang::frontend::EmitLLVMOnly;
     frontend_opts.DisableFree = true;
     frontend_opts.Inputs.push_back(std::make_pair(clang::IK_OpenCL, "program.cl"));
-    
+
     // Set header search options
     clang::HeaderSearchOptions &header_opts = p_compiler.getHeaderSearchOpts();
-    header_opts.Verbose = true;
+    header_opts.Verbose = false;
     header_opts.UseBuiltinIncludes = false;
     header_opts.UseStandardIncludes = false;
     header_opts.UseStandardCXXIncludes = false;
-    
+
     // Set lang options
     clang::LangOptions &lang_opts = p_compiler.getLangOpts();
     lang_opts.NoBuiltin = true;
     lang_opts.OpenCL = true;
-    
+
     // Set target options
     clang::TargetOptions &target_opts = p_compiler.getTargetOpts();
     target_opts.Triple = llvm::sys::getHostTriple();
-    
+
     // Set preprocessor options
     clang::PreprocessorOptions &prep_opts = p_compiler.getPreprocessorOpts();
     //prep_opts.Includes.push_back("stdlib.h");
     //prep_opts.addRemappedFile("stdlib.h", ...);
-    
+
     clang::CompilerInvocation &invocation = p_compiler.getInvocation();
     invocation.setLangDefaults(clang::IK_OpenCL);
-    
+
     // Parse the user options
     std::istringstream options_stream(options);
     std::string token;
-    
+
     while (options_stream >> token)
     {
-        
+
     }
-    
+
     // Create the diagnostics engine
     p_compiler.createDiagnostics(0, NULL);
-    
+
     if (!p_compiler.hasDiagnostics())
         return;
-    
+
     p_valid = true;
 }
 
 Compiler::~Compiler()
 {
-    
+
 }
 
 bool Compiler::valid() const
@@ -103,23 +103,23 @@ llvm::Module *Compiler::compile(llvm::MemoryBuffer *source)
     clang::PreprocessorOptions &prep_opts = p_compiler.getPreprocessorOpts();
     prep_opts.addRemappedFile("program.cl", source);
     prep_opts.RetainRemappedFileBuffers = true;
-    
+
     // Compile
     llvm::Module *module = 0;
-    
+
     llvm::OwningPtr<clang::CodeGenAction> act(
         new clang::EmitLLVMOnlyAction(new llvm::LLVMContext)
     );
-    
-    if (!p_compiler.ExecuteAction(*act))   
+
+    if (!p_compiler.ExecuteAction(*act))
     {
         return 0;
     }
 
     module = act->takeModule();
-    
+
     // Cleanup
     prep_opts.eraseRemappedFile(prep_opts.remapped_file_buffer_end());
-   
+
     return module;
 }
