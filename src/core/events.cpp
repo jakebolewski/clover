@@ -3,9 +3,8 @@
 #include "memobject.h"
 #include "deviceinterface.h"
 
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
+#include <cstdlib>
+#include <cstring>
 
 using namespace Coal;
 
@@ -175,7 +174,6 @@ MapBufferEvent::MapBufferEvent(CommandQueue *parent,
     // Check for out-of-bounds values
     if (offset + cb > buffer->size())
     {
-        printf("2\n");
         *errcode_ret = CL_INVALID_VALUE;
         return;
     }
@@ -305,7 +303,7 @@ NativeKernelEvent::NativeKernelEvent(CommandQueue *parent,
     // Copy the arguments in a new list
     if (cb_args)
     {
-        p_args = malloc(cb_args);
+        p_args = std::malloc(cb_args);
 
         if (!p_args)
         {
@@ -313,7 +311,7 @@ NativeKernelEvent::NativeKernelEvent(CommandQueue *parent,
             return;
         }
 
-        memcpy((void *)p_args, (void *)args, cb_args);
+        std::memcpy((void *)p_args, (void *)args, cb_args);
 
         // Replace memory objects with global pointers
         for (int i=0; i<num_mem_objects; ++i)
@@ -339,7 +337,7 @@ NativeKernelEvent::NativeKernelEvent(CommandQueue *parent,
 NativeKernelEvent::~NativeKernelEvent()
 {
     if (p_args)
-        free((void *)p_args);
+        std::free((void *)p_args);
 }
 
 Event::Type NativeKernelEvent::type() const

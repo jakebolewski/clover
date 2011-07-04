@@ -4,10 +4,9 @@
 #include "propertylist.h"
 #include "events.h"
 
-#include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <time.h>
+#include <cstring>
+#include <cstdlib>
+#include <ctime>
 
 using namespace Coal;
 
@@ -103,7 +102,7 @@ cl_int CommandQueue::info(cl_context_info param_name,
         *param_value_size_ret = value_length;
 
     if (param_value)
-        memcpy(param_value, value, value_length);
+        std::memcpy(param_value, value, value_length);
 
     return CL_SUCCESS;
 }
@@ -367,7 +366,7 @@ Event::Event(CommandQueue *parent,
     if (num_events_in_wait_list)
     {
         const unsigned int len = num_events_in_wait_list * sizeof(Event *);
-        p_event_wait_list = (const Event **)malloc(len);
+        p_event_wait_list = (const Event **)std::malloc(len);
 
         if (!p_event_wait_list)
         {
@@ -375,7 +374,7 @@ Event::Event(CommandQueue *parent,
             return;
         }
 
-        memcpy((void *)p_event_wait_list, (void *)event_wait_list, len);
+        std::memcpy((void *)p_event_wait_list, (void *)event_wait_list, len);
     }
 
     // Explore the events we are waiting on and reference them
@@ -394,7 +393,7 @@ Event::~Event()
         clReleaseEvent((cl_event)p_event_wait_list[i]);
 
     if (p_event_wait_list)
-        free((void *)p_event_wait_list);
+        std::free((void *)p_event_wait_list);
 
     pthread_mutex_destroy(&p_state_mutex);
     pthread_cond_destroy(&p_state_change_cond);
@@ -624,7 +623,7 @@ cl_int Event::info(cl_context_info param_name,
         *param_value_size_ret = value_length;
 
     if (param_value)
-        memcpy(param_value, value, value_length);
+        std::memcpy(param_value, value, value_length);
 
     return CL_SUCCESS;
 }
@@ -686,7 +685,7 @@ cl_int Event::profilingInfo(cl_context_info param_name,
         *param_value_size_ret = value_length;
 
     if (param_value)
-        memcpy(param_value, value, value_length);
+        std::memcpy(param_value, value, value_length);
 
     return CL_SUCCESS;
 }

@@ -1,7 +1,6 @@
 #include "test_commandqueue.h"
 #include "CL/cl.h"
 
-#include <stdio.h>
 #include <unistd.h>
 
 START_TEST (test_create_command_queue)

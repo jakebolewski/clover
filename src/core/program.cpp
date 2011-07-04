@@ -259,7 +259,7 @@ cl_int Program::info(cl_context_info param_name,
         {
             // Special case : param_value points to an array of p_num_devices
             // application-allocated unsigned char* pointers. Check it's good
-            // and memcpy the data
+            // and std::memcpy the data
 
             unsigned char **binaries = (unsigned char **)param_value;
             value_length = p_num_devices * sizeof(unsigned char *);

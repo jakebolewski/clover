@@ -12,7 +12,6 @@
 #include <llvm/Module.h>
 #include <llvm/LLVMContext.h>
 
-#include <stdio.h>
 
 using namespace Coal;
 

@@ -1,7 +1,6 @@
 #include "test_mem.h"
 #include "CL/cl.h"
 
-#include <stdio.h>
 
 START_TEST (test_create_buffer)
 {

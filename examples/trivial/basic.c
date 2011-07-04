@@ -1,6 +1,6 @@
 #include <CL/cl.h>
-#include <stdio.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #define ERR(code) do {                                          \
     printf("Error at %i: %s\n", __LINE__, errcode_str(code));   \

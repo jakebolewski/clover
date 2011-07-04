@@ -1,5 +1,5 @@
 #include "CL/cl.h"
-#include <string.h>
+#include <cstring>
 #include <config.h>
 
 static const char platform_profile[] = "FULL_PROFILE";
@@ -78,7 +78,7 @@ clGetPlatformInfo(cl_platform_id   platform,
         return CL_INVALID_VALUE;
 
     if (param_value != 0)
-        memcpy(param_value, string, len);
+        std::memcpy(param_value, string, len);
 
     if (param_value_size_ret)
         *param_value_size_ret = len;

@@ -2,9 +2,8 @@
 #include "deviceinterface.h"
 #include "propertylist.h"
 
-#include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
+#include <cstring>
+#include <cstdlib>
 
 using namespace Coal;
 
@@ -59,7 +58,7 @@ Context::Context(const cl_context_properties *properties,
 
         // properties may be allocated on the stack of the client application
         // copy it into a real buffer
-        p_properties = (cl_context_properties *)malloc(props_len);
+        p_properties = (cl_context_properties *)std::malloc(props_len);
         p_props_len = props_len;
 
         if (!p_properties)
@@ -68,7 +67,7 @@ Context::Context(const cl_context_properties *properties,
             return;
         }
 
-        memcpy((void *)p_properties, (const void *)properties, props_len);
+        std::memcpy((void *)p_properties, (const void *)properties, props_len);
     }
 
     // Verify that the platform is good
@@ -79,7 +78,7 @@ Context::Context(const cl_context_properties *properties,
     }
 
     // Explore the devices
-    p_devices = (DeviceInterface **)malloc(num_devices * sizeof(DeviceInterface *));
+    p_devices = (DeviceInterface **)std::malloc(num_devices * sizeof(DeviceInterface *));
     p_num_devices = num_devices;
 
     if (!p_devices)
@@ -123,10 +122,10 @@ Context::Context(const cl_context_properties *properties,
 Context::~Context()
 {
     if (p_properties)
-        free((void *)p_properties);
+        std::free((void *)p_properties);
 
     if (p_devices)
-        free((void *)p_devices);
+        std::free((void *)p_devices);
 }
 
 void Context::reference()
@@ -181,7 +180,7 @@ cl_int Context::info(cl_context_info param_name,
         *param_value_size_ret = value_length;
 
     if (param_value && value_length /* CONTEXT_PROPERTIES can be of length 0 */)
-        memcpy(param_value, value, value_length);
+        std::memcpy(param_value, value, value_length);
 
     return CL_SUCCESS;
 }

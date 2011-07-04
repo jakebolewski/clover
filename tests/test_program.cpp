@@ -1,8 +1,7 @@
 #include "test_program.h"
 #include "CL/cl.h"
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdlib>
 
 const char program_source[] =
     "#define __global __attribute__((address_space(1)))\n"
@@ -122,7 +121,7 @@ START_TEST (test_program_binary)
         "cannot get the binary size of the program"
     );
 
-    binary_data = (unsigned char *)malloc(binary_size);
+    binary_data = (unsigned char *)std::malloc(binary_size);
 
     result = clGetProgramInfo(program, CL_PROGRAM_BINARIES, sizeof(unsigned char *),
                               (void *)&binary_data, 0);

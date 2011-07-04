@@ -2,7 +2,7 @@
 #include <core/program.h>
 #include <core/context.h>
 
-#include <stdlib.h>
+#include <cstdlib>
 
 // Program Object APIs
 cl_program
@@ -80,7 +80,7 @@ clCreateProgramWithBinary(cl_context            context,
         return 0;
 
     context_devices =
-        (cl_device_id *)malloc(context_num_devices * sizeof(cl_device_id));
+        (cl_device_id *)std::malloc(context_num_devices * sizeof(cl_device_id));
 
     *errcode_ret = context->info(CL_CONTEXT_DEVICES,
                                  context_num_devices * sizeof(cl_device_id),
@@ -192,7 +192,7 @@ clBuildProgram(cl_program           program,
             return result;
 
         context_devices =
-            (cl_device_id *)malloc(context_num_devices * sizeof(cl_device_id));
+            (cl_device_id *)std::malloc(context_num_devices * sizeof(cl_device_id));
 
         result = context->info(CL_CONTEXT_DEVICES,
                                      context_num_devices * sizeof(cl_device_id),

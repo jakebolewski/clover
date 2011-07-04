@@ -1,7 +1,6 @@
 #include "test_kernel.h"
 #include "CL/cl.h"
 
-#include <stdio.h>
 
 static void native_kernel(void *args)
 {

@@ -166,7 +166,7 @@ START_TEST (test_get_context_info)
     );
 
     // This call clobbers context_info.properties, so we also check that
-    // they are properly memcpy'ed by Coal::Context.
+    // they are properly std::memcpy'ed by Coal::Context.
     result = clGetContextInfo(ctx, CL_CONTEXT_REFERENCE_COUNT, sizeof(cl_uint),
                               &context_info, &size_ret);
     fail_if(

@@ -3,9 +3,8 @@
 #include "deviceinterface.h"
 #include "propertylist.h"
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
+#include <cstdlib>
+#include <cstring>
 
 using namespace Coal;
 
@@ -69,7 +68,7 @@ MemObject::~MemObject()
         for (int i=0; i<p_num_devices; ++i)
             delete p_devicebuffers[i];
 
-        free((void *)p_devicebuffers);
+        std::free((void *)p_devicebuffers);
     }
 }
 
@@ -85,7 +84,7 @@ cl_int MemObject::init()
         return rs;
 
     p_devices_to_allocate = p_num_devices;
-    devices = (DeviceInterface **)malloc(p_num_devices *
+    devices = (DeviceInterface **)std::malloc(p_num_devices *
                                         sizeof(DeviceInterface *));
 
     if (!devices)
@@ -96,17 +95,17 @@ cl_int MemObject::init()
 
     if (rs != CL_SUCCESS)
     {
-        free((void *)devices);
+        std::free((void *)devices);
         return rs;
     }
 
     // Allocate a table of DeviceBuffers
-    p_devicebuffers = (DeviceBuffer **)malloc(p_num_devices *
+    p_devicebuffers = (DeviceBuffer **)std::malloc(p_num_devices *
                                              sizeof(DeviceBuffer *));
 
     if (!p_devicebuffers)
     {
-        free((void *)devices);
+        std::free((void *)devices);
         return CL_OUT_OF_HOST_MEMORY;
     }
 
@@ -116,18 +115,18 @@ cl_int MemObject::init()
     // they don't need to reallocate and re-copy host_ptr
     if (p_num_devices > 1 && (p_flags & CL_MEM_COPY_HOST_PTR))
     {
-        void *tmp_hostptr = malloc(size());
+        void *tmp_hostptr = std::malloc(size());
 
         if (!tmp_hostptr)
         {
-            free((void *)devices);
+            std::free((void *)devices);
             return CL_OUT_OF_HOST_MEMORY;
         }
 
-        memcpy(tmp_hostptr, p_host_ptr, size());
+        std::memcpy(tmp_hostptr, p_host_ptr, size());
 
         p_host_ptr = tmp_hostptr;
-        // Now, the client application can safely free() its host_ptr
+        // Now, the client application can safely std::free() its host_ptr
     }
 
     // Create a DeviceBuffer for each device
@@ -139,12 +138,12 @@ cl_int MemObject::init()
 
         if (rs != CL_SUCCESS)
         {
-            free((void *)devices);
+            std::free((void *)devices);
             return rs;
         }
     }
 
-    free((void *)devices);
+    std::free((void *)devices);
     devices = 0;
 
     // If we have only one device, already allocate the buffer
@@ -225,14 +224,14 @@ void MemObject::deviceAllocated(DeviceBuffer *buffer)
 
     // Decrement the count of devices that must be allocated. If it becomes
     // 0, it means we don't need to keep a copied host_ptr and that we can
-    // free() it.
+    // std::free() it.
     p_devices_to_allocate--;
 
     if (p_devices_to_allocate == 0 &&
         p_num_devices > 1 &&
         (p_flags & CL_MEM_COPY_HOST_PTR))
     {
-        free(p_host_ptr);
+        std::free(p_host_ptr);
         p_host_ptr = 0;
     }
 
@@ -339,7 +338,7 @@ cl_int MemObject::info(cl_context_info param_name,
         *param_value_size_ret = value_length;
 
     if (param_value)
-        memcpy(param_value, value, value_length);
+        std::memcpy(param_value, value, value_length);
 
     return CL_SUCCESS;
 }
@@ -549,7 +548,7 @@ cl_int Image2D::imageInfo(cl_context_info param_name,
         *param_value_size_ret = value_length;
 
     if (param_value)
-        memcpy(param_value, value, value_length);
+        std::memcpy(param_value, value, value_length);
 
     return CL_SUCCESS;
 }

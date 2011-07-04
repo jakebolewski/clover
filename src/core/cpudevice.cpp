@@ -5,10 +5,9 @@
 #include "commandqueue.h"
 #include "events.h"
 
-#include <string.h>
-#include <stdlib.h>
+#include <cstring>
+#include <cstdlib>
 #include <unistd.h>
-#include <stdio.h>
 
 #include <iostream>
 #include <fstream>
@@ -63,9 +62,9 @@ static void *worker(void *data)
                 data += e->offset();
 
                 if (t == Event::ReadBuffer)
-                    memcpy(e->ptr(), data, e->cb());
+                    std::memcpy(e->ptr(), data, e->cb());
                 else
-                    memcpy(data, e->ptr(), e->cb());
+                    std::memcpy(data, e->ptr(), e->cb());
 
                 break;
             }
@@ -117,7 +116,7 @@ CPUDevice::CPUDevice()
     pthread_mutex_init(&p_events_mutex, 0);
 
     // Create 4 worker threads
-    p_workers = (pthread_t *)malloc(numCPUs() * sizeof(pthread_t));
+    p_workers = (pthread_t *)std::malloc(numCPUs() * sizeof(pthread_t));
 
     for (int i=0; i<numCPUs(); ++i)
     {
@@ -141,7 +140,7 @@ CPUDevice::~CPUDevice()
     }
 
     // Free allocated memory
-    free((void *)p_workers);
+    std::free((void *)p_workers);
     pthread_mutex_destroy(&p_events_mutex);
     pthread_cond_destroy(&p_events_cond);
 }
@@ -549,7 +548,7 @@ cl_int CPUDevice::info(cl_device_info param_name,
         *param_value_size_ret = value_length;
 
     if (param_value)
-        memcpy(param_value, value, value_length);
+        std::memcpy(param_value, value, value_length);
 
     return CL_SUCCESS;
 }
@@ -584,7 +583,7 @@ CPUBuffer::~CPUBuffer()
 {
     if (p_data_malloced)
     {
-        free((void *)p_data);
+        std::free((void *)p_data);
     }
 }
 
@@ -609,7 +608,7 @@ bool CPUBuffer::allocate()
     if (!p_data)
     {
         // We don't use a host ptr, we need to allocate a buffer
-        p_data = malloc(buf_size);
+        p_data = std::malloc(buf_size);
 
         if (!p_data)
             return false;
@@ -620,7 +619,7 @@ bool CPUBuffer::allocate()
     if (p_buffer->type() != MemObject::SubBuffer &&
         p_buffer->flags() & CL_MEM_COPY_HOST_PTR)
     {
-        memcpy(p_data, p_buffer->host_ptr(), buf_size);
+        std::memcpy(p_data, p_buffer->host_ptr(), buf_size);
     }
 
     // Say to the memobject that we are allocated
