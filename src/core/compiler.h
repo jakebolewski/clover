@@ -17,11 +17,11 @@ class Compiler
     public:
         Compiler(const char *options);
         ~Compiler();
-        
+
         llvm::Module *compile(llvm::MemoryBuffer *source);
-        
+
         bool valid() const;
-        
+
     private:
         bool p_valid;
         clang::CompilerInstance p_compiler;

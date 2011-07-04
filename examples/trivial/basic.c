@@ -160,7 +160,7 @@ static const char *errcode_str(cl_int code)
         case -64:
             return "CL_INVALID_PROPERTY";
     }
-    
+
     return "INVALID ERROR CODE";
 }
 
@@ -173,32 +173,32 @@ int main()
     cl_int result;
     cl_uint num;
     int i;
-    
+
     // Get the platforms
     result = clGetPlatformIDs(0, 0, &num);
-    
+
     if (result != CL_SUCCESS)
     {
         ERR(result);
         return 1;
     }
-    
+
     platforms = malloc(num * sizeof(cl_platform_id));
-    
+
     if (!platforms)
     {
         ERR(CL_OUT_OF_HOST_MEMORY);
         return 1;
     }
-    
+
     result = clGetPlatformIDs(num, platforms, 0);
-    
+
     if (result != CL_SUCCESS)
     {
         ERR(result);
         return 1;
     }
-    
+
     for (i=0; i<num; ++i)
     {
         platform_info(platforms[i]);
@@ -225,50 +225,50 @@ void platform_info(cl_platform_id platform)
     char buf[512];
     cl_int result;
     int i;
-    
+
     printf("Platform : {\n");
-    
+
     PL_PROPERTY_STRING(CL_PLATFORM_PROFILE, "CL_PLATFORM_PROFILE");
     PL_PROPERTY_STRING(CL_PLATFORM_VERSION, "CL_PLATFORM_VERSION");
     PL_PROPERTY_STRING(CL_PLATFORM_NAME, "CL_PLATFORM_NAME");
     PL_PROPERTY_STRING(CL_PLATFORM_VENDOR, "CL_PLATFORM_VENDOR");
     PL_PROPERTY_STRING(CL_PLATFORM_EXTENSIONS, "CL_PLATFORM_EXTENSIONS");
-    
+
     printf("\n");
-    
+
     // Display information about the devices
     cl_uint num;
     cl_device_id *devices;
-    
+
     result = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 0, 0, &num);
-    
+
     if (result != CL_SUCCESS)
     {
         ERR(result);
         return;
     }
-    
+
     devices = malloc(num * sizeof(cl_device_id));
-    
+
     if (!devices)
     {
         ERR(CL_OUT_OF_HOST_MEMORY);
         return;
     }
-    
+
     result = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, num, devices, 0);
-    
+
     if (result != CL_SUCCESS)
     {
         ERR(result);
         return;
     }
-    
+
     for (i=0; i<num; ++i)
     {
         device_info(devices[i]);
     }
-    
+
     printf("}\n");
 }
 
@@ -311,7 +311,7 @@ void device_info(cl_device_id device)
     // Display info about the platform
     char buf[512];
     cl_int result;
-    
+
     union {
         cl_device_type cl_device_type_var;
         cl_uint cl_uint_var;
@@ -325,9 +325,9 @@ void device_info(cl_device_id device)
         cl_command_queue_properties cl_command_queue_properties_var;
         cl_platform_id cl_platform_id_var;
     } un;
-    
+
     printf("    Device : {\n");
-    
+
     D_PROPERTY_SIMPLE(CL_DEVICE_TYPE, "CL_DEVICE_TYPE", cl_device_type);
     D_PROPERTY_SIMPLE(CL_DEVICE_VENDOR_ID, "CL_DEVICE_VENDOR_ID", cl_uint);
     D_PROPERTY_SIMPLE(CL_DEVICE_MAX_COMPUTE_UNITS, "CL_DEVICE_MAX_COMPUTE_UNITS", cl_uint);
@@ -386,6 +386,6 @@ void device_info(cl_device_id device)
     D_PROPERTY_SIMPLE(CL_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT, "CL_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT", cl_uint);
     D_PROPERTY_SIMPLE(CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE, "CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE", cl_uint);    D_PROPERTY_SIMPLE(CL_DEVICE_NATIVE_VECTOR_WIDTH_HALF, "CL_DEVICE_NATIVE_VECTOR_WIDTH_HALF", cl_uint);
     D_PROPERTY_STRING(CL_DEVICE_OPENCL_C_VERSION, "CL_DEVICE_OPENCL_C_VERSION");
-    
+
     printf("    }\n");
 }

@@ -10,38 +10,38 @@ clWaitForEvents(cl_uint             num_events,
 {
     if (!num_events || !event_list)
         return CL_INVALID_VALUE;
-    
+
     // Check the events in the list
     cl_context global_ctx = 0;
-    
+
     for (int i=0; i<num_events; ++i)
     {
         if (!event_list[i])
             return CL_INVALID_EVENT;
-        
+
         if (event_list[i]->status() < 0)
             return CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST;
-        
+
         cl_context evt_ctx = 0;
         cl_int rs;
-        
+
         rs = event_list[i]->info(CL_EVENT_CONTEXT, sizeof(cl_context), &evt_ctx,
                                  0);
-        
+
         if (rs != CL_SUCCESS) return rs;
-        
+
         if (global_ctx == 0)
             global_ctx = evt_ctx;
         else if (global_ctx != evt_ctx)
             return CL_INVALID_CONTEXT;
     }
-    
+
     // Wait for the events
     for (int i=0; i<num_events; ++i)
     {
         event_list[i]->waitForStatus(Coal::Event::Complete);
     }
-    
+
     return CL_SUCCESS;
 }
 
@@ -54,8 +54,8 @@ clGetEventInfo(cl_event         event,
 {
     if (!event)
         return CL_INVALID_EVENT;
-    
-    return event->info(param_name, param_value_size, param_value, 
+
+    return event->info(param_name, param_value_size, param_value,
                        param_value_size_ret);
 }
 
@@ -69,12 +69,12 @@ clSetEventCallback(cl_event     event,
 {
     if (!event)
         return CL_INVALID_EVENT;
-    
+
     if (!pfn_event_notify || command_exec_callback_type != CL_COMPLETE)
         return CL_INVALID_VALUE;
-    
+
     event->setCallback(command_exec_callback_type, pfn_event_notify, user_data);
-    
+
     return CL_SUCCESS;
 }
 
@@ -83,9 +83,9 @@ clRetainEvent(cl_event event)
 {
     if (!event)
         return CL_INVALID_EVENT;
-    
+
     event->reference();
-    
+
     return CL_SUCCESS;
 }
 
@@ -94,10 +94,10 @@ clReleaseEvent(cl_event event)
 {
     if (!event)
         return CL_INVALID_EVENT;
-    
+
     if (event->dereference())
         delete event;
-    
+
     return CL_SUCCESS;
 }
 
@@ -106,28 +106,28 @@ clCreateUserEvent(cl_context    context,
                   cl_int *      errcode_ret)
 {
     cl_int dummy_errcode;
-    
+
     if (!errcode_ret)
         errcode_ret = &dummy_errcode;
-    
+
     if (!context)
     {
         *errcode_ret = CL_INVALID_CONTEXT;
         return 0;
     }
-    
+
     *errcode_ret = CL_SUCCESS;
-    
+
     Coal::UserEvent *command = new Coal::UserEvent(
         (Coal::Context *)context, errcode_ret
     );
-    
+
     if (*errcode_ret != CL_SUCCESS)
     {
         delete command;
         return 0;
     }
-    
+
     return (cl_event)command;
 }
 
@@ -136,17 +136,17 @@ clSetUserEventStatus(cl_event   event,
                      cl_int     execution_status)
 {
     Coal::Event *command = (Coal::Event *)event;
-    
+
     if (!command || command->type() != Coal::Event::User)
         return CL_INVALID_EVENT;
-    
+
     if (execution_status != CL_COMPLETE)
         return CL_INVALID_VALUE;
-    
+
     if (command->status() != CL_SUBMITTED)
         return CL_INVALID_OPERATION;
-    
+
     command->setStatus((Coal::Event::Status)execution_status);
-    
+
     return CL_SUCCESS;
 }

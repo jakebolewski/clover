@@ -9,7 +9,7 @@
 
 namespace Coal
 {
-    
+
 class Context;
 class DeviceInterface;
 class Event;
@@ -19,33 +19,33 @@ class CommandQueue
     public:
         CommandQueue(Context *ctx,
                      DeviceInterface *device,
-                     cl_command_queue_properties properties, 
+                     cl_command_queue_properties properties,
                      cl_int *errcode_ret);
         ~CommandQueue();
-        
+
         void reference();
         bool dereference();     /*!< @return true if reference becomes 0 */
-        
+
         cl_int queueEvent(Event *event);
-        
+
         cl_int info(cl_context_info param_name,
                     size_t param_value_size,
                     void *param_value,
                     size_t *param_value_size_ret);
-        
+
         cl_int setProperty(cl_command_queue_properties properties,
                            cl_bool enable,
                            cl_command_queue_properties *old_properties);
-        
+
         cl_int checkProperties() const;
         void pushEventsOnDevice();
         void cleanEvents();
-        
+
     private:
         Context *p_ctx;
         DeviceInterface *p_device;
         cl_command_queue_properties p_properties;
-        
+
         unsigned int p_references;
         std::list<Event *> p_events;
         pthread_mutex_t p_event_list_mutex;
@@ -79,7 +79,7 @@ class Event
             User = CL_COMMAND_USER,
             Barrier
         };
-        
+
         enum Status
         {
             Queued = CL_QUEUED,
@@ -87,15 +87,15 @@ class Event
             Running = CL_RUNNING,
             Complete = CL_COMPLETE
         };
-        
+
         typedef void (CL_CALLBACK *event_callback)(cl_event, cl_int, void *);
-        
+
         struct CallbackData
         {
             event_callback callback;
             void *user_data;
         };
-        
+
         enum Timing
         {
             Queue,
@@ -104,37 +104,37 @@ class Event
             End,
             Max
         };
-        
+
     public:
-        Event(CommandQueue *parent, 
+        Event(CommandQueue *parent,
               Status status,
-              cl_uint num_events_in_wait_list, 
+              cl_uint num_events_in_wait_list,
               const Event **event_wait_list,
               cl_int *errcode_ret);
-        
+
         void setReleaseParent(bool release);
         virtual ~Event();
-        
+
         virtual Type type() const = 0;
         bool isSingleShot() const; /*!< Cannot be split on several execution units */
         bool isDummy() const;      /*!< Doesn't do anything, it's just an event type */
-        
+
         void reference();
         bool dereference();     /*!< @return true if reference becomes 0 */
-        
+
         void setStatus(Status status);
         void setDeviceData(void *data);
         void updateTiming(Timing timing);
         Status status() const;
         void waitForStatus(Status status);
         void *deviceData();
-        
+
         const Event **waitEvents(cl_uint &count) const;
-        
-        void setCallback(cl_int command_exec_callback_type, 
+
+        void setCallback(cl_int command_exec_callback_type,
                          event_callback callback,
                          void *user_data);
-        
+
         cl_int info(cl_context_info param_name,
                     size_t param_value_size,
                     void *param_value,
@@ -147,16 +147,16 @@ class Event
         CommandQueue *p_parent;
         cl_uint p_num_events_in_wait_list;
         const Event **p_event_wait_list;
-        
+
         pthread_cond_t p_state_change_cond;
         pthread_mutex_t p_state_mutex;
         bool p_release_parent;
-        
+
         unsigned int p_references;
         Status p_status;
         void *p_device_data;
         std::multimap<Status, CallbackData> p_callbacks;
-        
+
         cl_uint p_timing[Max];
 };
 

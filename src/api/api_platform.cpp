@@ -19,14 +19,14 @@ clGetPlatformIDs(cl_uint          num_entries,
         *num_platforms = 1;
     else if (!platforms)
         return CL_INVALID_VALUE;
-    
+
     if (!num_entries && platforms)
         return CL_INVALID_VALUE;
-    
+
     if (platforms != 0)
         // Only one "default" platform, identified by NULL
         *platforms = 0;
-    
+
     return CL_SUCCESS;
 }
 
@@ -39,49 +39,49 @@ clGetPlatformInfo(cl_platform_id   platform,
 {
     const char *string = 0;
     unsigned long len = 0;
-    
+
     if (platform != 0)
         // NULL or what is returned by clGetPlatformIDs, that's to say also NULL
         return CL_INVALID_PLATFORM;
-    
+
     switch (param_name) {
         case CL_PLATFORM_PROFILE:
             string = platform_profile;
             len = sizeof(platform_profile);
             break;
-            
+
         case CL_PLATFORM_VERSION:
             string = platform_version;
             len = sizeof(platform_version);
             break;
-            
+
         case CL_PLATFORM_NAME:
             string = platform_name;
             len = sizeof(platform_name);
             break;
-            
+
         case CL_PLATFORM_VENDOR:
             string = platform_vendor;
             len = sizeof(platform_vendor);
             break;
-            
+
         case CL_PLATFORM_EXTENSIONS:
             string = platform_extensions;
             len = sizeof(platform_extensions);
             break;
-            
+
         default:
             return CL_INVALID_VALUE;
     }
-    
+
     if (param_value_size < len && param_value != 0)
         return CL_INVALID_VALUE;
-    
+
     if (param_value != 0)
         memcpy(param_value, string, len);
-    
+
     if (param_value_size_ret)
         *param_value_size_ret = len;
-    
+
     return CL_SUCCESS;
 }

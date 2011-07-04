@@ -26,30 +26,30 @@ static void *worker(void *data)
     CPUDevice *device = (CPUDevice *)data;
     bool stop = false, success;
     Event *event;
-    
+
     while (true)
     {
         event = device->getEvent(stop);
-        
+
         // Ensure we have a good event and we don't have to stop
         if (stop) break;
         if (!event) continue;
-        
+
         // Get info about the event and its command queue
         Event::Type t = event->type();
         CommandQueue *queue = 0;
         cl_command_queue_properties queue_props = 0;
         success = true;
-        
+
         event->info(CL_EVENT_COMMAND_QUEUE, sizeof(CommandQueue *), &queue, 0);
-        
+
         if (queue)
             queue->info(CL_QUEUE_PROPERTIES, sizeof(cl_command_queue_properties),
                         &queue_props, 0);
-        
+
         if (queue_props & CL_QUEUE_PROFILING_ENABLE)
             event->updateTiming(Event::Start);
-        
+
         // Execute the action
         switch (t)
         {
@@ -59,48 +59,48 @@ static void *worker(void *data)
                 ReadWriteBufferEvent *e = (ReadWriteBufferEvent *)event;
                 CPUBuffer *buf = (CPUBuffer *)e->buffer()->deviceBuffer(device);
                 char *data = (char *)buf->data();
-                
+
                 data += e->offset();
-                
+
                 if (t == Event::ReadBuffer)
                     memcpy(e->ptr(), data, e->cb());
                 else
                     memcpy(data, e->ptr(), e->cb());
-                
+
                 break;
             }
             case Event::MapBuffer:
                 // All was already done in CPUBuffer::initEventDeviceData()
                 break;
-                
+
             case Event::NativeKernel:
             {
                 NativeKernelEvent *e = (NativeKernelEvent *)event;
                 void (*func)(void *) = (void (*)(void *))e->function();
                 void *args = e->args();
-                
+
                 func(args);
-                
+
                 break;
             }
             default:
                 break;
         }
-        
+
         // Cleanups
         if (success)
         {
             event->setStatus(Event::Complete);
-            
+
             if (queue_props & CL_QUEUE_PROFILING_ENABLE)
                 event->updateTiming(Event::End);
-            
+
             // Clean the queue
             if (queue)
                 queue->cleanEvents();
         }
     }
-    
+
     return 0;
 }
 
@@ -108,17 +108,17 @@ static void *worker(void *data)
  * CPUDevice
  */
 
-CPUDevice::CPUDevice() 
+CPUDevice::CPUDevice()
 : DeviceInterface::DeviceInterface(), p_cores(0), p_workers(0), p_stop(false),
   p_num_events(0)
 {
     // Initialize the locking machinery
     pthread_cond_init(&p_events_cond, 0);
     pthread_mutex_init(&p_events_mutex, 0);
-    
+
     // Create 4 worker threads
     p_workers = (pthread_t *)malloc(numCPUs() * sizeof(pthread_t));
-    
+
     for (int i=0; i<numCPUs(); ++i)
     {
         pthread_create(&p_workers[i], 0, &worker, this);
@@ -129,17 +129,17 @@ CPUDevice::~CPUDevice()
 {
     // Terminate the workers and wait for them
     pthread_mutex_lock(&p_events_mutex);
-    
+
     p_stop = true;
-    
+
     pthread_cond_broadcast(&p_events_cond);
     pthread_mutex_unlock(&p_events_mutex);
-    
+
     for (int i=0; i<numCPUs(); ++i)
     {
         pthread_join(p_workers[i], 0);
     }
-    
+
     // Free allocated memory
     free((void *)p_workers);
     pthread_mutex_destroy(&p_events_mutex);
@@ -160,20 +160,20 @@ cl_int CPUDevice::initEventDeviceData(Event *event)
             MapBufferEvent *e = (MapBufferEvent *)event;
             CPUBuffer *buf = (CPUBuffer *)e->buffer()->deviceBuffer(this);
             char *data = (char *)buf->data();
-            
+
             data += e->offset();
-            
+
             e->setPtr((void *)data);
             break;
         }
         case Event::UnmapMemObject:
             // Nothing do to
             break;
-       
+
         default:
             break;
     }
-    
+
     return CL_SUCCESS;
 }
 
@@ -181,10 +181,10 @@ void CPUDevice::pushEvent(Event *event)
 {
     // Add an event in the list
     pthread_mutex_lock(&p_events_mutex);
-    
+
     p_events.push_back(event);
     p_num_events++;                 // Way faster than STL list::size() !
-    
+
     pthread_cond_broadcast(&p_events_cond);
     pthread_mutex_unlock(&p_events_mutex);
 }
@@ -194,28 +194,28 @@ Event *CPUDevice::getEvent(bool &stop)
     // Return the first event in the list, if any. Remove it if it is a
     // single-shot event.
     pthread_mutex_lock(&p_events_mutex);
-    
+
     while (p_num_events == 0)
         pthread_cond_wait(&p_events_cond, &p_events_mutex);
-    
+
     Event *event = p_events.front();
-    
+
     // If event is single-shot, remove it
     if (event->isSingleShot())
     {
         p_num_events--;
         p_events.pop_front();
     }
-    
+
     pthread_mutex_unlock(&p_events_mutex);
-    
+
     return event;
 }
 
 unsigned int CPUDevice::numCPUs()
 {
     if (p_cores) return p_cores;
-    
+
     return (p_cores = sysconf(_SC_NPROCESSORS_ONLN));
 }
 
@@ -246,14 +246,14 @@ float CPUDevice::cpuMhz()
     return cpuMhz;
 }
 
-cl_int CPUDevice::info(cl_device_info param_name, 
-                       size_t param_value_size, 
-                       void *param_value, 
+cl_int CPUDevice::info(cl_device_info param_name,
+                       size_t param_value_size,
+                       void *param_value,
                        size_t *param_value_size_ret)
 {
     void *value = 0;
     size_t value_length = 0;
-    
+
     union {
         cl_device_type cl_device_type_var;
         cl_uint cl_uint_var;
@@ -268,31 +268,31 @@ cl_int CPUDevice::info(cl_device_info param_name,
         cl_platform_id cl_platform_id_var;
         size_t three_size_t[3];
     };
-    
+
     switch (param_name)
     {
         case CL_DEVICE_TYPE:
             SIMPLE_ASSIGN(cl_device_type, CL_DEVICE_TYPE_CPU);
             break;
-        
+
         case CL_DEVICE_VENDOR_ID:
             SIMPLE_ASSIGN(cl_uint, 0);
             break;
-        
+
         case CL_DEVICE_MAX_COMPUTE_UNITS:
             SIMPLE_ASSIGN(cl_uint, numCPUs());
             break;
-        
+
         case CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS:
             // TODO: Spec minimum
             SIMPLE_ASSIGN(cl_uint, 3);
             break;
-        
+
         case CL_DEVICE_MAX_WORK_GROUP_SIZE:
             // TODO: Spec minimum
             SIMPLE_ASSIGN(size_t, 1);
             break;
-        
+
         case CL_DEVICE_MAX_WORK_ITEM_SIZES:
             three_size_t[0] = 1;
             three_size_t[1] = 1;
@@ -300,257 +300,257 @@ cl_int CPUDevice::info(cl_device_info param_name,
             value_length = 3 * sizeof(size_t);
             value = &three_size_t;
             break;
-        
+
         case CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR:
             SIMPLE_ASSIGN(cl_uint, 16);
             break;
-        
+
         case CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT:
             SIMPLE_ASSIGN(cl_uint, 8);
             break;
-        
+
         case CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT:
             SIMPLE_ASSIGN(cl_uint, 4);
             break;
-        
+
         case CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG:
             SIMPLE_ASSIGN(cl_uint, 2);
             break;
-        
+
         case CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT:
             SIMPLE_ASSIGN(cl_uint, 4);
             break;
-        
+
         case CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE:
             SIMPLE_ASSIGN(cl_uint, 2);
             break;
-        
+
         case CL_DEVICE_MAX_CLOCK_FREQUENCY:
             SIMPLE_ASSIGN(cl_uint, cpuMhz() * 1000000);
             break;
-        
+
         case CL_DEVICE_ADDRESS_BITS:
             SIMPLE_ASSIGN(cl_uint, 32);
             break;
-        
+
         case CL_DEVICE_MAX_READ_IMAGE_ARGS:
             SIMPLE_ASSIGN(cl_uint, 65536);
             break;
-        
+
         case CL_DEVICE_MAX_WRITE_IMAGE_ARGS:
             SIMPLE_ASSIGN(cl_uint, 65536);
             break;
-        
+
         case CL_DEVICE_MAX_MEM_ALLOC_SIZE:
             SIMPLE_ASSIGN(cl_ulong, 128*1024*1024);
             break;
-        
+
         case CL_DEVICE_IMAGE2D_MAX_WIDTH:
             SIMPLE_ASSIGN(size_t, 65536);
             break;
-        
+
         case CL_DEVICE_IMAGE2D_MAX_HEIGHT:
             SIMPLE_ASSIGN(size_t, 65536);
             break;
-        
+
         case CL_DEVICE_IMAGE3D_MAX_WIDTH:
             SIMPLE_ASSIGN(size_t, 65536);
             break;
-        
+
         case CL_DEVICE_IMAGE3D_MAX_HEIGHT:
             SIMPLE_ASSIGN(size_t, 65536);
             break;
-        
+
         case CL_DEVICE_IMAGE3D_MAX_DEPTH:
             SIMPLE_ASSIGN(size_t, 65536);
             break;
-        
+
         case CL_DEVICE_IMAGE_SUPPORT:
             SIMPLE_ASSIGN(cl_bool, CL_TRUE);
             break;
-        
+
         case CL_DEVICE_MAX_PARAMETER_SIZE:
             SIMPLE_ASSIGN(size_t, 65536);
             break;
-        
+
         case CL_DEVICE_MAX_SAMPLERS:
             SIMPLE_ASSIGN(cl_uint, 16);
             break;
-        
+
         case CL_DEVICE_MEM_BASE_ADDR_ALIGN:
             SIMPLE_ASSIGN(cl_uint, 16);
             break;
-        
+
         case CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE:
             SIMPLE_ASSIGN(cl_uint, 16);
             break;
-        
+
         case CL_DEVICE_SINGLE_FP_CONFIG:
             // TODO: Check what an x86 SSE engine can support.
-            SIMPLE_ASSIGN(cl_device_fp_config, 
+            SIMPLE_ASSIGN(cl_device_fp_config,
                           CL_FP_DENORM |
                           CL_FP_INF_NAN |
                           CL_FP_ROUND_TO_NEAREST);
             break;
-        
+
         case CL_DEVICE_GLOBAL_MEM_CACHE_TYPE:
             SIMPLE_ASSIGN(cl_device_mem_cache_type,
                           CL_READ_WRITE_CACHE);
             break;
-        
+
         case CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE:
             // TODO: Get this information from the processor
             SIMPLE_ASSIGN(cl_uint, 16);
             break;
-        
+
         case CL_DEVICE_GLOBAL_MEM_CACHE_SIZE:
             // TODO: Get this information from the processor
             SIMPLE_ASSIGN(cl_ulong, 512*1024*1024);
             break;
-        
+
         case CL_DEVICE_GLOBAL_MEM_SIZE:
             // TODO: 1 Gio seems to be enough for software acceleration
             SIMPLE_ASSIGN(cl_ulong, 1*1024*1024*1024);
             break;
-        
+
         case CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE:
             SIMPLE_ASSIGN(cl_ulong, 1*1024*1024*1024);
             break;
-        
+
         case CL_DEVICE_MAX_CONSTANT_ARGS:
             SIMPLE_ASSIGN(cl_uint, 65536);
             break;
-        
+
         case CL_DEVICE_LOCAL_MEM_TYPE:
             SIMPLE_ASSIGN(cl_device_local_mem_type, CL_GLOBAL);
             break;
-        
+
         case CL_DEVICE_LOCAL_MEM_SIZE:
             SIMPLE_ASSIGN(cl_ulong, 1*1024*1024*1024);
             break;
-        
+
         case CL_DEVICE_ERROR_CORRECTION_SUPPORT:
             SIMPLE_ASSIGN(cl_bool, CL_FALSE);
             break;
-        
+
         case CL_DEVICE_PROFILING_TIMER_RESOLUTION:
             // TODO
             SIMPLE_ASSIGN(size_t, 1000);        // 1000 nanoseconds = 1 ms
             break;
-        
+
         case CL_DEVICE_ENDIAN_LITTLE:
             SIMPLE_ASSIGN(cl_bool, CL_TRUE);
             break;
-        
+
         case CL_DEVICE_AVAILABLE:
             SIMPLE_ASSIGN(cl_bool, CL_TRUE);
             break;
-        
+
         case CL_DEVICE_COMPILER_AVAILABLE:
             SIMPLE_ASSIGN(cl_bool, CL_TRUE);
             break;
-        
+
         case CL_DEVICE_EXECUTION_CAPABILITIES:
             SIMPLE_ASSIGN(cl_device_exec_capabilities, CL_EXEC_KERNEL |
                           CL_EXEC_NATIVE_KERNEL);
             break;
-        
+
         case CL_DEVICE_QUEUE_PROPERTIES:
             SIMPLE_ASSIGN(cl_command_queue_properties,
                           CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE |
                           CL_QUEUE_PROFILING_ENABLE);
             break;
-        
+
         case CL_DEVICE_NAME:
             STRING_ASSIGN("CPU");
             break;
-        
+
         case CL_DEVICE_VENDOR:
             STRING_ASSIGN("Mesa");
             break;
-        
+
         case CL_DRIVER_VERSION:
             STRING_ASSIGN("" COAL_VERSION);
             break;
-        
+
         case CL_DEVICE_PROFILE:
             STRING_ASSIGN("FULL_PROFILE");
             break;
-        
+
         case CL_DEVICE_VERSION:
             STRING_ASSIGN("OpenCL 1.1 Mesa " COAL_VERSION);
             break;
-        
+
         case CL_DEVICE_EXTENSIONS:
             STRING_ASSIGN("cl_khr_global_int32_base_atomics"
                           " cl_khr_global_int32_extended_atomics"
                           " cl_khr_local_int32_base_atomics"
                           " cl_khr_local_int32_extended_atomics"
                           " cl_khr_byte_addressable_store"
-                          
+
                           " cl_khr_fp64"
                           " cl_khr_int64_base_atomics"
                           " cl_khr_int64_extended_atomics")
 
             break;
-        
+
         case CL_DEVICE_PLATFORM:
             SIMPLE_ASSIGN(cl_platform_id, 0);
             break;
-        
+
         case CL_DEVICE_PREFERRED_VECTOR_WIDTH_HALF:
             SIMPLE_ASSIGN(cl_uint, 0);
             break;
-        
+
         case CL_DEVICE_HOST_UNIFIED_MEMORY:
             SIMPLE_ASSIGN(cl_bool, CL_TRUE);
             break;
-        
+
         case CL_DEVICE_NATIVE_VECTOR_WIDTH_CHAR:
             SIMPLE_ASSIGN(cl_uint, 16);
             break;
-        
+
         case CL_DEVICE_NATIVE_VECTOR_WIDTH_SHORT:
             SIMPLE_ASSIGN(cl_uint, 8);
             break;
-        
+
         case CL_DEVICE_NATIVE_VECTOR_WIDTH_INT:
             SIMPLE_ASSIGN(cl_uint, 4);
             break;
-        
+
         case CL_DEVICE_NATIVE_VECTOR_WIDTH_LONG:
             SIMPLE_ASSIGN(cl_uint, 2);
             break;
-        
+
         case CL_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT:
             SIMPLE_ASSIGN(cl_uint, 4);
             break;
-        
+
         case CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE:
             SIMPLE_ASSIGN(cl_uint, 2);
             break;
-        
+
         case CL_DEVICE_NATIVE_VECTOR_WIDTH_HALF:
             SIMPLE_ASSIGN(cl_uint, 0);
             break;
-        
+
         case CL_DEVICE_OPENCL_C_VERSION:
             STRING_ASSIGN("OpenCL C 1.1 LLVM " LLVM_VERSION);
             break;
-            
+
         default:
             return CL_INVALID_VALUE;
     }
-    
+
     if (param_value && param_value_size < value_length)
         return CL_INVALID_VALUE;
-    
+
     if (param_value_size_ret)
         *param_value_size_ret = value_length;
-        
+
     if (param_value)
         memcpy(param_value, value, value_length);
-    
+
     return CL_SUCCESS;
 }
 
@@ -567,10 +567,10 @@ CPUBuffer::CPUBuffer(CPUDevice *device, MemObject *buffer, cl_int *rs)
         SubBuffer *subbuf = (SubBuffer *)buffer;
         MemObject *parent = subbuf->parent();
         CPUBuffer *parentcpubuf = (CPUBuffer *)parent->deviceBuffer(device);
-        
+
         char *tmp_data = (char *)parentcpubuf->data();
         tmp_data += subbuf->offset();
-        
+
         p_data = (void *)tmp_data;
     }
     else if (buffer->flags() & CL_MEM_USE_HOST_PTR)
@@ -597,35 +597,35 @@ void *CPUBuffer::nativeGlobalPointer() const
 {
     return data();
 }
-        
+
 bool CPUBuffer::allocate()
 {
     size_t buf_size = p_buffer->size();
-    
+
     if (buf_size == 0)
         // Something went wrong...
         return false;
-    
+
     if (!p_data)
     {
         // We don't use a host ptr, we need to allocate a buffer
         p_data = malloc(buf_size);
-        
+
         if (!p_data)
             return false;
-        
+
         p_data_malloced = true;
     }
-    
+
     if (p_buffer->type() != MemObject::SubBuffer &&
         p_buffer->flags() & CL_MEM_COPY_HOST_PTR)
     {
         memcpy(p_data, p_buffer->host_ptr(), buf_size);
     }
-    
+
     // Say to the memobject that we are allocated
     p_buffer->deviceAllocated(this);
-    
+
     return true;
 }
 

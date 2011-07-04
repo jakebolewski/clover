@@ -12,30 +12,30 @@ clCreateContext(const cl_context_properties  *properties,
                 cl_int *                      errcode_ret)
 {
     cl_int default_errcode_ret;
-    
-    // No errcode_ret ? 
+
+    // No errcode_ret ?
     if (!errcode_ret)
         errcode_ret = &default_errcode_ret;
-    
-    if (!devices || 
+
+    if (!devices ||
         !num_devices ||
         (!pfn_notify && user_data))
     {
         *errcode_ret = CL_INVALID_VALUE;
         return 0;
     }
-    
+
     *errcode_ret = CL_SUCCESS;
     Coal::Context *ctx = new Coal::Context(properties, num_devices, devices,
                                            pfn_notify, user_data, errcode_ret);
-    
+
     if (*errcode_ret != CL_SUCCESS)
     {
         // Initialization failed, destroy context
         delete ctx;
         return 0;
     }
-    
+
     return (_cl_context *)ctx;
 }
 
@@ -47,12 +47,12 @@ clCreateContextFromType(const cl_context_properties   *properties,
                         cl_int *                errcode_ret)
 {
     cl_device_id device;
-    
+
     *errcode_ret = clGetDeviceIDs(0, device_type, 1, &device, 0);
-    
+
     if (*errcode_ret != CL_SUCCESS)
         return 0;
-    
+
     return clCreateContext(properties, 1, &device, pfn_notify, user_data,
                            errcode_ret);
 }
@@ -62,9 +62,9 @@ clRetainContext(cl_context context)
 {
     if (!context)
         return CL_INVALID_CONTEXT;
-    
+
     context->reference();
-    
+
     return CL_SUCCESS;
 }
 
@@ -73,10 +73,10 @@ clReleaseContext(cl_context context)
 {
     if (!context)
         return CL_INVALID_CONTEXT;
-        
+
     if (context->dereference())
         delete context;
-    
+
     return CL_SUCCESS;
 }
 
@@ -89,7 +89,7 @@ clGetContextInfo(cl_context         context,
 {
     if (!context)
         return CL_INVALID_CONTEXT;
-    
+
     return context->info(param_name, param_value_size, param_value,
                          param_value_size_ret);
 }

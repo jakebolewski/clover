@@ -9,56 +9,56 @@ START_TEST (test_create_buffer)
     cl_mem buf;
     cl_int result;
     char s[] = "Hello, world !";
-    
+
     ctx = clCreateContextFromType(0, CL_DEVICE_TYPE_CPU, 0, 0, &result);
     fail_if(
         result != CL_SUCCESS,
         "unable to create a valid context"
     );
-    
+
     buf = clCreateBuffer(0, CL_MEM_READ_WRITE, sizeof(s), 0, &result);
     fail_if(
         result != CL_INVALID_CONTEXT,
         "0 is not a valid context"
     );
-    
+
     buf = clCreateBuffer(ctx, 1337, sizeof(s), 0, &result);
     fail_if(
         result != CL_INVALID_VALUE,
         "1337 is not a valid cl_mem_flags"
     );
-    
+
     buf = clCreateBuffer(ctx, CL_MEM_USE_HOST_PTR, sizeof(s), 0, &result);
     fail_if(
         result != CL_INVALID_HOST_PTR,
         "host_ptr cannot be NULL if flags is CL_MEM_USE_HOST_PTR"
     );
-    
+
     buf = clCreateBuffer(ctx, CL_MEM_COPY_HOST_PTR, sizeof(s), 0, &result);
     fail_if(
         result != CL_INVALID_HOST_PTR,
         "host_ptr cannot be NULL if flags is CL_MEM_COPY_HOST_PTR"
     );
-    
+
     buf = clCreateBuffer(ctx, 0, sizeof(s), s, &result);
     fail_if(
         result != CL_INVALID_HOST_PTR,
         "host_ptr must be NULL if flags is not CL_MEM_{COPY/USE}_HOST_PTR"
     );
-    
+
     buf = clCreateBuffer(ctx, CL_MEM_USE_HOST_PTR, 0, s, &result);
     fail_if(
         result != CL_INVALID_BUFFER_SIZE,
         "size cannot be 0"
     );
-    
+
     buf = clCreateBuffer(ctx, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
                          sizeof(s), s, &result);
     fail_if(
         result != CL_SUCCESS,
         "cannot create a valid CL_MEM_COPY_HOST_PTR read-write buffer"
     );
-    
+
     clReleaseMemObject(buf);
     clReleaseContext(ctx);
 }
@@ -70,33 +70,33 @@ START_TEST (test_create_sub_buffer)
     cl_mem buf, subbuf;
     cl_int result;
     char s[] = "Hello, world !";
-    
+
     cl_buffer_region create_info;    // "Hello, [world] !"
-    
+
     create_info.origin = 7;
     create_info.size = 5;
-    
+
     ctx = clCreateContextFromType(0, CL_DEVICE_TYPE_CPU, 0, 0, &result);
     fail_if(
         result != CL_SUCCESS,
         "unable to create a valid context"
     );
-    
+
     buf = clCreateBuffer(ctx, CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR,
                          sizeof(s), s, &result);
     fail_if(
         result != CL_SUCCESS,
         "cannot create a valid CL_MEM_USE_HOST_PTR read-write buffer"
     );
-    
-    subbuf = clCreateSubBuffer(0, CL_MEM_WRITE_ONLY, 
-                               CL_BUFFER_CREATE_TYPE_REGION, 
+
+    subbuf = clCreateSubBuffer(0, CL_MEM_WRITE_ONLY,
+                               CL_BUFFER_CREATE_TYPE_REGION,
                                (void *)&create_info, &result);
     fail_if(
         result != CL_INVALID_MEM_OBJECT,
         "0 is not a valid mem object"
     );
-    
+
     subbuf = clCreateSubBuffer(buf, CL_MEM_READ_ONLY,
                                CL_BUFFER_CREATE_TYPE_REGION,
                                (void *)&create_info, &result);
@@ -104,23 +104,23 @@ START_TEST (test_create_sub_buffer)
         result != CL_INVALID_VALUE,
         "READ_ONLY is not compatible with WRITE_ONLY"
     );
-    
+
     subbuf = clCreateSubBuffer(buf, CL_MEM_WRITE_ONLY, 1337, (void *)&create_info,
                             &result);
     fail_if(
         result != CL_INVALID_VALUE,
         "1337 is not a valid buffer_create_type"
     );
-    
-    subbuf = clCreateSubBuffer(buf, CL_MEM_WRITE_ONLY, 
+
+    subbuf = clCreateSubBuffer(buf, CL_MEM_WRITE_ONLY,
                             CL_BUFFER_CREATE_TYPE_REGION, 0, &result);
     fail_if(
         result != CL_INVALID_VALUE,
         "buffer_create_info cannot be NULL"
     );
-    
+
     create_info.size = 0;
-    
+
     subbuf = clCreateSubBuffer(buf, CL_MEM_WRITE_ONLY,
                             CL_BUFFER_CREATE_TYPE_REGION,
                             (void *)&create_info, &result);
@@ -128,9 +128,9 @@ START_TEST (test_create_sub_buffer)
         result != CL_INVALID_BUFFER_SIZE,
         "create_info.size cannot be 0"
     );
-    
+
     create_info.size = 5;
-    
+
     subbuf = clCreateSubBuffer(buf, CL_MEM_WRITE_ONLY,
                             CL_BUFFER_CREATE_TYPE_REGION,
                             (void *)&create_info, &result);
@@ -138,7 +138,7 @@ START_TEST (test_create_sub_buffer)
         result != CL_SUCCESS || subbuf == 0,
         "cannot create a valid sub-buffer"
     );
-    
+
     subbuf = clCreateSubBuffer(subbuf, CL_MEM_WRITE_ONLY,
                             CL_BUFFER_CREATE_TYPE_REGION,
                             (void *)&create_info, &result);
@@ -146,7 +146,7 @@ START_TEST (test_create_sub_buffer)
         result != CL_INVALID_MEM_OBJECT,
         "we cannot create a sub-buffer of a sub-buffer"
     );
-    
+
     clReleaseMemObject(subbuf);
     clReleaseMemObject(buf);
     clReleaseContext(ctx);
@@ -161,37 +161,37 @@ START_TEST (test_read_write_subbuf)
     cl_device_id device;
     cl_int result;
     char s[] = "Hello, Denis !";
-    
+
     cl_buffer_region create_info;
-    
+
     create_info.origin = 7;      // "Hello, [denis] !"
     create_info.size = 5;
-    
+
     result = clGetDeviceIDs(0, CL_DEVICE_TYPE_CPU, 1, &device, 0);
     fail_if(
         result != CL_SUCCESS,
         "cannot get a device"
     );
-    
+
     ctx = clCreateContext(0, 1, &device, 0, 0, &result);
     fail_if(
         result != CL_SUCCESS,
         "unable to create a valid context"
     );
-    
+
     queue = clCreateCommandQueue(ctx, device, 0, &result);
     fail_if(
         result != CL_SUCCESS || queue == 0,
         "cannot create a command queue"
     );
-    
+
     buf = clCreateBuffer(ctx, CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR,
                          sizeof(s), s, &result);
     fail_if(
         result != CL_SUCCESS,
         "cannot create a valid CL_MEM_USE_HOST_PTR read-write buffer"
     );
-    
+
     subbuf = clCreateSubBuffer(buf, CL_MEM_WRITE_ONLY,
                             CL_BUFFER_CREATE_TYPE_REGION,
                             (void *)&create_info, &result);
@@ -199,28 +199,28 @@ START_TEST (test_read_write_subbuf)
         result != CL_SUCCESS || subbuf == 0,
         "cannot create a valid sub-buffer"
     );
-    
+
     ////
     char *hostptr;
     char *valid_hostptr = s;
-    
+
     valid_hostptr += create_info.origin;
-    
+
     result = clGetMemObjectInfo(subbuf, CL_MEM_HOST_PTR, sizeof(char *),
                                 (void *)&hostptr, 0);
     fail_if(
         result != CL_SUCCESS || hostptr != valid_hostptr,
         "the host ptr of a subbuffer must point to a subportion of its parent buffer"
     );
-    
+
     result = clEnqueueWriteBuffer(queue, subbuf, 1, 0, 5, "world", 0, 0, 0);
     fail_if(
         result != CL_SUCCESS,
         "unable to write to the sub buffer"
     );
-    
+
     char data[16];
-    
+
     result = clEnqueueReadBuffer(queue, subbuf, 1, 0, 5, data, 0, 0, 0);
     fail_if(
         result != CL_SUCCESS,
@@ -230,7 +230,7 @@ START_TEST (test_read_write_subbuf)
         strncmp(data, "world", 5),
         "the subbuffer must contain \"world\""
     );
-    
+
     result = clEnqueueReadBuffer(queue, buf, 1, 0, sizeof(s), data, 0, 0, 0);
     fail_if(
         result != CL_SUCCESS,
@@ -240,7 +240,7 @@ START_TEST (test_read_write_subbuf)
         strncmp(data, "Hello, world !", sizeof(s)),
         "the buffer must contain \"Hello, world !\""
     );
-    
+
     clReleaseMemObject(subbuf);
     clReleaseMemObject(buf);
     clReleaseContext(ctx);

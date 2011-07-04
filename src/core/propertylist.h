@@ -6,7 +6,7 @@
     type##_var = (type)_value;              \
     value = & type##_var;                   \
 } while (0);
-    
+
 #define STRING_ASSIGN(string) do {          \
     static const char str[] = string;       \
     value_length = sizeof(str);             \

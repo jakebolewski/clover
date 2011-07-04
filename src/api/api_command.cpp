@@ -10,37 +10,37 @@ clCreateCommandQueue(cl_context                     context,
                      cl_int *                       errcode_ret)
 {
     cl_int default_errcode_ret;
-    
-    // No errcode_ret ? 
+
+    // No errcode_ret ?
     if (!errcode_ret)
         errcode_ret = &default_errcode_ret;
-    
+
     if (!device)
     {
         *errcode_ret = CL_INVALID_DEVICE;
         return 0;
     }
-    
+
     if (!context)
     {
         *errcode_ret = CL_INVALID_CONTEXT;
         return 0;
     }
-    
+
     *errcode_ret = CL_SUCCESS;
     Coal::CommandQueue *queue = new Coal::CommandQueue(
                                         (Coal::Context *)context,
                                         (Coal::DeviceInterface *)device,
                                         properties,
                                         errcode_ret);
-    
+
     if (*errcode_ret != CL_SUCCESS)
     {
         // Initialization failed, destroy context
         delete queue;
         return 0;
     }
-    
+
     return (_cl_command_queue *)queue;
 }
 
@@ -49,9 +49,9 @@ clRetainCommandQueue(cl_command_queue command_queue)
 {
     if (!command_queue)
         return CL_INVALID_COMMAND_QUEUE;
-    
+
     command_queue->reference();
-    
+
     return CL_SUCCESS;
 }
 
@@ -60,12 +60,12 @@ clReleaseCommandQueue(cl_command_queue command_queue)
 {
     if (!command_queue)
         return CL_INVALID_COMMAND_QUEUE;
-    
+
     // TODO: Flush command queue
-        
+
     if (command_queue->dereference())
         delete command_queue;
-    
+
     return CL_SUCCESS;
 }
 
@@ -78,7 +78,7 @@ clGetCommandQueueInfo(cl_command_queue      command_queue,
 {
     if (!command_queue)
         return CL_INVALID_COMMAND_QUEUE;
-    
+
     return command_queue->info(param_name, param_value_size, param_value,
                                param_value_size_ret);
 }
@@ -91,6 +91,6 @@ clSetCommandQueueProperty(cl_command_queue              command_queue,
 {
     if (!command_queue)
         return CL_INVALID_COMMAND_QUEUE;
-    
+
     return command_queue->setProperty(properties, enable, old_properties);
 }
