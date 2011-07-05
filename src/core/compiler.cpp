@@ -4,22 +4,20 @@
 #include <string>
 #include <sstream>
 #include <clang/Frontend/CompilerInvocation.h>
-#include <clang/Basic/Diagnostic.h>
+#include <clang/Frontend/TextDiagnosticPrinter.h>
 #include <clang/Frontend/LangStandard.h>
+#include <clang/Basic/Diagnostic.h>
 #include <clang/CodeGen/CodeGenAction.h>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/Support/Host.h>
 #include <llvm/Module.h>
 #include <llvm/LLVMContext.h>
 
-
 using namespace Coal;
 
-Compiler::Compiler(const char *options)
-: p_valid(false)
+Compiler::Compiler(const std::string &options)
+: p_valid(false), p_log_stream(p_log), p_log_printer(0)
 {
-    size_t len = std::strlen(options);
-
     // Set codegen options
     clang::CodeGenOptions &codegen_opts = p_compiler.getCodeGenOpts();
     codegen_opts.DebugInfo = false;
@@ -30,11 +28,11 @@ Compiler::Compiler(const char *options)
     diag_opts.Pedantic = true;
     diag_opts.ShowColumn = true;
     diag_opts.ShowLocation = true;
-    diag_opts.ShowCarets = true;
+    diag_opts.ShowCarets = false;
     diag_opts.ShowFixits = true;
     diag_opts.ShowColors = false;
     diag_opts.ErrorLimit = 19;
-    diag_opts.MessageLength = 80;
+    diag_opts.MessageLength = 0;
     diag_opts.DumpBuildInformation = std::string();
     diag_opts.DiagnosticLogFile = std::string();
 
@@ -78,7 +76,8 @@ Compiler::Compiler(const char *options)
     }
 
     // Create the diagnostics engine
-    p_compiler.createDiagnostics(0, NULL);
+    p_log_printer = new clang::TextDiagnosticPrinter(p_log_stream, diag_opts);
+    p_compiler.createDiagnostics(0, NULL, p_log_printer);
 
     if (!p_compiler.hasDiagnostics())
         return;
@@ -115,10 +114,16 @@ llvm::Module *Compiler::compile(llvm::MemoryBuffer *source)
         return 0;
     }
 
+    p_log_stream.flush();
     module = act->takeModule();
 
     // Cleanup
     prep_opts.eraseRemappedFile(prep_opts.remapped_file_buffer_end());
 
     return module;
+}
+
+std::string Compiler::log() const
+{
+    return p_log;
 }

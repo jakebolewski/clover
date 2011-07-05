@@ -134,6 +134,8 @@ cl_int Program::build(const char *options,
                       void *user_data, cl_uint num_devices,
                       const cl_device_id *device_list)
 {
+    p_options = std::string(options);
+
     // Set device infos
     if (!p_num_devices)
     {
@@ -149,7 +151,7 @@ cl_int Program::build(const char *options,
     // Do we need to compile a source ?
     if (p_type == Source)
     {
-        Compiler *compiler = new Compiler(options);
+        Compiler *compiler = new Compiler(p_options);
 
         if (!compiler->valid())
         {
@@ -167,6 +169,7 @@ cl_int Program::build(const char *options,
                                                                       s_name);
 
         p_linked_module = compiler->compile(buffer);
+        p_log = compiler->log();
         delete compiler;
 
         if (!p_linked_module)
@@ -283,6 +286,63 @@ cl_int Program::info(cl_context_info param_name,
 
             return CL_SUCCESS;
         }
+
+        default:
+            return CL_INVALID_VALUE;
+    }
+
+    if (param_value && param_value_size < value_length)
+        return CL_INVALID_VALUE;
+
+    if (param_value_size_ret)
+        *param_value_size_ret = value_length;
+
+    if (param_value)
+        std::memcpy(param_value, value, value_length);
+
+    return CL_SUCCESS;
+}
+
+cl_int Program::buildInfo(cl_context_info param_name,
+                          size_t param_value_size,
+                          void *param_value,
+                          size_t *param_value_size_ret)
+{
+    const void *value = 0;
+    size_t value_length = 0;
+
+    union {
+        cl_build_status cl_build_status_var;
+    };
+
+    switch (param_name)
+    {
+        case CL_PROGRAM_BUILD_STATUS:
+            switch (p_state)
+            {
+                case Empty:
+                case Loaded:
+                    SIMPLE_ASSIGN(cl_build_status, CL_BUILD_NONE);
+                    break;
+                case Built:
+                    SIMPLE_ASSIGN(cl_build_status, CL_BUILD_SUCCESS);
+                    break;
+                case Failed:
+                    SIMPLE_ASSIGN(cl_build_status, CL_BUILD_ERROR);
+                    break;
+                // TODO: CL_BUILD_IN_PROGRESS
+            }
+            break;
+
+        case CL_PROGRAM_BUILD_OPTIONS:
+            value = p_options.c_str();
+            value_length = p_options.size() + 1;
+            break;
+
+        case CL_PROGRAM_BUILD_LOG:
+            value = p_log.c_str();
+            value_length = p_log.size() + 1;
+            break;
 
         default:
             return CL_INVALID_VALUE;

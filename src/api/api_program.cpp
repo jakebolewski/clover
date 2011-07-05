@@ -256,5 +256,9 @@ clGetProgramBuildInfo(cl_program            program,
                       void *                param_value,
                       size_t *              param_value_size_ret)
 {
-    return 0;
+    if (!program)
+        return CL_INVALID_PROGRAM;
+
+    return program->buildInfo(param_name, param_value_size, param_value,
+                              param_value_size_ret);
 }

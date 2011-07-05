@@ -2,9 +2,11 @@
 #include "CL/cl.h"
 
 #include <cstdlib>
+#include <cstring>
 
 const char program_source[] =
     "#define __global __attribute__((address_space(1)))\n"
+    "#warning We need that line\n"
     "\n"
     "__kernel void test(__global float *a, __global float *b, int n) {\n"
     "   int i;\n"
@@ -145,11 +147,79 @@ START_TEST (test_program_binary)
 }
 END_TEST
 
+START_TEST (test_program_build_info)
+{
+    cl_platform_id platform = 0;
+    cl_device_id device;
+    cl_context ctx;
+    cl_program program;
+    cl_int result;
+
+    const char *src = program_source;
+    size_t program_len = sizeof(program_source);
+
+    result = clGetDeviceIDs(platform, CL_DEVICE_TYPE_DEFAULT, 1, &device, 0);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to get the default device"
+    );
+
+    ctx = clCreateContext(0, 1, &device, 0, 0, &result);
+    fail_if(
+        result != CL_SUCCESS || ctx == 0,
+        "unable to create a valid context"
+    );
+
+    program = clCreateProgramWithSource(ctx, 1, &src, 0, &result);
+    fail_if(
+        result != CL_SUCCESS,
+        "lengths can be NULL and it must work"
+    );
+
+    result = clBuildProgram(program, 1, &device, "", 0, 0);
+    fail_if(
+        result != CL_SUCCESS,
+        "cannot build a valid program"
+    );
+
+    char *log = 0;
+    size_t log_len;
+
+    result = clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG,
+                                   0, 0, &log_len);
+    fail_if(
+        result != CL_SUCCESS,
+        "cannot get the build log len"
+    );
+    fail_if(
+        log_len == 0,
+        "we put a warning in the source, log cannot be of lentgth 0"
+    );
+
+    log = (char *)std::malloc(log_len);
+
+    result = clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG,
+                                   log_len, log, 0);
+    fail_if(
+        result != CL_SUCCESS,
+        "cannot get the build log"
+    );
+    fail_if(
+        !std::strstr(log, "We need that line"),
+        "the build log doesn't contain the warning found in the source"
+    );
+
+    clReleaseProgram(program);
+    clReleaseContext(ctx);
+}
+END_TEST
+
 TCase *cl_program_tcase_create(void)
 {
     TCase *tc = NULL;
     tc = tcase_create("program");
     tcase_add_test(tc, test_create_program);
     tcase_add_test(tc, test_program_binary);
+    tcase_add_test(tc, test_program_build_info);
     return tc;
 }

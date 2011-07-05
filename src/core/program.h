@@ -59,6 +59,10 @@ class Program
                     size_t param_value_size,
                     void *param_value,
                     size_t *param_value_size_ret);
+        cl_int buildInfo(cl_context_info param_name,
+                         size_t param_value_size,
+                         void *param_value,
+                         size_t *param_value_size_ret);
 
     private:
         Context *p_ctx;
@@ -68,7 +72,7 @@ class Program
         cl_uint p_num_devices;
         cl_device_id *p_devices;
 
-        std::string p_source;
+        std::string p_source, p_options, p_log;
         std::string p_unlinked_binary;
         llvm::Module *p_linked_module;
 };
