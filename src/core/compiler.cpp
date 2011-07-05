@@ -46,8 +46,6 @@ bool Compiler::setOptions(const std::string &options)
     diag_opts.ShowColors = false;
     diag_opts.ErrorLimit = 19;
     diag_opts.MessageLength = 0;
-    diag_opts.DumpBuildInformation = std::string();
-    diag_opts.DiagnosticLogFile = std::string();
 
     // Set frontend options
     clang::FrontendOptions &frontend_opts = p_compiler.getFrontendOpts();
