@@ -22,6 +22,7 @@ Compiler::Compiler(const std::string &options)
     clang::CodeGenOptions &codegen_opts = p_compiler.getCodeGenOpts();
     codegen_opts.DebugInfo = false;
     codegen_opts.AsmVerbose = true;
+    codegen_opts.OptimizationLevel = 2;
 
     // Set diagnostic options
     clang::DiagnosticOptions &diag_opts = p_compiler.getDiagnosticOpts();
@@ -69,10 +70,67 @@ Compiler::Compiler(const std::string &options)
     // Parse the user options
     std::istringstream options_stream(options);
     std::string token;
+    bool Werror = false, inI = false, inD = false;
 
     while (options_stream >> token)
     {
+        if (inI)
+        {
+            // token is an include path
+            header_opts.AddPath(token, clang::frontend::Angled, true, false, false);
+            inI = false;
+            continue;
+        }
+        else if (inD)
+        {
+            // token is name or name=value
+            prep_opts.addMacroDef(token);
+        }
 
+        if (token == "-I")
+        {
+            inI = true;
+        }
+        else if (token == "-D")
+        {
+            inD = true;
+        }
+        else if (token == "-cl-single-precision-constant")
+        {
+            lang_opts.SinglePrecisionConstants = true;
+        }
+        else if (token == "-cl-opt-disable")
+        {
+            codegen_opts.OptimizationLevel = 0;
+        }
+        else if (token == "-cl-mad-enable")
+        {
+            codegen_opts.LessPreciseFPMAD = true;
+        }
+        else if (token == "-cl-unsafe-math-optimizations")
+        {
+            codegen_opts.UnsafeFPMath = true;
+        }
+        else if (token == "-cl-finite-math-only")
+        {
+            codegen_opts.NoInfsFPMath = true;
+            codegen_opts.NoNaNsFPMath = true;
+        }
+        else if (token == "-cl-fast-relaxed-math")
+        {
+            codegen_opts.UnsafeFPMath = true;
+            codegen_opts.NoInfsFPMath = true;
+            codegen_opts.NoNaNsFPMath = true;
+            lang_opts.FastRelaxedMath = true;
+        }
+        else if (token == "-w")
+        {
+            diag_opts.IgnoreWarnings = true;
+        }
+        else if (token == "-Werror")
+        {
+            Werror = true;
+        }
     }
 
     // Create the diagnostics engine
@@ -81,6 +139,8 @@ Compiler::Compiler(const std::string &options)
 
     if (!p_compiler.hasDiagnostics())
         return;
+
+    p_compiler.getDiagnostics().setWarningsAsErrors(Werror);
 
     p_valid = true;
 }
