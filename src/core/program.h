@@ -14,6 +14,7 @@ namespace Coal
 {
 
 class Context;
+class Compiler;
 
 class Program
 {
@@ -66,13 +67,14 @@ class Program
 
     private:
         Context *p_ctx;
+        Compiler *p_compiler;
         unsigned int p_references;
         Type p_type;
         State p_state;
         cl_uint p_num_devices;
         cl_device_id *p_devices;
 
-        std::string p_source, p_options, p_log;
+        std::string p_source;
         std::string p_unlinked_binary;
         llvm::Module *p_linked_module;
 };

@@ -23,20 +23,20 @@ namespace Coal
 class Compiler
 {
     public:
-        Compiler(const std::string &options);
+        Compiler();
         ~Compiler();
 
+        bool setOptions(const std::string &options);
         llvm::Module *compile(llvm::MemoryBuffer *source);
-        std::string log() const;
 
+        const std::string &log() const;
+        const std::string &options() const;
         bool valid() const;
 
     private:
-        bool p_valid;
-
         clang::CompilerInstance p_compiler;
 
-        std::string p_log;
+        std::string p_log, p_options;
         llvm::raw_string_ostream p_log_stream;
         clang::TextDiagnosticPrinter *p_log_printer;
 };

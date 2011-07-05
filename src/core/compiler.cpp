@@ -15,9 +15,21 @@
 
 using namespace Coal;
 
-Compiler::Compiler(const std::string &options)
-: p_valid(false), p_log_stream(p_log), p_log_printer(0)
+Compiler::Compiler()
+: p_log_stream(p_log), p_log_printer(0)
 {
+
+}
+
+Compiler::~Compiler()
+{
+
+}
+
+bool Compiler::setOptions(const std::string &options)
+{
+    p_options = options;
+
     // Set codegen options
     clang::CodeGenOptions &codegen_opts = p_compiler.getCodeGenOpts();
     codegen_opts.DebugInfo = false;
@@ -138,21 +150,11 @@ Compiler::Compiler(const std::string &options)
     p_compiler.createDiagnostics(0, NULL, p_log_printer);
 
     if (!p_compiler.hasDiagnostics())
-        return;
+        return false;
 
     p_compiler.getDiagnostics().setWarningsAsErrors(Werror);
 
-    p_valid = true;
-}
-
-Compiler::~Compiler()
-{
-
-}
-
-bool Compiler::valid() const
-{
-    return p_valid;
+    return true;
 }
 
 llvm::Module *Compiler::compile(llvm::MemoryBuffer *source)
@@ -183,7 +185,12 @@ llvm::Module *Compiler::compile(llvm::MemoryBuffer *source)
     return module;
 }
 
-std::string Compiler::log() const
+const std::string &Compiler::log() const
 {
     return p_log;
+}
+
+const std::string &Compiler::options() const
+{
+    return p_options;
 }

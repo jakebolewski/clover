@@ -25,11 +25,15 @@ Program::Program(Context *ctx)
 {
     // Retain parent context
     clRetainContext((cl_context)ctx);
+
+    p_compiler = new Compiler();
 }
 
 Program::~Program()
 {
     clReleaseContext((cl_context)p_ctx);
+
+    delete p_compiler;
 
     if (p_devices)
         std::free((void *)p_devices);
@@ -134,8 +138,6 @@ cl_int Program::build(const char *options,
                       void *user_data, cl_uint num_devices,
                       const cl_device_id *device_list)
 {
-    p_options = std::string(options);
-
     // Set device infos
     if (!p_num_devices)
     {
@@ -151,9 +153,7 @@ cl_int Program::build(const char *options,
     // Do we need to compile a source ?
     if (p_type == Source)
     {
-        Compiler *compiler = new Compiler(p_options);
-
-        if (!compiler->valid())
+        if (!p_compiler->setOptions(options))
         {
             if (pfn_notify)
                 pfn_notify((cl_program)this, user_data);
@@ -168,9 +168,7 @@ cl_int Program::build(const char *options,
         llvm::MemoryBuffer *buffer = llvm::MemoryBuffer::getMemBuffer(s_data,
                                                                       s_name);
 
-        p_linked_module = compiler->compile(buffer);
-        p_log = compiler->log();
-        delete compiler;
+        p_linked_module = p_compiler->compile(buffer);
 
         if (!p_linked_module)
         {
@@ -335,13 +333,13 @@ cl_int Program::buildInfo(cl_context_info param_name,
             break;
 
         case CL_PROGRAM_BUILD_OPTIONS:
-            value = p_options.c_str();
-            value_length = p_options.size() + 1;
+            value = p_compiler->options().c_str();
+            value_length = p_compiler->options().size() + 1;
             break;
 
         case CL_PROGRAM_BUILD_LOG:
-            value = p_log.c_str();
-            value_length = p_log.size() + 1;
+            value = p_compiler->log().c_str();
+            value_length = p_compiler->log().size() + 1;
             break;
 
         default:
