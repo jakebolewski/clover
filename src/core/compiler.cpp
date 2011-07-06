@@ -3,6 +3,7 @@
 #include <cstring>
 #include <string>
 #include <sstream>
+#include <iostream>
 #include <clang/Frontend/CompilerInvocation.h>
 #include <clang/Frontend/TextDiagnosticPrinter.h>
 #include <clang/Frontend/LangStandard.h>
@@ -71,9 +72,8 @@ bool Compiler::setOptions(const std::string &options)
 
     // Set preprocessor options
     clang::PreprocessorOptions &prep_opts = p_compiler.getPreprocessorOpts();
-    //prep_opts.Includes.push_back("stdlib.h");
-    //prep_opts.addRemappedFile("stdlib.h", ...);
 
+    // Set invocation options
     clang::CompilerInvocation &invocation = p_compiler.getInvocation();
     invocation.setLangDefaults(clang::IK_OpenCL);
 
@@ -171,6 +171,8 @@ llvm::Module *Compiler::compile(llvm::MemoryBuffer *source)
 
     if (!p_compiler.ExecuteAction(*act))
     {
+        // DEBUG
+        std::cout << log() << std::endl;
         return 0;
     }
 

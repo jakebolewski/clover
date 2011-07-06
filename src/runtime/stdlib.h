@@ -1,8 +1,3 @@
-#ifndef COAL_INTERNAL_H
-#define COAL_INTERNAL_H
-
-#define __kernel
-
 typedef unsigned char uchar;
 typedef unsigned short ushort;
 typedef unsigned int uint;
@@ -39,6 +34,4 @@ COAL_VECTOR_SET(float);
 #define __private __attribute__((address_space(4)))
 
 
-extern int get_global_id(int);
-
-#endif
+int get_global_id(int);

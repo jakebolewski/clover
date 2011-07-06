@@ -17,6 +17,8 @@
 #include <llvm/LLVMContext.h>
 #include <llvm/Module.h>
 
+#include <stdlib.h.embed.h>
+
 using namespace Coal;
 
 Program::Program(Context *ctx)
@@ -53,6 +55,8 @@ bool Program::dereference()
 cl_int Program::loadSources(cl_uint count, const char **strings,
                             const size_t *lengths)
 {
+    p_source = std::string(embed_stdlib_h);
+
     // Merge all strings into one big one
     for (int i=0; i<count; ++i)
     {

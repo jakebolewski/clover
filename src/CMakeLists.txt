@@ -3,12 +3,13 @@ include_directories (${Coal_SOURCE_DIR}/include
                     ${LLVM_INCLUDE_DIR}
                     ${GALLIUM_INCLUDE_DIRS}
                     ${CLANG_INCLUDE_DIRS}
+                    ${CMAKE_CURRENT_BINARY_DIR}/core/
+                    ${CMAKE_CURRENT_BINARY_DIR}/runtime/
                     )
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
 
 configure_file(core/config.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/core/config.h)
-include_directories(${CMAKE_CURRENT_BINARY_DIR}/core/)
 
 set(COAL_SRC_FILES
     api/api_command.cpp
@@ -24,7 +25,7 @@ set(COAL_SRC_FILES
     api/api_profiling.cpp
     api/api_sampler.cpp
     api/api_gl.cpp
-    
+
     core/cpudevice.cpp
     core/context.cpp
     core/commandqueue.cpp
@@ -32,12 +33,17 @@ set(COAL_SRC_FILES
     core/events.cpp
     core/program.cpp
     core/compiler.cpp
+
+    ${CMAKE_CURRENT_BINARY_DIR}/runtime/stdlib.h.embed.h
 )
 
-configure_file(builtins/coal-internal.h.in
-              ${CMAKE_CURRENT_BINARY_DIR}/builtins/coal-internal.h )
+add_subdirectory(runtime)
 
 add_library(OpenCL SHARED ${COAL_SRC_FILES})
+
+set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/runtime/stdlib.h.embed.h
+                            PROPERTIES GENERATED 1)
+add_dependencies(OpenCL generate_stdlib_h)
 
 SET(LIBRARY_OUTPUT_PATH ${Coal_BINARY_DIR}/lib)
 
@@ -46,13 +52,12 @@ SET_TARGET_PROPERTIES(OpenCL PROPERTIES
   SOVERSION ${${PROJECT_NAME}_SOVERSION}
 )
 
-set_source_files_properties( ${COAL_SRC_FILES}
+set_source_files_properties(${COAL_SRC_FILES}
         PROPERTIES COMPILE_FLAGS ${LLVM_COMPILE_FLAGS})
 
 set_target_properties(OpenCL PROPERTIES
   LINK_FLAGS ${LLVM_LDFLAGS}
   LINK_INTERFACE_LIBRARIES "")
-
 
 TARGET_LINK_LIBRARIES(OpenCL
         ${CLANG_LIBS}
@@ -63,5 +68,3 @@ TARGET_LINK_LIBRARIES(OpenCL
 )
 
 install(TARGETS OpenCL LIBRARY DESTINATION /usr/lib)
-
-#add_subdirectory(tools)

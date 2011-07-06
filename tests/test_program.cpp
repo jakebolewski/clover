@@ -5,14 +5,13 @@
 #include <cstring>
 
 const char program_source[] =
-    "#define __global __attribute__((address_space(1)))\n"
     "#warning We need that line\n"
     "\n"
-    "__kernel void test(__global float *a, __global float *b, int n) {\n"
+    "__kernel void test(__global float4 *a, __global float4 *b, int n) {\n"
     "   int i;\n"
     "\n"
     "   for (i=0; i<n; i++) {\n"
-    "       a[i] = 3.1415926f * b[0] * b[0];\n"
+    "       a[i].xwyz = 3.1415926f * b[0].xyzw * b[0].wzyx;\n"
     "   }\n"
     "}\n";
 
