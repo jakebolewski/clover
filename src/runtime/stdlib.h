@@ -4,10 +4,12 @@ typedef unsigned char uchar;
 typedef unsigned short ushort;
 typedef unsigned int uint;
 typedef unsigned long ulong;
-typedef unsigned long size_t;   // NOTE: Doesn't match the spec
-typedef signed long ptrdiff_t;
 typedef int *intptr_t;
 typedef uint *uintptr_t;
+
+/* Standard types from Clang's stddef, Copyright (C) 2008 Eli Friedman */
+typedef __typeof__(((int*)0)-((int*)0)) ptrdiff_t;
+typedef __typeof__(sizeof(int)) size_t;
 
 /* Vectors */
 

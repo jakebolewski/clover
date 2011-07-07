@@ -1,5 +1,9 @@
 #include "stdlib.h"
 
+/* WARNING: Due to some device-specific things in stdlib.h, the bitcode stdlib
+ * must only be used by CPUDevice, as it's targeted to the host CPU at Clover's
+ * compilation! */
+
 /* Global variable that can be used by CPUDevice to store thread-specific data */
 __thread void *g_thread_data;
 
