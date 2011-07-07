@@ -35,6 +35,7 @@ set(COAL_SRC_FILES
     core/compiler.cpp
 
     ${CMAKE_CURRENT_BINARY_DIR}/runtime/stdlib.h.embed.h
+    ${CMAKE_CURRENT_BINARY_DIR}/runtime/stdlib.c.bc.embed.h
 )
 
 add_subdirectory(runtime)
@@ -43,7 +44,10 @@ add_library(OpenCL SHARED ${COAL_SRC_FILES})
 
 set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/runtime/stdlib.h.embed.h
                             PROPERTIES GENERATED 1)
+set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/runtime/stdlib.c.bc.embed.h
+                            PROPERTIES GENERATED 1)
 add_dependencies(OpenCL generate_stdlib_h)
+add_dependencies(OpenCL generate_stdlib_c)
 
 SET(LIBRARY_OUTPUT_PATH ${Coal_BINARY_DIR}/lib)
 

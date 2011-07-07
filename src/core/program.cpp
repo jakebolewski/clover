@@ -18,6 +18,7 @@
 #include <llvm/Module.h>
 
 #include <stdlib.h.embed.h>
+#include <stdlib.c.bc.embed.h>
 
 using namespace Coal;
 
@@ -189,6 +190,8 @@ cl_int Program::build(const char *options,
         llvm::WriteBitcodeToFile(p_linked_module, ostream);
         ostream.flush();
     }
+
+    // Link p_linked_module with the stdlib if the device needs that
 
     // TODO: Asynchronous compile
     if (pfn_notify)
