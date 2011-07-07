@@ -176,6 +176,11 @@ cl_int CPUDevice::initEventDeviceData(Event *event)
     return CL_SUCCESS;
 }
 
+bool CPUDevice::linkStdLib() const
+{
+    return true;
+}
+
 void CPUDevice::pushEvent(Event *event)
 {
     // Add an event in the list

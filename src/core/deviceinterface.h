@@ -26,6 +26,8 @@ class DeviceInterface
 
         /** @note must set mapping address of MapBuffer events */
         virtual cl_int initEventDeviceData(Event *event) = 0;
+
+        virtual bool linkStdLib() const = 0;    /*!< Program must link stdlib.bc in binaries */
 };
 
 class DeviceBuffer

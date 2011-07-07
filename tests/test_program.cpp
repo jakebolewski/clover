@@ -7,12 +7,10 @@
 const char program_source[] =
     "#warning We need that line\n"
     "\n"
-    "__kernel void test(__global float4 *a, __global float4 *b, int n) {\n"
-    "   int i;\n"
+    "__kernel void test(__global float4 *a, __global float4 *b) {\n"
+    "   int i = get_global_id(0);\n"
     "\n"
-    "   for (i=0; i<n; i++) {\n"
-    "       a[i].xwyz = 3.1415926f * b[0].xyzw * b[0].wzyx;\n"
-    "   }\n"
+    "   a[i].xwyz = 3.1415926f * b[0].xyzw * b[0].wzyx;\n"
     "}\n";
 
 START_TEST (test_create_program)

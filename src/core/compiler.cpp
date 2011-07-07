@@ -17,7 +17,8 @@
 using namespace Coal;
 
 Compiler::Compiler(DeviceInterface *device)
-: p_log_stream(p_log), p_log_printer(0), p_device(device), p_module(0)
+: p_log_stream(p_log), p_log_printer(0), p_device(device), p_module(0),
+  p_optimize(true)
 {
 
 }
@@ -45,7 +46,7 @@ bool Compiler::compile(const std::string &options,
     // Set codegen options
     codegen_opts.DebugInfo = false;
     codegen_opts.AsmVerbose = true;
-    codegen_opts.OptimizationLevel = 2;
+    codegen_opts.OptimizationLevel = 3;
 
     // Set diagnostic options
     diag_opts.Pedantic = true;
@@ -114,6 +115,7 @@ bool Compiler::compile(const std::string &options,
         }
         else if (token == "-cl-opt-disable")
         {
+            p_optimize = false;
             codegen_opts.OptimizationLevel = 0;
         }
         else if (token == "-cl-mad-enable")
@@ -190,7 +192,17 @@ const std::string &Compiler::options() const
     return p_options;
 }
 
+bool Compiler::optimize() const
+{
+    return p_optimize;
+}
+
 llvm::Module *Compiler::module() const
 {
     return p_module;
+}
+
+void Compiler::appendLog(const std::string &log)
+{
+    p_log += log;
 }

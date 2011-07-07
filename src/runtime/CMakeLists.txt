@@ -14,7 +14,7 @@ endmacro(EMBED_FILE)
 macro(COMPILE_BITCODE INFILE INNAME)
     add_custom_command(
         OUTPUT ${INFILE}.bc
-        COMMAND clang -c -emit-llvm -x cl
+        COMMAND clang -c -emit-llvm -x cl -O2
                 ${CMAKE_CURRENT_SOURCE_DIR}/${INFILE}
                 -o ${CMAKE_CURRENT_BINARY_DIR}/${INFILE}.bc
         DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${INFILE})

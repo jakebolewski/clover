@@ -9,6 +9,7 @@ namespace llvm
 {
     class MemoryBuffer;
     class Module;
+    class Function;
 }
 
 namespace Coal
@@ -41,7 +42,6 @@ class Program
 
         cl_int loadSources(cl_uint count, const char **strings,
                            const size_t *lengths);
-        /** We don't use the devices here, we use LLVM IR */
         cl_int loadBinaries(const unsigned char **data, const size_t *lengths,
                             cl_int *binary_status, cl_uint num_devices,
                             DeviceInterface * const*device_list);
@@ -57,6 +57,8 @@ class Program
         Type type() const;
         State state() const;
         Context *context() const;
+
+        std::vector<llvm::Function *> kernelFunctions(DeviceInterface *device);
 
         cl_int info(cl_context_info param_name,
                     size_t param_value_size,

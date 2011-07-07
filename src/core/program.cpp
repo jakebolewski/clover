@@ -2,6 +2,9 @@
 #include "context.h"
 #include "compiler.h"
 #include "propertylist.h"
+#include "deviceinterface.h"
+
+#include "StandardPasses.h"
 
 #include <string>
 #include <cstring>
@@ -13,9 +16,15 @@
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/raw_ostream.h>
+#include <llvm/Support/Casting.h>
 #include <llvm/Bitcode/ReaderWriter.h>
+#include <llvm/Transforms/IPO.h>
 #include <llvm/LLVMContext.h>
 #include <llvm/Module.h>
+#include <llvm/Linker.h>
+#include <llvm/PassManager.h>
+#include <llvm/Metadata.h>
+#include <llvm/Function.h>
 
 #include <stdlib.h.embed.h>
 #include <stdlib.c.bc.embed.h>
@@ -116,6 +125,33 @@ Program::DeviceDependent &Program::deviceDependent(DeviceInterface *device)
     }
 }
 
+std::vector<llvm::Function *> Program::kernelFunctions(DeviceInterface *device)
+{
+    std::vector<llvm::Function *> rs;
+
+    DeviceDependent &dep = deviceDependent(device);
+    llvm::NamedMDNode *kernels = dep.linked_module->getNamedMetadata("opencl.kernels");
+
+    if (!kernels)
+        return rs;
+
+    for (unsigned int i=0; i<kernels->getNumOperands(); ++i)
+    {
+        llvm::MDNode *node = kernels->getOperand(i);
+
+        // Each node has only one operand : a llvm::Function
+        llvm::Value *value = node->getOperand(0);
+
+        if (!llvm::isa<llvm::Function>(value))
+            continue;       // Bug somewhere, don't crash
+
+        llvm::Function *f = llvm::cast<llvm::Function>(value);
+        rs.push_back(f);
+    }
+
+    return rs;
+}
+
 cl_int Program::loadBinaries(const unsigned char **data, const size_t *lengths,
                              cl_int *binary_status, cl_uint num_devices,
                              DeviceInterface * const*device_list)
@@ -165,19 +201,21 @@ cl_int Program::build(const char *options,
                       void *user_data, cl_uint num_devices,
                       DeviceInterface * const*device_list)
 {
+    p_state = Failed;
+
     // Set device infos
     if (!p_device_dependent.size())
     {
         setDevices(num_devices, device_list);
     }
 
-    // Do we need to compile the source for each device ?
-    if (p_type == Source)
+    for (int i=0; i<num_devices; ++i)
     {
-        for (int i=0; i<num_devices; ++i)
-        {
-            DeviceDependent &dep = deviceDependent(device_list[i]);
+        DeviceDependent &dep = deviceDependent(device_list[i]);
 
+        // Do we need to compile the source for each device ?
+        if (p_type == Source)
+        {
             // Load source
             const llvm::StringRef s_data(p_source);
             const llvm::StringRef s_name("<source>");
@@ -188,8 +226,6 @@ cl_int Program::build(const char *options,
             // Compile
             if (!dep.compiler->compile(options, buffer))
             {
-                p_state = Failed;
-
                 if (pfn_notify)
                     pfn_notify((cl_program)this, user_data);
 
@@ -200,13 +236,76 @@ cl_int Program::build(const char *options,
             dep.linked_module = dep.compiler->module();
 
             llvm::raw_string_ostream ostream(dep.unlinked_binary);
-
             llvm::WriteBitcodeToFile(dep.linked_module, ostream);
             ostream.flush();
         }
-    }
 
-    // Link p_linked_module with the stdlib if the device needs that
+        // Link p_linked_module with the stdlib if the device needs that
+        if (dep.device->linkStdLib())
+        {
+            // Load the stdlib bitcode
+            const llvm::StringRef s_data(embed_stdlib_c_bc,
+                                         sizeof(embed_stdlib_c_bc) - 1);
+            const llvm::StringRef s_name("stdlib.bc");
+            std::string errMsg;
+
+            llvm::MemoryBuffer *buffer = llvm::MemoryBuffer::getMemBuffer(s_data,
+                                                                          s_name,
+                                                                          false);
+
+            if (!buffer)
+                return CL_OUT_OF_HOST_MEMORY;
+
+            llvm::Module *stdlib = ParseBitcodeFile(buffer,
+                                                    llvm::getGlobalContext(),
+                                                    &errMsg);
+
+            // Link
+            if (!stdlib ||
+                llvm::Linker::LinkModules(dep.linked_module, stdlib, &errMsg))
+            {
+                dep.compiler->appendLog("link error: ");
+                dep.compiler->appendLog(errMsg);
+                dep.compiler->appendLog("\n");
+
+                // DEBUG
+                std::cout << dep.compiler->log() << std::endl;
+
+                if (pfn_notify)
+                    pfn_notify((cl_program)this, user_data);
+
+                return CL_BUILD_PROGRAM_FAILURE;
+            }
+
+            // Get the list of kernels because we'll strip all the other unreferenced functions
+            std::vector<const char *> api;
+            std::vector<std::string> api_s;     // Needed to keep valid data in api
+            std::vector<llvm::Function *> kernels = kernelFunctions(dep.device);
+
+            api.push_back("g_thread_data");
+
+            for (int j=0; j<kernels.size(); ++j)
+            {
+                std::string s = kernels.at(j)->getNameStr();
+
+                api_s.push_back(s);
+                api.push_back(s.c_str());
+            }
+
+            // Optimize code
+            if (dep.compiler->optimize())
+            {
+                llvm::PassManager *manager = new llvm::PassManager();
+
+                createStandardLTOPasses(manager, true, true, api);
+                manager->run(*dep.linked_module);
+
+                delete manager;
+            }
+
+            dep.linked_module->dump();
+        }
+    }
 
     // TODO: Asynchronous compile
     if (pfn_notify)

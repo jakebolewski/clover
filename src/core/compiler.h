@@ -32,14 +32,16 @@ class Compiler
 
         const std::string &log() const;
         const std::string &options() const;
-        bool valid() const;
-
+        bool optimize() const;
         llvm::Module *module() const;
+
+        void appendLog(const std::string &log);
 
     private:
         DeviceInterface *p_device;
         clang::CompilerInstance p_compiler;
         llvm::Module *p_module;
+        bool p_optimize;
 
         std::string p_log, p_options;
         llvm::raw_string_ostream p_log_stream;
