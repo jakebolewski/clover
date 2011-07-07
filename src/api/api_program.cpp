@@ -63,13 +63,13 @@ clCreateProgramWithBinary(cl_context            context,
         return 0;
     }
 
-    if (!num_devices || !device_list)
+    if (!num_devices || !device_list || !lengths || !binaries)
     {
         *errcode_ret = CL_INVALID_VALUE;
         return 0;
     }
 
-    // Even if we don't use them, check the devices for compliance
+    // Check the devices for compliance
     cl_uint context_num_devices = 0;
     cl_device_id *context_devices;
 
@@ -93,6 +93,15 @@ clCreateProgramWithBinary(cl_context            context,
     {
         bool found = false;
 
+        if (!lengths[i] || !binaries[i])
+        {
+            if (binary_status)
+                binary_status[i] = CL_INVALID_VALUE;
+
+            *errcode_ret = CL_INVALID_VALUE;
+            return 0;
+        }
+
         for (int j=0; j<context_num_devices; ++j)
         {
             if (device_list[i] == context_devices[j])
@@ -114,16 +123,9 @@ clCreateProgramWithBinary(cl_context            context,
     *errcode_ret = CL_SUCCESS;
 
     // Init program
-    cl_int dummy_binary_status;
-
-    *errcode_ret = program->loadBinary((const unsigned char *)binaries[0],
-                                       lengths[0], &dummy_binary_status,
-                                       num_devices, device_list);
-
-    // Propagate binary status
-    if (binary_status)
-        for (int i=0; i<num_devices; ++i)
-            binary_status[i] = dummy_binary_status;
+    *errcode_ret = program->loadBinaries(binaries,
+                                         lengths, binary_status, num_devices,
+                                         (Coal::DeviceInterface * const*)device_list);
 
     if (*errcode_ret != CL_SUCCESS)
     {
@@ -177,7 +179,7 @@ clBuildProgram(cl_program           program,
     if (!pfn_notify && user_data)
         return CL_INVALID_VALUE;
 
-    // Even if we don't use them, check the devices for compliance
+    // Check the devices for compliance
     if (num_devices)
     {
         cl_uint context_num_devices = 0;
@@ -225,7 +227,7 @@ clBuildProgram(cl_program           program,
 
     // Build program
     return program->build(options, pfn_notify, user_data, num_devices,
-                          device_list);
+                          (Coal::DeviceInterface * const*)device_list);
 }
 
 cl_int
@@ -259,6 +261,7 @@ clGetProgramBuildInfo(cl_program            program,
     if (!program)
         return CL_INVALID_PROGRAM;
 
-    return program->buildInfo(param_name, param_value_size, param_value,
+    return program->buildInfo((Coal::DeviceInterface *)device, param_name,
+                              param_value_size, param_value,
                               param_value_size_ret);
 }

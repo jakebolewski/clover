@@ -20,21 +20,26 @@ namespace clang
 namespace Coal
 {
 
+class DeviceInterface;
+
 class Compiler
 {
     public:
-        Compiler();
+        Compiler(DeviceInterface *device);
         ~Compiler();
 
-        bool setOptions(const std::string &options);
-        llvm::Module *compile(llvm::MemoryBuffer *source);
+        bool compile(const std::string &options, llvm::MemoryBuffer *source);
 
         const std::string &log() const;
         const std::string &options() const;
         bool valid() const;
 
+        llvm::Module *module() const;
+
     private:
+        DeviceInterface *p_device;
         clang::CompilerInstance p_compiler;
+        llvm::Module *p_module;
 
         std::string p_log, p_options;
         llvm::raw_string_ostream p_log_stream;

@@ -23,23 +23,25 @@
 using namespace Coal;
 
 Program::Program(Context *ctx)
-: p_ctx(ctx), p_references(1), p_type(Invalid), p_linked_module(0), p_num_devices(0),
-  p_devices(0), p_state(Empty)
+: p_ctx(ctx), p_references(1), p_type(Invalid), p_state(Empty)
 {
     // Retain parent context
     clRetainContext((cl_context)ctx);
-
-    p_compiler = new Compiler();
 }
 
 Program::~Program()
 {
     clReleaseContext((cl_context)p_ctx);
 
-    delete p_compiler;
+    while (p_device_dependent.size())
+    {
+        DeviceDependent &dep = p_device_dependent.back();
 
-    if (p_devices)
-        std::free((void *)p_devices);
+        delete dep.compiler;
+        delete dep.linked_module;
+
+        p_device_dependent.pop_back();
+    }
 }
 
 void Program::reference()
@@ -89,51 +91,71 @@ cl_int Program::loadSources(cl_uint count, const char **strings,
     return CL_SUCCESS;
 }
 
-cl_int Program::loadBinary(const unsigned char *data, size_t length,
-                           cl_int *binary_status, cl_uint num_devices,
-                          const cl_device_id *device_list)
+void Program::setDevices(cl_uint num_devices, DeviceInterface * const*devices)
 {
-    // Sanity checks
-    if (!data || !length)
+    p_device_dependent.resize(num_devices);
+
+    for (int i=0; i<num_devices; ++i)
     {
-        *binary_status = CL_INVALID_VALUE;
-        return CL_INVALID_VALUE;
+        DeviceDependent &dep = p_device_dependent.at(i);
+
+        dep.device = devices[i];
+        dep.linked_module = 0;
+        dep.compiler = new Compiler(dep.device);
     }
+}
 
+Program::DeviceDependent &Program::deviceDependent(DeviceInterface *device)
+{
+    for (int i=0; i<p_device_dependent.size(); ++i)
+    {
+        DeviceDependent &rs = p_device_dependent.at(i);
+
+        if (rs.device == device)
+            return rs;
+    }
+}
+
+cl_int Program::loadBinaries(const unsigned char **data, const size_t *lengths,
+                             cl_int *binary_status, cl_uint num_devices,
+                             DeviceInterface * const*device_list)
+{
     // Set device infos
-    p_num_devices = num_devices;
-    p_devices = (cl_device_id *) std::malloc(num_devices * sizeof(cl_device_id));
-
-    if (!p_devices)
-        return CL_OUT_OF_HOST_MEMORY;
-
-    std::memcpy(p_devices, device_list, num_devices * sizeof(cl_device_id));
+    setDevices(num_devices, device_list);
 
     // Load the data
-    p_unlinked_binary = std::string((const char *)data, length);
-
-    const llvm::StringRef s_data((const char *)data, length);
-    const llvm::StringRef s_name("<binary>");
-
-    llvm::MemoryBuffer *buffer = llvm::MemoryBuffer::getMemBuffer(s_data, s_name,
-                                                                  false);
-
-    if (!buffer)
-        return CL_OUT_OF_HOST_MEMORY;
-
-    // Parse the bitcode and put it in a Module
-    p_linked_module = ParseBitcodeFile(buffer, llvm::getGlobalContext());
-
-    if (!p_linked_module)
+    for (int i=0; i<num_devices; ++i)
     {
-        *binary_status = CL_INVALID_VALUE;
-        return CL_INVALID_BINARY;
+        DeviceDependent &dep = deviceDependent(device_list[i]);
+
+        // Load bitcode
+        dep.unlinked_binary = std::string((const char *)data[i], lengths[i]);
+
+        // Make a module of it
+        const llvm::StringRef s_data(dep.unlinked_binary);
+        const llvm::StringRef s_name("<binary>");
+
+        llvm::MemoryBuffer *buffer = llvm::MemoryBuffer::getMemBuffer(s_data,
+                                                                      s_name,
+                                                                      false);
+
+        if (!buffer)
+            return CL_OUT_OF_HOST_MEMORY;
+
+        dep.linked_module = ParseBitcodeFile(buffer, llvm::getGlobalContext());
+
+        if (!dep.linked_module)
+        {
+            binary_status[i] = CL_INVALID_VALUE;
+            return CL_INVALID_BINARY;
+        }
+
+        binary_status[i] = CL_SUCCESS;
     }
 
     p_type = Binary;
     p_state = Loaded;
 
-    *binary_status = CL_SUCCESS;
     return CL_SUCCESS;
 }
 
@@ -141,54 +163,47 @@ cl_int Program::build(const char *options,
                       void (CL_CALLBACK *pfn_notify)(cl_program program,
                                                      void *user_data),
                       void *user_data, cl_uint num_devices,
-                      const cl_device_id *device_list)
+                      DeviceInterface * const*device_list)
 {
     // Set device infos
-    if (!p_num_devices)
+    if (!p_device_dependent.size())
     {
-        p_num_devices = num_devices;
-        p_devices = (cl_device_id *) std::malloc(num_devices * sizeof(cl_device_id));
-
-        if (!p_devices)
-            return CL_OUT_OF_HOST_MEMORY;
-
-        std::memcpy(p_devices, device_list, num_devices * sizeof(cl_device_id));
+        setDevices(num_devices, device_list);
     }
 
-    // Do we need to compile a source ?
+    // Do we need to compile the source for each device ?
     if (p_type == Source)
     {
-        if (!p_compiler->setOptions(options))
+        for (int i=0; i<num_devices; ++i)
         {
-            if (pfn_notify)
-                pfn_notify((cl_program)this, user_data);
+            DeviceDependent &dep = deviceDependent(device_list[i]);
 
-            p_state = Failed;
-            return CL_BUILD_PROGRAM_FAILURE;
+            // Load source
+            const llvm::StringRef s_data(p_source);
+            const llvm::StringRef s_name("<source>");
+
+            llvm::MemoryBuffer *buffer = llvm::MemoryBuffer::getMemBuffer(s_data,
+                                                                        s_name);
+
+            // Compile
+            if (!dep.compiler->compile(options, buffer))
+            {
+                p_state = Failed;
+
+                if (pfn_notify)
+                    pfn_notify((cl_program)this, user_data);
+
+                return CL_BUILD_PROGRAM_FAILURE;
+            }
+
+            // Get module and its bitcode
+            dep.linked_module = dep.compiler->module();
+
+            llvm::raw_string_ostream ostream(dep.unlinked_binary);
+
+            llvm::WriteBitcodeToFile(dep.linked_module, ostream);
+            ostream.flush();
         }
-
-        const llvm::StringRef s_data(p_source);
-        const llvm::StringRef s_name("<source>");
-
-        llvm::MemoryBuffer *buffer = llvm::MemoryBuffer::getMemBuffer(s_data,
-                                                                      s_name);
-
-        p_linked_module = p_compiler->compile(buffer);
-
-        if (!p_linked_module)
-        {
-            if (pfn_notify)
-                pfn_notify((cl_program)this, user_data);
-
-            p_state = Failed;
-            return CL_BUILD_PROGRAM_FAILURE;
-        }
-
-        // Save module binary in p_unlinked_binary
-        llvm::raw_string_ostream ostream(p_unlinked_binary);
-
-        llvm::WriteBitcodeToFile(p_linked_module, ostream);
-        ostream.flush();
     }
 
     // Link p_linked_module with the stdlib if the device needs that
@@ -225,6 +240,7 @@ cl_int Program::info(cl_context_info param_name,
     void *value = 0;
     size_t value_length = 0;
     llvm::SmallVector<size_t, 4> binary_sizes;
+    llvm::SmallVector<DeviceInterface *, 4> devices;
 
     union {
         cl_uint cl_uint_var;
@@ -238,11 +254,19 @@ cl_int Program::info(cl_context_info param_name,
             break;
 
         case CL_PROGRAM_NUM_DEVICES:
-            SIMPLE_ASSIGN(cl_uint, p_num_devices);
+            SIMPLE_ASSIGN(cl_uint, p_device_dependent.size());
             break;
 
         case CL_PROGRAM_DEVICES:
-            MEM_ASSIGN(p_num_devices * sizeof(cl_device_id), p_devices);
+            for (int i=0; i<p_device_dependent.size(); ++i)
+            {
+                DeviceDependent &dep = p_device_dependent.at(i);
+
+                devices.push_back(dep.device);
+            }
+
+            value = devices.data();
+            value_length = devices.size() * sizeof(DeviceInterface *);
             break;
 
         case CL_PROGRAM_CONTEXT:
@@ -254,9 +278,11 @@ cl_int Program::info(cl_context_info param_name,
             break;
 
         case CL_PROGRAM_BINARY_SIZES:
-            for (int i=0; i<p_num_devices; ++i)
+            for (int i=0; i<p_device_dependent.size(); ++i)
             {
-                binary_sizes.push_back(p_unlinked_binary.size());
+                DeviceDependent &dep = p_device_dependent.at(i);
+
+                binary_sizes.push_back(dep.unlinked_binary.size());
             }
 
             value = binary_sizes.data();
@@ -270,20 +296,21 @@ cl_int Program::info(cl_context_info param_name,
             // and std::memcpy the data
 
             unsigned char **binaries = (unsigned char **)param_value;
-            value_length = p_num_devices * sizeof(unsigned char *);
+            value_length = p_device_dependent.size() * sizeof(unsigned char *);
 
             if (!param_value || param_value_size < value_length)
                 return CL_INVALID_VALUE;
 
-            for (int i=0; i<p_num_devices; ++i)
+            for (int i=0; i<p_device_dependent.size(); ++i)
             {
+                DeviceDependent &dep = p_device_dependent.at(i);
                 unsigned char *dest = binaries[i];
 
                 if (!dest)
                     continue;
 
-                std::memcpy(dest, p_unlinked_binary.data(),
-                            p_unlinked_binary.size());
+                std::memcpy(dest, dep.unlinked_binary.data(),
+                            dep.unlinked_binary.size());
             }
 
             if (param_value_size_ret)
@@ -308,13 +335,15 @@ cl_int Program::info(cl_context_info param_name,
     return CL_SUCCESS;
 }
 
-cl_int Program::buildInfo(cl_context_info param_name,
+cl_int Program::buildInfo(DeviceInterface *device,
+                          cl_context_info param_name,
                           size_t param_value_size,
                           void *param_value,
                           size_t *param_value_size_ret)
 {
     const void *value = 0;
     size_t value_length = 0;
+    DeviceDependent &dep = deviceDependent(device);
 
     union {
         cl_build_status cl_build_status_var;
@@ -340,13 +369,13 @@ cl_int Program::buildInfo(cl_context_info param_name,
             break;
 
         case CL_PROGRAM_BUILD_OPTIONS:
-            value = p_compiler->options().c_str();
-            value_length = p_compiler->options().size() + 1;
+            value = dep.compiler->options().c_str();
+            value_length = dep.compiler->options().size() + 1;
             break;
 
         case CL_PROGRAM_BUILD_LOG:
-            value = p_compiler->log().c_str();
-            value_length = p_compiler->log().size() + 1;
+            value = dep.compiler->log().c_str();
+            value_length = dep.compiler->log().size() + 1;
             break;
 
         default:

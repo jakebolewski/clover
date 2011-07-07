@@ -16,8 +16,8 @@
 
 using namespace Coal;
 
-Compiler::Compiler()
-: p_log_stream(p_log), p_log_printer(0)
+Compiler::Compiler(DeviceInterface *device)
+: p_log_stream(p_log), p_log_printer(0), p_device(device), p_module(0)
 {
 
 }
@@ -27,18 +27,27 @@ Compiler::~Compiler()
 
 }
 
-bool Compiler::setOptions(const std::string &options)
+bool Compiler::compile(const std::string &options,
+                                llvm::MemoryBuffer *source)
 {
+    /* Set options */
     p_options = options;
 
-    // Set codegen options
     clang::CodeGenOptions &codegen_opts = p_compiler.getCodeGenOpts();
+    clang::DiagnosticOptions &diag_opts = p_compiler.getDiagnosticOpts();
+    clang::FrontendOptions &frontend_opts = p_compiler.getFrontendOpts();
+    clang::HeaderSearchOptions &header_opts = p_compiler.getHeaderSearchOpts();
+    clang::LangOptions &lang_opts = p_compiler.getLangOpts();
+    clang::TargetOptions &target_opts = p_compiler.getTargetOpts();
+    clang::PreprocessorOptions &prep_opts = p_compiler.getPreprocessorOpts();
+    clang::CompilerInvocation &invocation = p_compiler.getInvocation();
+
+    // Set codegen options
     codegen_opts.DebugInfo = false;
     codegen_opts.AsmVerbose = true;
     codegen_opts.OptimizationLevel = 2;
 
     // Set diagnostic options
-    clang::DiagnosticOptions &diag_opts = p_compiler.getDiagnosticOpts();
     diag_opts.Pedantic = true;
     diag_opts.ShowColumn = true;
     diag_opts.ShowLocation = true;
@@ -49,32 +58,26 @@ bool Compiler::setOptions(const std::string &options)
     diag_opts.MessageLength = 0;
 
     // Set frontend options
-    clang::FrontendOptions &frontend_opts = p_compiler.getFrontendOpts();
     frontend_opts.ProgramAction = clang::frontend::EmitLLVMOnly;
     frontend_opts.DisableFree = true;
-    frontend_opts.Inputs.push_back(std::make_pair(clang::IK_OpenCL, "program.cl"));
 
     // Set header search options
-    clang::HeaderSearchOptions &header_opts = p_compiler.getHeaderSearchOpts();
     header_opts.Verbose = false;
     header_opts.UseBuiltinIncludes = false;
     header_opts.UseStandardIncludes = false;
     header_opts.UseStandardCXXIncludes = false;
 
+    // Set preprocessor options
+    prep_opts.RetainRemappedFileBuffers = true;
+
     // Set lang options
-    clang::LangOptions &lang_opts = p_compiler.getLangOpts();
     lang_opts.NoBuiltin = true;
     lang_opts.OpenCL = true;
 
     // Set target options
-    clang::TargetOptions &target_opts = p_compiler.getTargetOpts();
     target_opts.Triple = llvm::sys::getHostTriple();
 
-    // Set preprocessor options
-    clang::PreprocessorOptions &prep_opts = p_compiler.getPreprocessorOpts();
-
     // Set invocation options
-    clang::CompilerInvocation &invocation = p_compiler.getInvocation();
     invocation.setLangDefaults(clang::IK_OpenCL);
 
     // Parse the user options
@@ -152,19 +155,11 @@ bool Compiler::setOptions(const std::string &options)
 
     p_compiler.getDiagnostics().setWarningsAsErrors(Werror);
 
-    return true;
-}
-
-llvm::Module *Compiler::compile(llvm::MemoryBuffer *source)
-{
     // Feed the compiler with source
-    clang::PreprocessorOptions &prep_opts = p_compiler.getPreprocessorOpts();
+    frontend_opts.Inputs.push_back(std::make_pair(clang::IK_OpenCL, "program.cl"));
     prep_opts.addRemappedFile("program.cl", source);
-    prep_opts.RetainRemappedFileBuffers = true;
 
     // Compile
-    llvm::Module *module = 0;
-
     llvm::OwningPtr<clang::CodeGenAction> act(
         new clang::EmitLLVMOnlyAction(new llvm::LLVMContext)
     );
@@ -173,16 +168,16 @@ llvm::Module *Compiler::compile(llvm::MemoryBuffer *source)
     {
         // DEBUG
         std::cout << log() << std::endl;
-        return 0;
+        return false;
     }
 
     p_log_stream.flush();
-    module = act->takeModule();
+    p_module = act->takeModule();
 
     // Cleanup
     prep_opts.eraseRemappedFile(prep_opts.remapped_file_buffer_end());
 
-    return module;
+    return true;
 }
 
 const std::string &Compiler::log() const
@@ -193,4 +188,9 @@ const std::string &Compiler::log() const
 const std::string &Compiler::options() const
 {
     return p_options;
+}
+
+llvm::Module *Compiler::module() const
+{
+    return p_module;
 }
