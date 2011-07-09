@@ -18,6 +18,7 @@ namespace Coal
 class Context;
 class Compiler;
 class DeviceInterface;
+class Kernel;
 
 class Program
 {
@@ -58,7 +59,8 @@ class Program
         State state() const;
         Context *context() const;
 
-        std::vector<llvm::Function *> kernelFunctions(DeviceInterface *device);
+        Kernel *createKernel(const std::string &name, cl_int *errcode_ret);
+        std::vector<Kernel *> createKernels(cl_int *errcode_ret);
 
         cl_int info(cl_context_info param_name,
                     size_t param_value_size,
@@ -89,6 +91,7 @@ class Program
 
         void setDevices(cl_uint num_devices, DeviceInterface * const*devices);
         DeviceDependent &deviceDependent(DeviceInterface *device);
+        std::vector<llvm::Function *> kernelFunctions(DeviceDependent &dep);
 };
 
 }

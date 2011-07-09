@@ -1,6 +1,7 @@
 #include "program.h"
 #include "context.h"
 #include "compiler.h"
+#include "kernel.h"
 #include "propertylist.h"
 #include "deviceinterface.h"
 
@@ -11,6 +12,8 @@
 #include <cstdlib>
 #include <iostream>
 #include <vector>
+#include <set>
+#include <algorithm>
 
 #include <llvm/ADT/StringRef.h>
 #include <llvm/ADT/SmallVector.h>
@@ -64,6 +67,154 @@ bool Program::dereference()
     return (p_references == 0);
 }
 
+void Program::setDevices(cl_uint num_devices, DeviceInterface * const*devices)
+{
+    p_device_dependent.resize(num_devices);
+
+    for (int i=0; i<num_devices; ++i)
+    {
+        DeviceDependent &dep = p_device_dependent.at(i);
+
+        dep.device = devices[i];
+        dep.linked_module = 0;
+        dep.compiler = new Compiler(dep.device);
+    }
+}
+
+Program::DeviceDependent &Program::deviceDependent(DeviceInterface *device)
+{
+    for (int i=0; i<p_device_dependent.size(); ++i)
+    {
+        DeviceDependent &rs = p_device_dependent.at(i);
+
+        if (rs.device == device)
+            return rs;
+    }
+}
+
+std::vector<llvm::Function *> Program::kernelFunctions(DeviceDependent &dep)
+{
+    std::vector<llvm::Function *> rs;
+
+    llvm::NamedMDNode *kernels = dep.linked_module->getNamedMetadata("opencl.kernels");
+
+    if (!kernels)
+        return rs;
+
+    for (unsigned int i=0; i<kernels->getNumOperands(); ++i)
+    {
+        llvm::MDNode *node = kernels->getOperand(i);
+
+        // Each node has only one operand : a llvm::Function
+        llvm::Value *value = node->getOperand(0);
+
+        if (!llvm::isa<llvm::Function>(value))
+            continue;       // Bug somewhere, don't crash
+
+        llvm::Function *f = llvm::cast<llvm::Function>(value);
+        rs.push_back(f);
+    }
+
+    return rs;
+}
+
+Kernel *Program::createKernel(const std::string &name, cl_int *errcode_ret)
+{
+    Kernel *rs = new Kernel(this);
+
+    // Add a function definition for each device
+    for (int i=0; i<p_device_dependent.size(); ++i)
+    {
+        bool found = false;
+        DeviceDependent &dep = p_device_dependent.at(i);
+        std::vector<llvm::Function *> kernels = kernelFunctions(dep);
+
+        // Find the one with the good name
+        for (int j=0; j<kernels.size(); ++j)
+        {
+            llvm::Function *func = kernels.at(j);
+
+            if (func->getNameStr() == name)
+            {
+                found = true;
+                *errcode_ret = rs->addFunction(dep.device, func, dep.linked_module);
+
+                if (*errcode_ret != CL_SUCCESS)
+                    return rs;
+
+                break;
+            }
+        }
+
+        if (!found)
+        {
+            // Kernel unavailable for this device
+            *errcode_ret = CL_INVALID_KERNEL_NAME;
+            return rs;
+        }
+    }
+
+    return rs;
+}
+
+std::vector<Kernel *> Program::createKernels(cl_int *errcode_ret)
+{
+    std::vector<Kernel *> rs;
+
+    // Find the kernels found for every device
+    std::set<std::string> kernels_set;
+
+    for (int i=0; i<p_device_dependent.size(); ++i)
+    {
+        DeviceDependent &dep = p_device_dependent.at(i);
+        std::vector<llvm::Function *> kernels = kernelFunctions(dep);
+        std::set<std::string> set;
+
+        // Add the kernels in the set
+        for (int j=0; j<kernels.size(); ++j)
+        {
+            llvm::Function *func = kernels.at(j);
+            set.insert(func->getNameStr());
+        }
+
+        // intersection of the sets
+        if (kernels_set.empty())
+        {
+            kernels_set = set;
+        }
+        else
+        {
+            std::set<std::string> inter;
+
+            set_intersection(set.begin(), set.end(), kernels_set.begin(),
+                             kernels_set.end(),
+                             std::inserter(inter, inter.begin()));
+
+            kernels_set = inter;
+        }
+    }
+
+    // Create the kernel for each function name
+    std::set<std::string>::const_iterator it;
+
+    for (it = kernels_set.begin(); it != kernels_set.end(); ++it)
+    {
+        cl_int result = CL_SUCCESS;
+        Kernel *kernel = createKernel(*it, &result);
+
+        if (result == CL_SUCCESS)
+        {
+            rs.push_back(kernel);
+        }
+        else
+        {
+            delete kernel;
+        }
+    }
+
+    return rs;
+}
+
 cl_int Program::loadSources(cl_uint count, const char **strings,
                             const size_t *lengths)
 {
@@ -98,58 +249,6 @@ cl_int Program::loadSources(cl_uint count, const char **strings,
     p_state = Loaded;
 
     return CL_SUCCESS;
-}
-
-void Program::setDevices(cl_uint num_devices, DeviceInterface * const*devices)
-{
-    p_device_dependent.resize(num_devices);
-
-    for (int i=0; i<num_devices; ++i)
-    {
-        DeviceDependent &dep = p_device_dependent.at(i);
-
-        dep.device = devices[i];
-        dep.linked_module = 0;
-        dep.compiler = new Compiler(dep.device);
-    }
-}
-
-Program::DeviceDependent &Program::deviceDependent(DeviceInterface *device)
-{
-    for (int i=0; i<p_device_dependent.size(); ++i)
-    {
-        DeviceDependent &rs = p_device_dependent.at(i);
-
-        if (rs.device == device)
-            return rs;
-    }
-}
-
-std::vector<llvm::Function *> Program::kernelFunctions(DeviceInterface *device)
-{
-    std::vector<llvm::Function *> rs;
-
-    DeviceDependent &dep = deviceDependent(device);
-    llvm::NamedMDNode *kernels = dep.linked_module->getNamedMetadata("opencl.kernels");
-
-    if (!kernels)
-        return rs;
-
-    for (unsigned int i=0; i<kernels->getNumOperands(); ++i)
-    {
-        llvm::MDNode *node = kernels->getOperand(i);
-
-        // Each node has only one operand : a llvm::Function
-        llvm::Value *value = node->getOperand(0);
-
-        if (!llvm::isa<llvm::Function>(value))
-            continue;       // Bug somewhere, don't crash
-
-        llvm::Function *f = llvm::cast<llvm::Function>(value);
-        rs.push_back(f);
-    }
-
-    return rs;
 }
 
 cl_int Program::loadBinaries(const unsigned char **data, const size_t *lengths,
@@ -280,7 +379,7 @@ cl_int Program::build(const char *options,
             // Get the list of kernels because we'll strip all the other unreferenced functions
             std::vector<const char *> api;
             std::vector<std::string> api_s;     // Needed to keep valid data in api
-            std::vector<llvm::Function *> kernels = kernelFunctions(dep.device);
+            std::vector<llvm::Function *> kernels = kernelFunctions(dep);
 
             api.push_back("g_thread_data");
 

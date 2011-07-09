@@ -33,6 +33,7 @@ set(COAL_SRC_FILES
     core/events.cpp
     core/program.cpp
     core/compiler.cpp
+    core/kernel.cpp
 
     ${CMAKE_CURRENT_BINARY_DIR}/runtime/stdlib.h.embed.h
     ${CMAKE_CURRENT_BINARY_DIR}/runtime/stdlib.c.bc.embed.h

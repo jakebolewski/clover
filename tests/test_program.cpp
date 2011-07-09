@@ -97,8 +97,7 @@ START_TEST (test_program_binary)
         "unable to create a valid context"
     );
 
-    program = clCreateProgramWithSource(ctx, 1, &src, &program_len,
-                                        &result);
+    program = clCreateProgramWithSource(ctx, 1, &src, &program_len, &result);
     fail_if(
         result != CL_SUCCESS,
         "cannot create a program from source with sane arguments"

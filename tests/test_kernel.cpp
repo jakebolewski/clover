@@ -1,6 +1,22 @@
 #include "test_kernel.h"
 #include "CL/cl.h"
 
+static const char source[] =
+    "float simple_function(float a) {\n"
+    "    return a * 2.5f;\n"
+    "}\n"
+    "\n"
+    "__kernel void kernel1(__global float *a, __global float *b, float f) {\n"
+    "    size_t i = get_global_id(0);\n"
+    "\n"
+    "    a[i] = simple_function(f) * b[i];\n"
+    "}\n"
+    "\n"
+    "__kernel void kernel2(__global int *buf) {\n"
+    "    size_t i = get_global_id(0);\n"
+    "\n"
+    "    buf[i] = 2 * i;\n"
+    "}\n";
 
 static void native_kernel(void *args)
 {
@@ -19,6 +35,76 @@ static void native_kernel(void *args)
         data->buffer[i] = ~data->buffer[i];
     }
 }
+
+START_TEST (test_compiled_kernel)
+{
+    cl_platform_id platform = 0;
+    cl_device_id device;
+    cl_context ctx;
+    cl_program program;
+    cl_int result;
+    cl_kernel kernels[2];
+    cl_uint num_kernels;
+
+    const char *src = source;
+    size_t program_len = sizeof(source);
+
+    result = clGetDeviceIDs(platform, CL_DEVICE_TYPE_DEFAULT, 1, &device, 0);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to get the default device"
+    );
+
+    ctx = clCreateContext(0, 1, &device, 0, 0, &result);
+    fail_if(
+        result != CL_SUCCESS || ctx == 0,
+        "unable to create a valid context"
+    );
+
+    program = clCreateProgramWithSource(ctx, 1, &src, &program_len, &result);
+    fail_if(
+        result != CL_SUCCESS,
+        "cannot create a program from source with sane arguments"
+    );
+
+    result = clBuildProgram(program, 1, &device, "", 0, 0);
+    fail_if(
+        result != CL_SUCCESS,
+        "cannot build a valid program"
+    );
+
+    kernels[0] = clCreateKernel(program, "simple_function", &result);
+    fail_if(
+        result != CL_INVALID_KERNEL_NAME,
+        "simple_function is not a kernel"
+    );
+
+    kernels[0] = clCreateKernel(program, "kernel1", &result);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to create a valid kernel"
+    );
+
+    clReleaseKernel(kernels[0]);    // Just born and already killed...
+
+    result = clCreateKernelsInProgram(program, 0, 0, &num_kernels);
+    fail_if(
+        result != CL_SUCCESS || num_kernels != 2,
+        "unable to get the number of kernels"
+    );
+
+    result = clCreateKernelsInProgram(program, 2, kernels, 0);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to get the two kernels of the program"
+    );
+
+    clReleaseKernel(kernels[0]);
+    clReleaseKernel(kernels[1]);
+    clReleaseProgram(program);
+    clReleaseContext(ctx);
+}
+END_TEST
 
 START_TEST (test_native_kernel)
 {
@@ -146,5 +232,6 @@ TCase *cl_kernel_tcase_create(void)
     TCase *tc = NULL;
     tc = tcase_create("kernel");
     tcase_add_test(tc, test_native_kernel);
+    tcase_add_test(tc, test_compiled_kernel);
     return tc;
 }
