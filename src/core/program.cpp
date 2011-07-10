@@ -34,6 +34,32 @@
 
 using namespace Coal;
 
+template<class OutSet, class OtherSet>
+void set_inter(OutSet &out, const OtherSet &other)
+{
+    // Remove from out the elements not in other
+    typename OutSet::iterator out_iter = out.begin(), out_end = out.end();
+    typename OtherSet::const_iterator other_iter = other.begin(), other_end = other.end();
+
+    while (out_iter != out_end && other_iter != other_end)
+    {
+        if (*other_iter < *out_iter)
+        {
+            ++other_iter;
+        }
+        else if (*out_iter < *other_iter)
+        {
+            out.erase(out_iter++);
+        }
+        else
+        {
+            // The two are equals, increment both
+            ++out_iter;
+            ++other_iter;
+        }
+    }
+}
+
 Program::Program(Context *ctx)
 : p_ctx(ctx), p_references(1), p_type(Invalid), p_state(Empty)
 {
@@ -163,6 +189,7 @@ std::vector<Kernel *> Program::createKernels(cl_int *errcode_ret)
 
     // Find the kernels found for every device
     std::set<std::string> kernels_set;
+    bool first = true;
 
     for (int i=0; i<p_device_dependent.size(); ++i)
     {
@@ -178,19 +205,15 @@ std::vector<Kernel *> Program::createKernels(cl_int *errcode_ret)
         }
 
         // intersection of the sets
-        if (kernels_set.empty())
+        if (first)
         {
             kernels_set = set;
+            first = false;
         }
         else
         {
-            std::set<std::string> inter;
-
-            set_intersection(set.begin(), set.end(), kernels_set.begin(),
-                             kernels_set.end(),
-                             std::inserter(inter, inter.begin()));
-
-            kernels_set = inter;
+            // Remove from kernels_set the elements not found in set
+            set_inter(kernels_set, set);
         }
     }
 
