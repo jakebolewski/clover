@@ -99,7 +99,7 @@ clCreateKernelsInProgram(cl_program     program,
         // Copy the kernels
         for (int i=0; i<ks.size(); ++i)
         {
-            kernels[i] = (cl_kernel)ks.at(i);
+            kernels[i] = (cl_kernel)ks[i];
         }
     }
 

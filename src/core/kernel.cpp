@@ -35,7 +35,7 @@ const Kernel::DeviceDependent &Kernel::deviceDependent(DeviceInterface *device) 
 {
     for (int i=0; i<p_device_dependent.size(); ++i)
     {
-        const DeviceDependent &rs = p_device_dependent.at(i);
+        const DeviceDependent &rs = p_device_dependent[i];
 
         if (rs.device == device)
             return rs;
@@ -46,7 +46,7 @@ Kernel::DeviceDependent &Kernel::deviceDependent(DeviceInterface *device)
 {
     for (int i=0; i<p_device_dependent.size(); ++i)
     {
-        DeviceDependent &rs = p_device_dependent.at(i);
+        DeviceDependent &rs = p_device_dependent[i];
 
         if (rs.device == device)
             return rs;
@@ -152,7 +152,7 @@ cl_int Kernel::addFunction(DeviceInterface *device, llvm::Function *function,
             return CL_INVALID_KERNEL_DEFINITION;
 
         // If we also have a function registered, check for signature compliance
-        if (!append && a != p_args.at(i))
+        if (!append && a != p_args[i])
             return CL_INVALID_KERNEL_DEFINITION;
 
         // Append arg if needed

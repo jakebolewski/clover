@@ -99,7 +99,7 @@ void Program::setDevices(cl_uint num_devices, DeviceInterface * const*devices)
 
     for (int i=0; i<num_devices; ++i)
     {
-        DeviceDependent &dep = p_device_dependent.at(i);
+        DeviceDependent &dep = p_device_dependent[i];
 
         dep.device = devices[i];
         dep.linked_module = 0;
@@ -111,7 +111,7 @@ Program::DeviceDependent &Program::deviceDependent(DeviceInterface *device)
 {
     for (int i=0; i<p_device_dependent.size(); ++i)
     {
-        DeviceDependent &rs = p_device_dependent.at(i);
+        DeviceDependent &rs = p_device_dependent[i];
 
         if (rs.device == device)
             return rs;
@@ -152,13 +152,13 @@ Kernel *Program::createKernel(const std::string &name, cl_int *errcode_ret)
     for (int i=0; i<p_device_dependent.size(); ++i)
     {
         bool found = false;
-        DeviceDependent &dep = p_device_dependent.at(i);
+        DeviceDependent &dep = p_device_dependent[i];
         std::vector<llvm::Function *> kernels = kernelFunctions(dep);
 
         // Find the one with the good name
         for (int j=0; j<kernels.size(); ++j)
         {
-            llvm::Function *func = kernels.at(j);
+            llvm::Function *func = kernels[j];
 
             if (func->getNameStr() == name)
             {
@@ -193,14 +193,14 @@ std::vector<Kernel *> Program::createKernels(cl_int *errcode_ret)
 
     for (int i=0; i<p_device_dependent.size(); ++i)
     {
-        DeviceDependent &dep = p_device_dependent.at(i);
+        DeviceDependent &dep = p_device_dependent[i];
         std::vector<llvm::Function *> kernels = kernelFunctions(dep);
         std::set<std::string> set;
 
         // Add the kernels in the set
         for (int j=0; j<kernels.size(); ++j)
         {
-            llvm::Function *func = kernels.at(j);
+            llvm::Function *func = kernels[j];
             set.insert(func->getNameStr());
         }
 
@@ -408,7 +408,7 @@ cl_int Program::build(const char *options,
 
             for (int j=0; j<kernels.size(); ++j)
             {
-                std::string s = kernels.at(j)->getNameStr();
+                std::string s = kernels[j]->getNameStr();
 
                 api_s.push_back(s);
                 api.push_back(s.c_str());
@@ -481,7 +481,7 @@ cl_int Program::info(cl_context_info param_name,
         case CL_PROGRAM_DEVICES:
             for (int i=0; i<p_device_dependent.size(); ++i)
             {
-                DeviceDependent &dep = p_device_dependent.at(i);
+                DeviceDependent &dep = p_device_dependent[i];
 
                 devices.push_back(dep.device);
             }
@@ -501,7 +501,7 @@ cl_int Program::info(cl_context_info param_name,
         case CL_PROGRAM_BINARY_SIZES:
             for (int i=0; i<p_device_dependent.size(); ++i)
             {
-                DeviceDependent &dep = p_device_dependent.at(i);
+                DeviceDependent &dep = p_device_dependent[i];
 
                 binary_sizes.push_back(dep.unlinked_binary.size());
             }
@@ -524,7 +524,7 @@ cl_int Program::info(cl_context_info param_name,
 
             for (int i=0; i<p_device_dependent.size(); ++i)
             {
-                DeviceDependent &dep = p_device_dependent.at(i);
+                DeviceDependent &dep = p_device_dependent[i];
                 unsigned char *dest = binaries[i];
 
                 if (!dest)
