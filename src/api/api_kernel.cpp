@@ -135,7 +135,10 @@ clSetKernelArg(cl_kernel    kernel,
                size_t       arg_size,
                const void * arg_value)
 {
-    return 0;
+    if (!kernel)
+        return CL_INVALID_KERNEL;
+
+    return kernel->setArg(arg_indx, arg_size, arg_value);
 }
 
 cl_int

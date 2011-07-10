@@ -1,3 +1,5 @@
+#include <iostream>
+
 #include "test_kernel.h"
 #include "CL/cl.h"
 
@@ -45,9 +47,12 @@ START_TEST (test_compiled_kernel)
     cl_int result;
     cl_kernel kernels[2];
     cl_uint num_kernels;
+    cl_mem buf;
 
     const char *src = source;
     size_t program_len = sizeof(source);
+
+    int buffer[64];
 
     result = clGetDeviceIDs(platform, CL_DEVICE_TYPE_DEFAULT, 1, &device, 0);
     fail_if(
@@ -97,6 +102,20 @@ START_TEST (test_compiled_kernel)
     fail_if(
         result != CL_SUCCESS,
         "unable to get the two kernels of the program"
+    );
+
+    // Try to run kernel2
+    buf = clCreateBuffer(ctx, CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR,
+                         sizeof(buffer), buffer, &result);
+    fail_if(
+        result != CL_SUCCESS,
+        "cannot create a valid CL_MEM_COPY_HOST_PTR read-write buffer"
+    );
+
+    result = clSetKernelArg(kernels[1], 0, sizeof(cl_mem), &buf);
+    fail_if(
+        result != CL_SUCCESS,
+        "cannot set kernel argument"
     );
 
     clReleaseKernel(kernels[0]);

@@ -39,10 +39,10 @@ COAL_VECTOR_SET(float);
 #undef COAL_VECTOR
 
 /* Address spaces */
+#define __private __attribute__((address_space(0)))
 #define __global __attribute__((address_space(1)))
 #define __local __attribute__((address_space(2)))
 #define __constant __attribute__((address_space(3)))
-#define __private __attribute__((address_space(4)))
 
 #define global __global
 #define local __local

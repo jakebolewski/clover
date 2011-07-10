@@ -2,6 +2,7 @@
 
 #include <string>
 #include <iostream>
+#include <cstring>
 
 #include <llvm/Support/Casting.h>
 #include <llvm/Module.h>
@@ -78,57 +79,18 @@ cl_int Kernel::addFunction(DeviceInterface *device, llvm::Function *function,
 
         a.kind = Arg::Invalid;
         a.vec_dim = 1;
+        a.file = Arg::Private;
+        a.kernel_alloc_size = 0;
+        a.set = false;
 
         if (arg_type->isPointerTy())
         {
             // It's a pointer, dereference it
             const llvm::PointerType *p_type = llvm::cast<llvm::PointerType>(arg_type);
 
-            a.kind = Arg::Buffer;                   // Buffer by default, can be refined
+            a.file = (Arg::File)p_type->getAddressSpace();
             arg_type = p_type->getElementType();
-        }
 
-        if (arg_type->isVectorTy())
-        {
-            // It's a vector, we need its element's type
-            const llvm::VectorType *v_type = llvm::cast<llvm::VectorType>(arg_type);
-
-            a.vec_dim = v_type->getNumElements();
-            arg_type = v_type->getElementType();
-        }
-
-        // Get type kind
-        if (arg_type->isFloatTy())
-        {
-            a.kind = Arg::Float;
-        }
-        else if (arg_type->isDoubleTy())
-        {
-            a.kind = Arg::Double;
-        }
-        else if (arg_type->isIntegerTy())
-        {
-            const llvm::IntegerType *i_type = llvm::cast<llvm::IntegerType>(arg_type);
-
-            if (i_type->getBitWidth() == 8)
-            {
-                a.kind = Arg::Int8;
-            }
-            else if (i_type->getBitWidth() == 16)
-            {
-                a.kind = Arg::Int16;
-            }
-            else if (i_type->getBitWidth() == 32)
-            {
-                a.kind = Arg::Int32;
-            }
-            else if (i_type->getBitWidth() == 64)
-            {
-                a.kind = Arg::Int64;
-            }
-        }
-        else
-        {
             // Get the name of the type to see if it's something like image2d, etc
             std::string name = module->getTypeName(arg_type);
 
@@ -144,6 +106,52 @@ cl_int Kernel::addFunction(DeviceInterface *device, llvm::Function *function,
             else if (name == "sampler")
             {
                 // TODO: Sampler
+            }
+            else
+            {
+                a.kind = Arg::Buffer;
+            }
+        }
+        else
+        {
+            if (arg_type->isVectorTy())
+            {
+                // It's a vector, we need its element's type
+                const llvm::VectorType *v_type = llvm::cast<llvm::VectorType>(arg_type);
+
+                a.vec_dim = v_type->getNumElements();
+                arg_type = v_type->getElementType();
+            }
+
+            // Get type kind
+            if (arg_type->isFloatTy())
+            {
+                a.kind = Arg::Float;
+            }
+            else if (arg_type->isDoubleTy())
+            {
+                a.kind = Arg::Double;
+            }
+            else if (arg_type->isIntegerTy())
+            {
+                const llvm::IntegerType *i_type = llvm::cast<llvm::IntegerType>(arg_type);
+
+                if (i_type->getBitWidth() == 8)
+                {
+                    a.kind = Arg::Int8;
+                }
+                else if (i_type->getBitWidth() == 16)
+                {
+                    a.kind = Arg::Int16;
+                }
+                else if (i_type->getBitWidth() == 32)
+                {
+                    a.kind = Arg::Int32;
+                }
+                else if (i_type->getBitWidth() == 64)
+                {
+                    a.kind = Arg::Int64;
+                }
             }
         }
 
@@ -170,6 +178,85 @@ llvm::Function *Kernel::function(DeviceInterface *device) const
     const DeviceDependent &dep = deviceDependent(device);
 
     return dep.function;
+}
+
+size_t Kernel::Arg::valueSize() const
+{
+    switch (kind)
+    {
+        case Invalid:
+            return 0;
+        case Int8:
+            return 1;
+        case Int16:
+            return 2;
+        case Int32:
+            return 4;
+        case Int64:
+            return 8;
+        case Float:
+            return sizeof(cl_float);
+        case Double:
+            return sizeof(double);
+        case Buffer:
+        case Image2D:
+        case Image3D:
+            return sizeof(cl_mem);
+    }
+}
+
+cl_int Kernel::setArg(cl_uint index, size_t size, const void *value)
+{
+    if (index > p_args.size())
+        return CL_INVALID_ARG_INDEX;
+
+    Arg &arg = p_args[index];
+
+    // Special case for __local pointers
+    if (arg.file == Arg::Local)
+    {
+        if (size == 0)
+            return CL_INVALID_ARG_SIZE;
+
+        if (value != 0)
+            return CL_INVALID_ARG_VALUE;
+
+        arg.kernel_alloc_size = size;
+
+        return CL_SUCCESS;
+    }
+
+    // Check that size corresponds to the arg type
+    size_t arg_size = arg.valueSize();
+
+    if (size != arg_size)
+        return CL_INVALID_ARG_SIZE;
+
+    // Check for null values
+    if (!value)
+    {
+        switch (arg.kind)
+        {
+            case Arg::Buffer:
+            case Arg::Image2D:
+            case Arg::Image3D:
+                // Special case buffers : value can be 0 (or point to 0)
+                arg.value.cl_mem_val = 0;
+                arg.set = true;
+                return CL_SUCCESS;
+
+            // TODO samplers
+            default:
+                return CL_INVALID_ARG_VALUE;
+        }
+    }
+
+    // Copy the data
+    std::memcpy(&arg.value, value, arg_size);
+
+    arg.set = true;
+
+    return CL_SUCCESS;
 }
 
 Program *Kernel::program() const

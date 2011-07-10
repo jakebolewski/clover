@@ -29,12 +29,23 @@ class Kernel
         cl_int addFunction(DeviceInterface *device, llvm::Function *function,
                            llvm::Module *module);
         llvm::Function *function(DeviceInterface *device) const;
+        cl_int setArg(cl_uint index, size_t size, const void *value);
 
         Program *program() const;
 
         struct Arg
         {
             unsigned short vec_dim;
+            bool set;
+            size_t kernel_alloc_size;  /*!< Size of the memory that must be allocated at kernel execution */
+
+            enum File
+            {
+                Private = 0,
+                Global = 1,
+                Local = 2,
+                Constant = 3
+            } file;
 
             enum Kind
             {
@@ -50,6 +61,7 @@ class Kernel
                 Image3D
                 // TODO: Sampler
             } kind;
+
             union
             {
                 #define TYPE_VAL(type) type type##_val
@@ -61,12 +73,13 @@ class Kernel
                 TYPE_VAL(double);
                 TYPE_VAL(cl_mem);
                 #undef TYPE_VAL
-            };
+            } value;
 
             inline bool operator !=(const Arg &b)
             {
                 return (kind != b.kind) || (vec_dim != b.vec_dim);
             }
+            size_t valueSize() const;
         };
 
     private:
