@@ -127,7 +127,7 @@ Kernel *Program::createKernel(const std::string &name, cl_int *errcode_ret)
     {
         bool found = false;
         DeviceDependent &dep = p_device_dependent[i];
-        std::vector<llvm::Function *> kernels = kernelFunctions(dep);
+        const std::vector<llvm::Function *> &kernels = kernelFunctions(dep);
 
         // Find the one with the good name
         for (int j=0; j<kernels.size(); ++j)
@@ -167,7 +167,7 @@ std::vector<Kernel *> Program::createKernels(cl_int *errcode_ret)
 
     // Take the list of kernels for the first device dependent
     DeviceDependent &dep = p_device_dependent[0];
-    std::vector<llvm::Function *> kernels = kernelFunctions(dep);
+    const std::vector<llvm::Function *> &kernels = kernelFunctions(dep);
 
     // Create the kernel for each function name
     // It returns an error if the signature is not the same for every device
@@ -354,7 +354,7 @@ cl_int Program::build(const char *options,
             // Get the list of kernels because we'll strip all the other unreferenced functions
             std::vector<const char *> api;
             std::vector<std::string> api_s;     // Needed to keep valid data in api
-            std::vector<llvm::Function *> kernels = kernelFunctions(dep);
+            const std::vector<llvm::Function *> &kernels = kernelFunctions(dep);
 
             api.push_back("g_thread_data");
 
