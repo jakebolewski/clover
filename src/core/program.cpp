@@ -34,32 +34,6 @@
 
 using namespace Coal;
 
-template<class OutSet, class OtherSet>
-void set_inter(OutSet &out, const OtherSet &other)
-{
-    // Remove from out the elements not in other
-    typename OutSet::iterator out_iter = out.begin(), out_end = out.end();
-    typename OtherSet::const_iterator other_iter = other.begin(), other_end = other.end();
-
-    while (out_iter != out_end && other_iter != other_end)
-    {
-        if (*other_iter < *out_iter)
-        {
-            ++other_iter;
-        }
-        else if (*out_iter < *other_iter)
-        {
-            out.erase(out_iter++);
-        }
-        else
-        {
-            // The two are equals, increment both
-            ++out_iter;
-            ++other_iter;
-        }
-    }
-}
-
 Program::Program(Context *ctx)
 : p_ctx(ctx), p_references(1), p_type(Invalid), p_state(Empty)
 {
@@ -187,43 +161,21 @@ std::vector<Kernel *> Program::createKernels(cl_int *errcode_ret)
 {
     std::vector<Kernel *> rs;
 
-    // Find the kernels found for every device
-    std::set<std::string> kernels_set;
-    bool first = true;
+    // We should never go here
+    if (p_device_dependent.size() == 0)
+        return rs;
 
-    for (int i=0; i<p_device_dependent.size(); ++i)
-    {
-        DeviceDependent &dep = p_device_dependent[i];
-        std::vector<llvm::Function *> kernels = kernelFunctions(dep);
-        std::set<std::string> set;
-
-        // Add the kernels in the set
-        for (int j=0; j<kernels.size(); ++j)
-        {
-            llvm::Function *func = kernels[j];
-            set.insert(func->getNameStr());
-        }
-
-        // intersection of the sets
-        if (first)
-        {
-            kernels_set = set;
-            first = false;
-        }
-        else
-        {
-            // Remove from kernels_set the elements not found in set
-            set_inter(kernels_set, set);
-        }
-    }
+    // Take the list of kernels for the first device dependent
+    DeviceDependent &dep = p_device_dependent[0];
+    std::vector<llvm::Function *> kernels = kernelFunctions(dep);
 
     // Create the kernel for each function name
-    std::set<std::string>::const_iterator it;
-
-    for (it = kernels_set.begin(); it != kernels_set.end(); ++it)
+    // It returns an error if the signature is not the same for every device
+    // or if the kernel isn't found on all the devices.
+    for (int i=0; i<kernels.size(); ++i)
     {
         cl_int result = CL_SUCCESS;
-        Kernel *kernel = createKernel(*it, &result);
+        Kernel *kernel = createKernel(kernels[i]->getNameStr(), &result);
 
         if (result == CL_SUCCESS)
         {
