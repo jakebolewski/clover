@@ -698,3 +698,9 @@ void CPUProgram::createOptimizationPasses(llvm::PassManager *manager, bool optim
         manager->add(llvm::createCFGSimplificationPass());
     }
 }
+
+bool CPUProgram::build(const llvm::Module *module)
+{
+    // Nothing to build
+    return true;
+}

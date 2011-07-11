@@ -72,6 +72,7 @@ class CPUProgram : public DeviceProgram
 
         bool linkStdLib() const;
         void createOptimizationPasses(llvm::PassManager *manager, bool optimize);
+        bool build(const llvm::Module *module);
 
     private:
         CPUDevice *p_device;

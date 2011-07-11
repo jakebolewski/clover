@@ -6,6 +6,7 @@
 namespace llvm
 {
     class PassManager;
+    class Module;
 }
 
 namespace Coal
@@ -61,6 +62,7 @@ class DeviceProgram
         virtual bool linkStdLib() const = 0;
         virtual void createOptimizationPasses(llvm::PassManager *manager,
                                               bool optimize) = 0;
+        virtual bool build(const llvm::Module *module) = 0;
 };
 
 }

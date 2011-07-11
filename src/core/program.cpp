@@ -385,7 +385,15 @@ cl_int Program::build(const char *options,
         manager->run(*dep.linked_module);
         delete manager;
 
-        dep.linked_module->dump();
+        // Now that the LLVM module is built, build the device-specific
+        // representation
+        if (!dep.program->build(dep.linked_module))
+        {
+            if (pfn_notify)
+                pfn_notify((cl_program)this, user_data);
+
+            return CL_BUILD_PROGRAM_FAILURE;
+        }
     }
 
     // TODO: Asynchronous compile
