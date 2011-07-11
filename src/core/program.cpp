@@ -447,7 +447,7 @@ cl_int Program::info(cl_context_info param_name,
             break;
 
         case CL_PROGRAM_SOURCE:
-            MEM_ASSIGN(p_source.size(), p_source.data());
+            MEM_ASSIGN(p_source.size() + 1, p_source.c_str());
             break;
 
         case CL_PROGRAM_BINARY_SIZES:

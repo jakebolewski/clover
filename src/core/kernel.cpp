@@ -1,4 +1,6 @@
 #include "kernel.h"
+#include "propertylist.h"
+#include "program.h"
 
 #include <string>
 #include <iostream>
@@ -57,6 +59,8 @@ Kernel::DeviceDependent &Kernel::deviceDependent(DeviceInterface *device)
 cl_int Kernel::addFunction(DeviceInterface *device, llvm::Function *function,
                            llvm::Module *module)
 {
+    p_name = function->getNameStr();
+
     // Add a device dependent
     DeviceDependent dep;
 
@@ -262,4 +266,56 @@ cl_int Kernel::setArg(cl_uint index, size_t size, const void *value)
 Program *Kernel::program() const
 {
     return p_program;
+}
+
+cl_int Kernel::info(cl_context_info param_name,
+                     size_t param_value_size,
+                     void *param_value,
+                     size_t *param_value_size_ret)
+{
+    void *value = 0;
+    size_t value_length = 0;
+
+    union {
+        cl_uint cl_uint_var;
+        cl_program cl_program_var;
+        cl_context cl_context_var;
+    };
+
+    switch (param_name)
+    {
+        case CL_KERNEL_FUNCTION_NAME:
+            MEM_ASSIGN(p_name.size() + 1, p_name.c_str());
+            break;
+
+        case CL_KERNEL_NUM_ARGS:
+            SIMPLE_ASSIGN(cl_uint, p_args.size());
+            break;
+
+        case CL_KERNEL_REFERENCE_COUNT:
+            SIMPLE_ASSIGN(cl_uint, p_references);
+            break;
+
+        case CL_KERNEL_CONTEXT:
+            SIMPLE_ASSIGN(cl_context, p_program->context());
+            break;
+
+        case CL_KERNEL_PROGRAM:
+            SIMPLE_ASSIGN(cl_program, p_program);
+            break;
+
+        default:
+            return CL_INVALID_VALUE;
+    }
+
+    if (param_value && param_value_size < value_length)
+        return CL_INVALID_VALUE;
+
+    if (param_value_size_ret)
+        *param_value_size_ret = value_length;
+
+    if (param_value)
+        std::memcpy(param_value, value, value_length);
+
+    return CL_SUCCESS;
 }

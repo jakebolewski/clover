@@ -148,7 +148,11 @@ clGetKernelInfo(cl_kernel       kernel,
                 void *          param_value,
                 size_t *        param_value_size_ret)
 {
-    return 0;
+    if (!kernel)
+        return CL_INVALID_KERNEL;
+
+    return kernel->info(param_name, param_value_size, param_value,
+                        param_value_size_ret);
 }
 
 cl_int

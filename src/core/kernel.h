@@ -4,6 +4,7 @@
 #include <CL/cl.h>
 
 #include <vector>
+#include <string>
 
 namespace llvm
 {
@@ -32,6 +33,23 @@ class Kernel
         cl_int setArg(cl_uint index, size_t size, const void *value);
 
         Program *program() const;
+
+        cl_int info(cl_context_info param_name,
+                    size_t param_value_size,
+                    void *param_value,
+                    size_t *param_value_size_ret);
+
+    private:
+        Program *p_program;
+        unsigned int p_references;
+        std::string p_name;
+
+        struct DeviceDependent
+        {
+            DeviceInterface *device;
+            llvm::Function *function;
+            llvm::Module *module;
+        };
 
         struct Arg
         {
@@ -80,17 +98,6 @@ class Kernel
                 return (kind != b.kind) || (vec_dim != b.vec_dim);
             }
             size_t valueSize() const;
-        };
-
-    private:
-        Program *p_program;
-        unsigned int p_references;
-
-        struct DeviceDependent
-        {
-            DeviceInterface *device;
-            llvm::Function *function;
-            llvm::Module *module;
         };
 
         std::vector<DeviceDependent> p_device_dependent;
