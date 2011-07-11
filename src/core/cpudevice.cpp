@@ -4,6 +4,13 @@
 #include "propertylist.h"
 #include "commandqueue.h"
 #include "events.h"
+#include "program.h"
+
+#include <llvm/PassManager.h>
+#include <llvm/Analysis/Passes.h>
+#include <llvm/Analysis/Verifier.h>
+#include <llvm/Transforms/Scalar.h>
+#include <llvm/Transforms/IPO.h>
 
 #include <cstring>
 #include <cstdlib>
@@ -108,7 +115,7 @@ static void *worker(void *data)
  */
 
 CPUDevice::CPUDevice()
-: DeviceInterface::DeviceInterface(), p_cores(0), p_workers(0), p_stop(false),
+: DeviceInterface(), p_cores(0), p_workers(0), p_stop(false),
   p_num_events(0)
 {
     // Initialize the locking machinery
@@ -150,6 +157,11 @@ DeviceBuffer *CPUDevice::createDeviceBuffer(MemObject *buffer, cl_int *rs)
     return (DeviceBuffer *)new CPUBuffer(this, buffer, rs);
 }
 
+DeviceProgram *CPUDevice::createDeviceProgram(Program *program)
+{
+    return (DeviceProgram *)new CPUProgram(this, program);
+}
+
 cl_int CPUDevice::initEventDeviceData(Event *event)
 {
     switch (event->type())
@@ -174,11 +186,6 @@ cl_int CPUDevice::initEventDeviceData(Event *event)
     }
 
     return CL_SUCCESS;
-}
-
-bool CPUDevice::linkStdLib() const
-{
-    return true;
 }
 
 void CPUDevice::pushEvent(Event *event)
@@ -562,7 +569,8 @@ cl_int CPUDevice::info(cl_device_info param_name,
  * CPUBuffer
  */
 CPUBuffer::CPUBuffer(CPUDevice *device, MemObject *buffer, cl_int *rs)
-: p_device(device), p_buffer(buffer), p_data(0), p_data_malloced(false)
+: DeviceBuffer(), p_device(device), p_buffer(buffer), p_data(0),
+  p_data_malloced(false)
 {
     if (buffer->type() == MemObject::SubBuffer)
     {
@@ -641,4 +649,52 @@ DeviceInterface *CPUBuffer::device() const
 bool CPUBuffer::allocated() const
 {
     return p_data != 0;
+}
+
+/*
+ * CPUProgram
+ */
+CPUProgram::CPUProgram(CPUDevice *device, Program *program)
+: DeviceProgram(), p_device(device), p_program(program)
+{
+
+}
+
+CPUProgram::~CPUProgram()
+{
+
+}
+
+bool CPUProgram::linkStdLib() const
+{
+    return true;
+}
+
+void CPUProgram::createOptimizationPasses(llvm::PassManager *manager, bool optimize)
+{
+    if (optimize)
+    {
+        /*
+         * Inspired by code from "The LLVM Compiler Infrastructure"
+         */
+        manager->add(llvm::createDeadArgEliminationPass());
+        manager->add(llvm::createInstructionCombiningPass());
+        manager->add(llvm::createFunctionInliningPass());
+        manager->add(llvm::createPruneEHPass());   // Remove dead EH info.
+        manager->add(llvm::createGlobalOptimizerPass());
+        manager->add(llvm::createGlobalDCEPass()); // Remove dead functions.
+        manager->add(llvm::createArgumentPromotionPass());
+        manager->add(llvm::createInstructionCombiningPass());
+        manager->add(llvm::createJumpThreadingPass());
+        manager->add(llvm::createScalarReplAggregatesPass());
+        manager->add(llvm::createFunctionAttrsPass()); // Add nocapture.
+        manager->add(llvm::createGlobalsModRefPass()); // IP alias analysis.
+        manager->add(llvm::createLICMPass());      // Hoist loop invariants.
+        manager->add(llvm::createGVNPass());       // Remove redundancies.
+        manager->add(llvm::createMemCpyOptPass()); // Remove dead memcpys.
+        manager->add(llvm::createDeadStoreEliminationPass());
+        manager->add(llvm::createInstructionCombiningPass());
+        manager->add(llvm::createJumpThreadingPass());
+        manager->add(llvm::createCFGSimplificationPass());
+    }
 }

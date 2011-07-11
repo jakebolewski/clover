@@ -3,12 +3,20 @@
 
 #include <CL/cl.h>
 
+namespace llvm
+{
+    class PassManager;
+}
+
 namespace Coal
 {
 
 class DeviceBuffer;
+class DeviceProgram;
+
 class MemObject;
 class Event;
+class Program;
 
 class DeviceInterface
 {
@@ -22,12 +30,12 @@ class DeviceInterface
                             size_t *param_value_size_ret) = 0;
 
         virtual DeviceBuffer *createDeviceBuffer(MemObject *buffer, cl_int *rs) = 0;
+        virtual DeviceProgram *createDeviceProgram(Program *program) = 0;
+
         virtual void pushEvent(Event *event) = 0;
 
         /** @note must set mapping address of MapBuffer events */
         virtual cl_int initEventDeviceData(Event *event) = 0;
-
-        virtual bool linkStdLib() const = 0;    /*!< Program must link stdlib.bc in binaries */
 };
 
 class DeviceBuffer
@@ -42,6 +50,17 @@ class DeviceBuffer
         virtual bool allocated() const = 0;
 
         virtual void *nativeGlobalPointer() const = 0;
+};
+
+class DeviceProgram
+{
+    public:
+        DeviceProgram() {}
+        virtual ~DeviceProgram() {}
+
+        virtual bool linkStdLib() const = 0;
+        virtual void createOptimizationPasses(llvm::PassManager *manager,
+                                              bool optimize) = 0;
 };
 
 }

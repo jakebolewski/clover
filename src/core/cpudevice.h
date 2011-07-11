@@ -11,6 +11,7 @@ namespace Coal
 
 class MemObject;
 class Event;
+class Program;
 
 class CPUDevice : public DeviceInterface
 {
@@ -24,8 +25,9 @@ class CPUDevice : public DeviceInterface
                     size_t *param_value_size_ret);
 
         DeviceBuffer *createDeviceBuffer(MemObject *buffer, cl_int *rs);
+        DeviceProgram *createDeviceProgram(Program *program);
+
         cl_int initEventDeviceData(Event *event);
-        bool linkStdLib() const;
 
         void pushEvent(Event *event);
         Event *getEvent(bool &stop);
@@ -60,6 +62,20 @@ class CPUBuffer : public DeviceBuffer
         MemObject *p_buffer;
         void *p_data;
         bool p_data_malloced;
+};
+
+class CPUProgram : public DeviceProgram
+{
+    public:
+        CPUProgram(CPUDevice *device, Program *program);
+        ~CPUProgram();
+
+        bool linkStdLib() const;
+        void createOptimizationPasses(llvm::PassManager *manager, bool optimize);
+
+    private:
+        CPUDevice *p_device;
+        Program *p_program;
 };
 
 }

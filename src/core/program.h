@@ -18,6 +18,7 @@ namespace Coal
 class Context;
 class Compiler;
 class DeviceInterface;
+class DeviceProgram;
 class Kernel;
 
 class Program
@@ -82,6 +83,7 @@ class Program
         struct DeviceDependent
         {
             DeviceInterface *device;
+            DeviceProgram *program;
             std::string unlinked_binary;
             llvm::Module *linked_module;
             Compiler *compiler;

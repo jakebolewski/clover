@@ -5,8 +5,6 @@
 #include "propertylist.h"
 #include "deviceinterface.h"
 
-#include "StandardPasses.h"
-
 #include <string>
 #include <cstring>
 #include <cstdlib>
@@ -28,6 +26,8 @@
 #include <llvm/PassManager.h>
 #include <llvm/Metadata.h>
 #include <llvm/Function.h>
+#include <llvm/Analysis/Passes.h>
+#include <llvm/Transforms/IPO.h>
 
 #include <stdlib.h.embed.h>
 #include <stdlib.c.bc.embed.h>
@@ -51,6 +51,7 @@ Program::~Program()
 
         delete dep.compiler;
         delete dep.linked_module;
+        delete dep.program;
 
         p_device_dependent.pop_back();
     }
@@ -76,6 +77,7 @@ void Program::setDevices(cl_uint num_devices, DeviceInterface * const*devices)
         DeviceDependent &dep = p_device_dependent[i];
 
         dep.device = devices[i];
+        dep.program = dep.device->createDeviceProgram(this);
         dep.linked_module = 0;
         dep.compiler = new Compiler(dep.device);
     }
@@ -315,7 +317,7 @@ cl_int Program::build(const char *options,
         }
 
         // Link p_linked_module with the stdlib if the device needs that
-        if (dep.device->linkStdLib())
+        if (dep.program->linkStdLib())
         {
             // Load the stdlib bitcode
             const llvm::StringRef s_data(embed_stdlib_c_bc,
@@ -350,35 +352,40 @@ cl_int Program::build(const char *options,
 
                 return CL_BUILD_PROGRAM_FAILURE;
             }
-
-            // Get the list of kernels because we'll strip all the other unreferenced functions
-            std::vector<const char *> api;
-            std::vector<std::string> api_s;     // Needed to keep valid data in api
-            const std::vector<llvm::Function *> &kernels = kernelFunctions(dep);
-
-            api.push_back("g_thread_data");
-
-            for (int j=0; j<kernels.size(); ++j)
-            {
-                std::string s = kernels[j]->getNameStr();
-
-                api_s.push_back(s);
-                api.push_back(s.c_str());
-            }
-
-            // Optimize code
-            if (dep.compiler->optimize())
-            {
-                llvm::PassManager *manager = new llvm::PassManager();
-
-                createStandardLTOPasses(manager, true, true, api);
-                manager->run(*dep.linked_module);
-
-                delete manager;
-            }
-
-            dep.linked_module->dump();
         }
+
+        // Get list of kernels to strip other unused functions
+        std::vector<const char *> api;
+        std::vector<std::string> api_s;     // Needed to keep valid data in api
+        const std::vector<llvm::Function *> &kernels = kernelFunctions(dep);
+
+        for (int j=0; j<kernels.size(); ++j)
+        {
+            std::string s = kernels[j]->getNameStr();
+
+            api_s.push_back(s);
+            api.push_back(s.c_str());
+        }
+
+        // Optimize code
+        llvm::PassManager *manager = new llvm::PassManager();
+
+        // Common passes (primary goal : remove unused stdlib functions)
+        manager->add(llvm::createTypeBasedAliasAnalysisPass());
+        manager->add(llvm::createBasicAliasAnalysisPass());
+        manager->add(llvm::createInternalizePass(api));
+        manager->add(llvm::createIPSCCPPass());
+        manager->add(llvm::createGlobalOptimizerPass());
+        manager->add(llvm::createConstantMergePass());
+
+        dep.program->createOptimizationPasses(manager, dep.compiler->optimize());
+
+        manager->add(llvm::createGlobalDCEPass());
+
+        manager->run(*dep.linked_module);
+        delete manager;
+
+        dep.linked_module->dump();
     }
 
     // TODO: Asynchronous compile
