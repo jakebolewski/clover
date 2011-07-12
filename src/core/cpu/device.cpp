@@ -1,16 +1,14 @@
-#include "cpudevice.h"
-#include "memobject.h"
-#include "config.h"
-#include "propertylist.h"
-#include "commandqueue.h"
-#include "events.h"
+#include "device.h"
+#include "buffer.h"
+#include "kernel.h"
 #include "program.h"
+#include "worker.h"
 
-#include <llvm/PassManager.h>
-#include <llvm/Analysis/Passes.h>
-#include <llvm/Analysis/Verifier.h>
-#include <llvm/Transforms/Scalar.h>
-#include <llvm/Transforms/IPO.h>
+#include "config.h"
+#include "../propertylist.h"
+#include "../commandqueue.h"
+#include "../events.h"
+#include "../memobject.h"
 
 #include <cstring>
 #include <cstdlib>
@@ -21,98 +19,6 @@
 #include <sstream>
 
 using namespace Coal;
-using namespace std;
-
-/*
- * Worker code
- */
-
-static void *worker(void *data)
-{
-    CPUDevice *device = (CPUDevice *)data;
-    bool stop = false, success;
-    Event *event;
-
-    while (true)
-    {
-        event = device->getEvent(stop);
-
-        // Ensure we have a good event and we don't have to stop
-        if (stop) break;
-        if (!event) continue;
-
-        // Get info about the event and its command queue
-        Event::Type t = event->type();
-        CommandQueue *queue = 0;
-        cl_command_queue_properties queue_props = 0;
-        success = true;
-
-        event->info(CL_EVENT_COMMAND_QUEUE, sizeof(CommandQueue *), &queue, 0);
-
-        if (queue)
-            queue->info(CL_QUEUE_PROPERTIES, sizeof(cl_command_queue_properties),
-                        &queue_props, 0);
-
-        if (queue_props & CL_QUEUE_PROFILING_ENABLE)
-            event->updateTiming(Event::Start);
-
-        // Execute the action
-        switch (t)
-        {
-            case Event::ReadBuffer:
-            case Event::WriteBuffer:
-            {
-                ReadWriteBufferEvent *e = (ReadWriteBufferEvent *)event;
-                CPUBuffer *buf = (CPUBuffer *)e->buffer()->deviceBuffer(device);
-                char *data = (char *)buf->data();
-
-                data += e->offset();
-
-                if (t == Event::ReadBuffer)
-                    std::memcpy(e->ptr(), data, e->cb());
-                else
-                    std::memcpy(data, e->ptr(), e->cb());
-
-                break;
-            }
-            case Event::MapBuffer:
-                // All was already done in CPUBuffer::initEventDeviceData()
-                break;
-
-            case Event::NativeKernel:
-            {
-                NativeKernelEvent *e = (NativeKernelEvent *)event;
-                void (*func)(void *) = (void (*)(void *))e->function();
-                void *args = e->args();
-
-                func(args);
-
-                break;
-            }
-            default:
-                break;
-        }
-
-        // Cleanups
-        if (success)
-        {
-            event->setStatus(Event::Complete);
-
-            if (queue_props & CL_QUEUE_PROFILING_ENABLE)
-                event->updateTiming(Event::End);
-
-            // Clean the queue
-            if (queue)
-                queue->cleanEvents();
-        }
-    }
-
-    return 0;
-}
-
-/*
- * CPUDevice
- */
 
 CPUDevice::CPUDevice()
 : DeviceInterface(), p_cores(0), p_workers(0), p_stop(false),
@@ -237,23 +143,23 @@ unsigned int CPUDevice::numCPUs()
 
 float CPUDevice::cpuMhz()
 {
-    filebuf fb;
-    fb.open("/proc/cpuinfo", ios::in);
-    istream is(&fb);
+    std::filebuf fb;
+    fb.open("/proc/cpuinfo", std::ios::in);
+    std::istream is(&fb);
 
     float cpuMhz = 0.0;
 
     while (!is.eof())
     {
-        string key, value;
+        std::string key, value;
 
-        getline(is, key, ':');
+        std::getline(is, key, ':');
         is.ignore(1);
-        getline(is, value);
+        std::getline(is, value);
 
         if (key.compare(0, 7, "cpu MHz") == 0)
         {
-            istringstream ss(value);
+            std::istringstream ss(value);
             ss >> cpuMhz;
             break;
         }
@@ -580,178 +486,4 @@ cl_int CPUDevice::info(cl_device_info param_name,
         std::memcpy(param_value, value, value_length);
 
     return CL_SUCCESS;
-}
-
-/*
- * CPUBuffer
- */
-CPUBuffer::CPUBuffer(CPUDevice *device, MemObject *buffer, cl_int *rs)
-: DeviceBuffer(), p_device(device), p_buffer(buffer), p_data(0),
-  p_data_malloced(false)
-{
-    if (buffer->type() == MemObject::SubBuffer)
-    {
-        // We need to create this CPUBuffer based on the CPUBuffer of the
-        // parent buffer
-        SubBuffer *subbuf = (SubBuffer *)buffer;
-        MemObject *parent = subbuf->parent();
-        CPUBuffer *parentcpubuf = (CPUBuffer *)parent->deviceBuffer(device);
-
-        char *tmp_data = (char *)parentcpubuf->data();
-        tmp_data += subbuf->offset();
-
-        p_data = (void *)tmp_data;
-    }
-    else if (buffer->flags() & CL_MEM_USE_HOST_PTR)
-    {
-        // We use the host ptr, we are already allocated
-        p_data = buffer->host_ptr();
-    }
-}
-
-CPUBuffer::~CPUBuffer()
-{
-    if (p_data_malloced)
-    {
-        std::free((void *)p_data);
-    }
-}
-
-void *CPUBuffer::data() const
-{
-    return p_data;
-}
-
-void *CPUBuffer::nativeGlobalPointer() const
-{
-    return data();
-}
-
-bool CPUBuffer::allocate()
-{
-    size_t buf_size = p_buffer->size();
-
-    if (buf_size == 0)
-        // Something went wrong...
-        return false;
-
-    if (!p_data)
-    {
-        // We don't use a host ptr, we need to allocate a buffer
-        p_data = std::malloc(buf_size);
-
-        if (!p_data)
-            return false;
-
-        p_data_malloced = true;
-    }
-
-    if (p_buffer->type() != MemObject::SubBuffer &&
-        p_buffer->flags() & CL_MEM_COPY_HOST_PTR)
-    {
-        std::memcpy(p_data, p_buffer->host_ptr(), buf_size);
-    }
-
-    // Say to the memobject that we are allocated
-    p_buffer->deviceAllocated(this);
-
-    return true;
-}
-
-DeviceInterface *CPUBuffer::device() const
-{
-    return p_device;
-}
-
-bool CPUBuffer::allocated() const
-{
-    return p_data != 0;
-}
-
-/*
- * CPUProgram
- */
-CPUProgram::CPUProgram(CPUDevice *device, Program *program)
-: DeviceProgram(), p_device(device), p_program(program)
-{
-
-}
-
-CPUProgram::~CPUProgram()
-{
-
-}
-
-bool CPUProgram::linkStdLib() const
-{
-    return true;
-}
-
-void CPUProgram::createOptimizationPasses(llvm::PassManager *manager, bool optimize)
-{
-    if (optimize)
-    {
-        /*
-         * Inspired by code from "The LLVM Compiler Infrastructure"
-         */
-        manager->add(llvm::createDeadArgEliminationPass());
-        manager->add(llvm::createInstructionCombiningPass());
-        manager->add(llvm::createFunctionInliningPass());
-        manager->add(llvm::createPruneEHPass());   // Remove dead EH info.
-        manager->add(llvm::createGlobalOptimizerPass());
-        manager->add(llvm::createGlobalDCEPass()); // Remove dead functions.
-        manager->add(llvm::createArgumentPromotionPass());
-        manager->add(llvm::createInstructionCombiningPass());
-        manager->add(llvm::createJumpThreadingPass());
-        manager->add(llvm::createScalarReplAggregatesPass());
-        manager->add(llvm::createFunctionAttrsPass()); // Add nocapture.
-        manager->add(llvm::createGlobalsModRefPass()); // IP alias analysis.
-        manager->add(llvm::createLICMPass());      // Hoist loop invariants.
-        manager->add(llvm::createGVNPass());       // Remove redundancies.
-        manager->add(llvm::createMemCpyOptPass()); // Remove dead memcpys.
-        manager->add(llvm::createDeadStoreEliminationPass());
-        manager->add(llvm::createInstructionCombiningPass());
-        manager->add(llvm::createJumpThreadingPass());
-        manager->add(llvm::createCFGSimplificationPass());
-    }
-}
-
-bool CPUProgram::build(const llvm::Module *module)
-{
-    // Nothing to build
-    return true;
-}
-
-/*
- * CPUKernel
- */
-CPUKernel::CPUKernel(CPUDevice *device, Kernel *kernel)
-: DeviceKernel(), p_device(device), p_kernel(kernel)
-{
-
-}
-
-CPUKernel::~CPUKernel()
-{
-
-}
-
-size_t CPUKernel::workGroupSize() const
-{
-    return 0; // TODO
-}
-
-cl_ulong CPUKernel::localMemSize() const
-{
-    return 0; // TODO
-}
-
-cl_ulong CPUKernel::privateMemSize() const
-{
-    return 0; // TODO
-}
-
-size_t CPUKernel::preferredWorkGroupSizeMultiple() const
-{
-    return 0; // TODO
 }

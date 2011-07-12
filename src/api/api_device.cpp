@@ -1,5 +1,5 @@
 #include "CL/cl.h"
-#include <core/cpudevice.h>
+#include <core/cpu/device.h>
 
 cl_int
 clGetDeviceIDs(cl_platform_id   platform,

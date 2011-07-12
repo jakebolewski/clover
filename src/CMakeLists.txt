@@ -26,7 +26,6 @@ set(COAL_SRC_FILES
     api/api_sampler.cpp
     api/api_gl.cpp
 
-    core/cpudevice.cpp
     core/context.cpp
     core/commandqueue.cpp
     core/memobject.cpp
@@ -34,6 +33,12 @@ set(COAL_SRC_FILES
     core/program.cpp
     core/compiler.cpp
     core/kernel.cpp
+
+    core/cpu/buffer.cpp
+    core/cpu/device.cpp
+    core/cpu/kernel.cpp
+    core/cpu/program.cpp
+    core/cpu/worker.cpp
 
     ${CMAKE_CURRENT_BINARY_DIR}/runtime/stdlib.h.embed.h
     ${CMAKE_CURRENT_BINARY_DIR}/runtime/stdlib.c.bc.embed.h
