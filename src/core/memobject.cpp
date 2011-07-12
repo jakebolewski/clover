@@ -248,7 +248,7 @@ void MemObject::setDestructorCallback(void (CL_CALLBACK *pfn_notify)
 // HACK for the union
 typedef void * void_p;
 
-cl_int MemObject::info(cl_context_info param_name,
+cl_int MemObject::info(cl_mem_info param_name,
                        size_t param_value_size,
                        void *param_value,
                        size_t *param_value_size_ret)
@@ -487,7 +487,7 @@ cl_image_format Image2D::format() const
     return p_format;
 }
 
-cl_int Image2D::imageInfo(cl_context_info param_name,
+cl_int Image2D::imageInfo(cl_image_info param_name,
                          size_t param_value_size,
                          void *param_value,
                          size_t *param_value_size_ret)

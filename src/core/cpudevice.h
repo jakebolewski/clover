@@ -12,6 +12,7 @@ namespace Coal
 class MemObject;
 class Event;
 class Program;
+class Kernel;
 
 class CPUDevice : public DeviceInterface
 {
@@ -26,6 +27,7 @@ class CPUDevice : public DeviceInterface
 
         DeviceBuffer *createDeviceBuffer(MemObject *buffer, cl_int *rs);
         DeviceProgram *createDeviceProgram(Program *program);
+        DeviceKernel *createDeviceKernel(Kernel *kernel);
 
         cl_int initEventDeviceData(Event *event);
 
@@ -77,6 +79,22 @@ class CPUProgram : public DeviceProgram
     private:
         CPUDevice *p_device;
         Program *p_program;
+};
+
+class CPUKernel : public DeviceKernel
+{
+    public:
+        CPUKernel(CPUDevice *device, Kernel *kernel);
+        ~CPUKernel();
+
+        size_t workGroupSize() const;
+		cl_ulong localMemSize() const;
+        cl_ulong privateMemSize() const;
+		size_t preferredWorkGroupSizeMultiple() const;
+
+    private:
+        CPUDevice *p_device;
+        Kernel *p_kernel;
 };
 
 }

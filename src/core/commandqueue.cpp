@@ -58,7 +58,7 @@ bool CommandQueue::dereference()
     return (p_references == 0);
 }
 
-cl_int CommandQueue::info(cl_context_info param_name,
+cl_int CommandQueue::info(cl_command_queue_info param_name,
                           size_t param_value_size,
                           void *param_value,
                           size_t *param_value_size_ret)
@@ -563,7 +563,7 @@ void Event::setCallback(cl_int command_exec_callback_type,
     pthread_mutex_unlock(&p_state_mutex);
 }
 
-cl_int Event::info(cl_context_info param_name,
+cl_int Event::info(cl_event_info param_name,
                    size_t param_value_size,
                    void *param_value,
                    size_t *param_value_size_ret)
@@ -628,7 +628,7 @@ cl_int Event::info(cl_context_info param_name,
     return CL_SUCCESS;
 }
 
-cl_int Event::profilingInfo(cl_context_info param_name,
+cl_int Event::profilingInfo(cl_profiling_info param_name,
                             size_t param_value_size,
                             void *param_value,
                             size_t *param_value_size_ret)

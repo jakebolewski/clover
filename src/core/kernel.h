@@ -17,6 +17,7 @@ namespace Coal
 
 class Program;
 class DeviceInterface;
+class DeviceKernel;
 
 class Kernel
 {
@@ -34,10 +35,15 @@ class Kernel
 
         Program *program() const;
 
-        cl_int info(cl_context_info param_name,
+        cl_int info(cl_kernel_info param_name,
                     size_t param_value_size,
                     void *param_value,
                     size_t *param_value_size_ret);
+        cl_int workGroupInfo(DeviceInterface *device,
+                             cl_kernel_work_group_info param_name,
+                             size_t param_value_size,
+                             void *param_value,
+                             size_t *param_value_size_ret);
 
     private:
         Program *p_program;
@@ -47,6 +53,7 @@ class Kernel
         struct DeviceDependent
         {
             DeviceInterface *device;
+            DeviceKernel *kernel;
             llvm::Function *function;
             llvm::Module *module;
         };

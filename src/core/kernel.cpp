@@ -1,6 +1,7 @@
 #include "kernel.h"
 #include "propertylist.h"
 #include "program.h"
+#include "deviceinterface.h"
 
 #include <string>
 #include <iostream>
@@ -21,6 +22,15 @@ Kernel::Kernel(Program *program)
 Kernel::~Kernel()
 {
     clReleaseProgram((cl_program)p_program);
+
+    while (p_device_dependent.size())
+    {
+        DeviceDependent &dep = p_device_dependent.back();
+
+        delete dep.kernel;
+
+        p_device_dependent.pop_back();
+    }
 }
 
 void Kernel::reference()
@@ -40,7 +50,7 @@ const Kernel::DeviceDependent &Kernel::deviceDependent(DeviceInterface *device) 
     {
         const DeviceDependent &rs = p_device_dependent[i];
 
-        if (rs.device == device)
+        if (rs.device == device || (!device && p_device_dependent.size() == 1))
             return rs;
     }
 }
@@ -51,7 +61,7 @@ Kernel::DeviceDependent &Kernel::deviceDependent(DeviceInterface *device)
     {
         DeviceDependent &rs = p_device_dependent[i];
 
-        if (rs.device == device)
+        if (rs.device == device || (!device && p_device_dependent.size() == 1))
             return rs;
     }
 }
@@ -172,6 +182,7 @@ cl_int Kernel::addFunction(DeviceInterface *device, llvm::Function *function,
             p_args.push_back(a);
     }
 
+    dep.kernel = device->createDeviceKernel(this);
     p_device_dependent.push_back(dep);
 
     return CL_SUCCESS;
@@ -268,10 +279,10 @@ Program *Kernel::program() const
     return p_program;
 }
 
-cl_int Kernel::info(cl_context_info param_name,
-                     size_t param_value_size,
-                     void *param_value,
-                     size_t *param_value_size_ret)
+cl_int Kernel::info(cl_kernel_info param_name,
+                    size_t param_value_size,
+                    void *param_value,
+                    size_t *param_value_size_ret)
 {
     void *value = 0;
     size_t value_length = 0;
@@ -302,6 +313,66 @@ cl_int Kernel::info(cl_context_info param_name,
 
         case CL_KERNEL_PROGRAM:
             SIMPLE_ASSIGN(cl_program, p_program);
+            break;
+
+        default:
+            return CL_INVALID_VALUE;
+    }
+
+    if (param_value && param_value_size < value_length)
+        return CL_INVALID_VALUE;
+
+    if (param_value_size_ret)
+        *param_value_size_ret = value_length;
+
+    if (param_value)
+        std::memcpy(param_value, value, value_length);
+
+    return CL_SUCCESS;
+}
+
+cl_int Kernel::workGroupInfo(DeviceInterface *device,
+                             cl_kernel_work_group_info param_name,
+                             size_t param_value_size,
+                             void *param_value,
+                             size_t *param_value_size_ret)
+{
+    void *value = 0;
+    size_t value_length = 0;
+
+    union {
+        size_t size_t_var;
+        size_t three_size_t[3];
+        cl_ulong cl_ulong_var;
+    };
+
+    DeviceDependent &dep = deviceDependent(device);
+
+    switch (param_name)
+    {
+        case CL_KERNEL_WORK_GROUP_SIZE:
+            SIMPLE_ASSIGN(size_t, dep.kernel->workGroupSize());
+            break;
+
+        case CL_KERNEL_COMPILE_WORK_GROUP_SIZE:
+            // TODO: Get this information from the kernel source
+            three_size_t[0] = 0;
+            three_size_t[1] = 0;
+            three_size_t[2] = 0;
+            value = &three_size_t;
+            value_length = sizeof(three_size_t);
+            break;
+
+        case CL_KERNEL_LOCAL_MEM_SIZE:
+            SIMPLE_ASSIGN(cl_ulong, dep.kernel->localMemSize());
+            break;
+
+        case CL_KERNEL_PRIVATE_MEM_SIZE:
+            SIMPLE_ASSIGN(cl_ulong, dep.kernel->privateMemSize());
+            break;
+
+        case CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE:
+            SIMPLE_ASSIGN(size_t, dep.kernel->preferredWorkGroupSizeMultiple());
             break;
 
         default:

@@ -63,12 +63,12 @@ class Program
         Kernel *createKernel(const std::string &name, cl_int *errcode_ret);
         std::vector<Kernel *> createKernels(cl_int *errcode_ret);
 
-        cl_int info(cl_context_info param_name,
+        cl_int info(cl_program_info param_name,
                     size_t param_value_size,
                     void *param_value,
                     size_t *param_value_size_ret);
         cl_int buildInfo(DeviceInterface *device,
-                         cl_context_info param_name,
+                         cl_program_build_info param_name,
                          size_t param_value_size,
                          void *param_value,
                          size_t *param_value_size_ret);

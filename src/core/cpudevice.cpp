@@ -162,6 +162,11 @@ DeviceProgram *CPUDevice::createDeviceProgram(Program *program)
     return (DeviceProgram *)new CPUProgram(this, program);
 }
 
+DeviceKernel *CPUDevice::createDeviceKernel(Kernel *kernel)
+{
+    return (DeviceKernel *)new CPUKernel(this, kernel);
+}
+
 cl_int CPUDevice::initEventDeviceData(Event *event)
 {
     switch (event->type())
@@ -715,4 +720,38 @@ bool CPUProgram::build(const llvm::Module *module)
 {
     // Nothing to build
     return true;
+}
+
+/*
+ * CPUKernel
+ */
+CPUKernel::CPUKernel(CPUDevice *device, Kernel *kernel)
+: DeviceKernel(), p_device(device), p_kernel(kernel)
+{
+
+}
+
+CPUKernel::~CPUKernel()
+{
+
+}
+
+size_t CPUKernel::workGroupSize() const
+{
+    return 0; // TODO
+}
+
+cl_ulong CPUKernel::localMemSize() const
+{
+    return 0; // TODO
+}
+
+cl_ulong CPUKernel::privateMemSize() const
+{
+    return 0; // TODO
+}
+
+size_t CPUKernel::preferredWorkGroupSizeMultiple() const
+{
+    return 0; // TODO
 }

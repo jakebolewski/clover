@@ -28,7 +28,7 @@ class CommandQueue
 
         cl_int queueEvent(Event *event);
 
-        cl_int info(cl_context_info param_name,
+        cl_int info(cl_command_queue_info param_name,
                     size_t param_value_size,
                     void *param_value,
                     size_t *param_value_size_ret);
@@ -135,11 +135,11 @@ class Event
                          event_callback callback,
                          void *user_data);
 
-        cl_int info(cl_context_info param_name,
+        cl_int info(cl_event_info param_name,
                     size_t param_value_size,
                     void *param_value,
                     size_t *param_value_size_ret);
-        cl_int profilingInfo(cl_context_info param_name,
+        cl_int profilingInfo(cl_profiling_info param_name,
                              size_t param_value_size,
                              void *param_value,
                              size_t *param_value_size_ret);

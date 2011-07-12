@@ -89,7 +89,7 @@ Program::DeviceDependent &Program::deviceDependent(DeviceInterface *device)
     {
         DeviceDependent &rs = p_device_dependent[i];
 
-        if (rs.device == device)
+        if (rs.device == device || (!device && p_device_dependent.size() == 1))
             return rs;
     }
 }
@@ -420,7 +420,7 @@ Context *Program::context() const
     return p_ctx;
 }
 
-cl_int Program::info(cl_context_info param_name,
+cl_int Program::info(cl_program_info param_name,
                      size_t param_value_size,
                      void *param_value,
                      size_t *param_value_size_ret)
@@ -524,7 +524,7 @@ cl_int Program::info(cl_context_info param_name,
 }
 
 cl_int Program::buildInfo(DeviceInterface *device,
-                          cl_context_info param_name,
+                          cl_program_build_info param_name,
                           size_t param_value_size,
                           void *param_value,
                           size_t *param_value_size_ret)
