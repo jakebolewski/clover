@@ -257,6 +257,19 @@ float CPUDevice::cpuMhz()
     return cpuMhz;
 }
 
+// From inner parentheses to outher ones :
+//
+// sizeof * 8 => 8
+// -1         => 7
+// 1 << $     => 10000000
+// -1         => 01111111
+// *2         => 11111110
+// +1         => 11111111
+//
+// A simple way to do this is (1 << (sizeof(type) * 8)) - 1, but it overflows
+// the type (for int8, 1 << $ = 100000000 = 256 > 255)
+#define TYPE_MAX(type) ((((type)1 << ((sizeof(type) * 8) - 1)) - 1) * 2 + 1)
+
 cl_int CPUDevice::info(cl_device_info param_name,
                        size_t param_value_size,
                        void *param_value,
@@ -295,19 +308,18 @@ cl_int CPUDevice::info(cl_device_info param_name,
             break;
 
         case CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS:
-            // TODO: Spec minimum
+            // Spec minimum
             SIMPLE_ASSIGN(cl_uint, 3);
             break;
 
         case CL_DEVICE_MAX_WORK_GROUP_SIZE:
-            // TODO: Spec minimum
-            SIMPLE_ASSIGN(size_t, 1);
+            SIMPLE_ASSIGN(size_t, TYPE_MAX(size_t));
             break;
 
         case CL_DEVICE_MAX_WORK_ITEM_SIZES:
-            three_size_t[0] = 1;
-            three_size_t[1] = 1;
-            three_size_t[2] = 1;
+            three_size_t[0] = TYPE_MAX(size_t);
+            three_size_t[1] = TYPE_MAX(size_t);
+            three_size_t[2] = TYPE_MAX(size_t);
             value_length = 3 * sizeof(size_t);
             value = &three_size_t;
             break;
