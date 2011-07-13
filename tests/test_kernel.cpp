@@ -43,6 +43,7 @@ START_TEST (test_compiled_kernel)
     cl_platform_id platform = 0;
     cl_device_id device;
     cl_context ctx;
+    cl_command_queue queue;
     cl_program program;
     cl_int result;
     cl_kernel kernels[2];
@@ -64,6 +65,12 @@ START_TEST (test_compiled_kernel)
     fail_if(
         result != CL_SUCCESS || ctx == 0,
         "unable to create a valid context"
+    );
+
+    queue = clCreateCommandQueue(ctx, device, 0, &result);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to create a command queue"
     );
 
     program = clCreateProgramWithSource(ctx, 1, &src, &program_len, &result);
@@ -116,6 +123,38 @@ START_TEST (test_compiled_kernel)
     fail_if(
         result != CL_SUCCESS,
         "cannot set kernel argument"
+    );
+
+    size_t global_size = sizeof(buffer) / sizeof(buffer[0]);
+    size_t local_size = global_size / 2;
+    cl_event event;
+    bool ok;
+
+    result = clEnqueueNDRangeKernel(queue, kernels[1], 1, 0, &global_size, 0, 0, 0, &event);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to queue a NDRange kernel with local work size guessed"
+    );
+
+    result = clWaitForEvents(1, &event);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to wait for event"
+    );
+
+    ok = true;
+    for (int i=0; i<global_size; ++i)
+    {
+        if (buffer[i] !=  2 * i)
+        {
+            ok = false;
+            break;
+        }
+    }
+
+    fail_if(
+        ok == false,
+        "the kernel hasn't done its job, the buffer is wrong"
     );
 
     clReleaseKernel(kernels[0]);

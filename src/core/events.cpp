@@ -544,6 +544,11 @@ Kernel *KernelEvent::kernel() const
     return p_kernel;
 }
 
+DeviceKernel *KernelEvent::deviceKernel() const
+{
+    return p_dev_kernel;
+}
+
 Event::Type KernelEvent::type() const
 {
     return Event::NDRangeKernel;

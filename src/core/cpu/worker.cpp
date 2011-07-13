@@ -72,6 +72,13 @@ void *worker(void *data)
 
                 break;
             }
+            case Event::NDRangeKernel:
+            case Event::TaskKernel:
+            {
+                KernelEvent *e = (KernelEvent *)event;
+
+                break;
+            }
             default:
                 break;
         }

@@ -165,6 +165,7 @@ class KernelEvent : public Event
         size_t global_work_size(cl_uint dim) const;
         size_t local_work_size(cl_uint dim) const;
         Kernel *kernel() const;
+        DeviceKernel *deviceKernel() const;
 
         virtual Type type() const;
 
