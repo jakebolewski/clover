@@ -34,6 +34,10 @@ class Kernel
         cl_int setArg(cl_uint index, size_t size, const void *value);
 
         Program *program() const;
+        DeviceKernel *deviceDependentKernel(DeviceInterface *device) const;
+
+        bool argsSpecified() const;
+        cl_int checkArgsForDevice(DeviceInterface *device) const;
 
         cl_int info(cl_kernel_info param_name,
                     size_t param_value_size,
@@ -109,6 +113,8 @@ class Kernel
 
         std::vector<DeviceDependent> p_device_dependent;
         std::vector<Arg> p_args;
+        DeviceDependent null_dep;
+
         const DeviceDependent &deviceDependent(DeviceInterface *device) const;
         DeviceDependent &deviceDependent(DeviceInterface *device);
 };

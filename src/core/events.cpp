@@ -1,6 +1,7 @@
 #include "events.h"
 #include "commandqueue.h"
 #include "memobject.h"
+#include "kernel.h"
 #include "deviceinterface.h"
 
 #include <cstdlib>
@@ -52,7 +53,7 @@ BufferEvent::BufferEvent(CommandQueue *parent,
         *errcode_ret = device->info(CL_DEVICE_MEM_BASE_ADDR_ALIGN, sizeof(uint),
                                     &align, 0);
 
-        if (errcode_ret != CL_SUCCESS) return;
+        if (*errcode_ret != CL_SUCCESS) return;
 
         size_t mask = 0;
 
@@ -353,6 +354,218 @@ void *NativeKernelEvent::function() const
 void *NativeKernelEvent::args() const
 {
     return p_args;
+}
+
+/*
+ * Kernel event
+ */
+KernelEvent::KernelEvent(CommandQueue *parent,
+                         Kernel *kernel,
+                         cl_uint work_dim,
+                         const size_t *global_work_offset,
+                         const size_t *global_work_size,
+                         const size_t *local_work_size,
+                         cl_uint num_events_in_wait_list,
+                         const Event **event_wait_list,
+                         cl_int *errcode_ret)
+: Event(parent, Queued, num_events_in_wait_list, event_wait_list, errcode_ret),
+  p_kernel(kernel), p_work_dim(work_dim), p_global_work_offset(0),
+  p_global_work_size(0), p_local_work_size(0), p_max_work_item_sizes(0)
+{
+    // Sanity checks
+    if (!kernel)
+    {
+        *errcode_ret = CL_INVALID_KERNEL;
+        return;
+    }
+
+    // Check that the kernel was built for parent's device.
+    DeviceInterface *device;
+    Context *k_ctx, *q_ctx;
+    size_t max_work_group_size;
+    cl_uint max_dims;
+
+    *errcode_ret = parent->info(CL_QUEUE_DEVICE, sizeof(DeviceInterface *),
+                                &device, 0);
+
+    if (*errcode_ret != CL_SUCCESS)
+        return;
+
+    *errcode_ret = parent->info(CL_QUEUE_CONTEXT, sizeof(Context *), &q_ctx, 0);
+    *errcode_ret |= kernel->info(CL_KERNEL_CONTEXT, sizeof(Context *), &k_ctx, 0);
+    *errcode_ret |= device->info(CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t),
+                                &max_work_group_size, 0);
+    *errcode_ret |= device->info(CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, sizeof(size_t),
+                                &max_dims, 0);
+
+    if (*errcode_ret != CL_SUCCESS)
+        return;
+
+    p_max_work_item_sizes = (size_t *)std::malloc(max_dims * sizeof(size_t));
+    *errcode_ret = device->info(CL_DEVICE_MAX_WORK_ITEM_SIZES,
+                                max_dims * sizeof(size_t), p_max_work_item_sizes, 0);
+
+    p_dev_kernel = kernel->deviceDependentKernel(device);
+
+    if (!p_dev_kernel)
+    {
+        *errcode_ret = CL_INVALID_PROGRAM_EXECUTABLE;
+        return;
+    }
+
+    // Check that contexts match
+    if (k_ctx != q_ctx)
+    {
+        *errcode_ret = CL_INVALID_CONTEXT;
+        return;
+    }
+
+    // Check args
+    if (!kernel->argsSpecified())
+    {
+        *errcode_ret = CL_INVALID_KERNEL_ARGS;
+        return;
+    }
+
+    // Check dimension
+    if (work_dim == 0 || work_dim > max_dims)
+    {
+        *errcode_ret = CL_INVALID_WORK_DIMENSION;
+        return;
+    }
+
+    // Populate work_offset, work_size and local_work_size
+    p_global_work_offset = (size_t *)std::malloc(work_dim * sizeof(size_t));
+    p_global_work_size = (size_t *)std::malloc(work_dim * sizeof(size_t));
+    p_local_work_size = (size_t *)std::malloc(work_dim * sizeof(size_t));
+
+    size_t work_group_size = 1;
+
+    for (int i=0; i<work_dim; ++i)
+    {
+        if (global_work_offset)
+        {
+            p_global_work_offset[i] = global_work_offset[i];
+        }
+        else
+        {
+            p_global_work_offset[i] = 0;
+        }
+
+        if (!global_work_size || !global_work_size[i])
+        {
+            *errcode_ret = CL_INVALID_GLOBAL_WORK_SIZE;
+        }
+        p_global_work_size[i] = global_work_size[i];
+
+        if (!local_work_size)
+        {
+            // Guess the best value according to the device
+            p_local_work_size[i] =
+                p_dev_kernel->guessWorkGroupSize(work_dim, i, global_work_size[i]);
+
+            // TODO: CL_INVALID_WORK_GROUP_SIZE if
+            // __attribute__((reqd_work_group_size(X, Y, Z))) is set
+        }
+        else
+        {
+            // Check divisibility
+            if ((global_work_size[i] % local_work_size[i]) != 0)
+            {
+                *errcode_ret = CL_INVALID_WORK_GROUP_SIZE;
+                return;
+            }
+
+            // Not too big ?
+            if (local_work_size[i] > p_max_work_item_sizes[i])
+            {
+                *errcode_ret = CL_INVALID_WORK_ITEM_SIZE;
+                return;
+            }
+
+            // TODO: CL_INVALID_WORK_GROUP_SIZE if
+            // __attribute__((reqd_work_group_size(X, Y, Z))) doesn't match
+
+            p_local_work_size[i] = local_work_size[i];
+            work_group_size *= local_work_size[i];
+        }
+    }
+
+    // Check we don't ask too much to the device
+    if (work_group_size > max_work_group_size)
+    {
+        *errcode_ret = CL_INVALID_WORK_GROUP_SIZE;
+    }
+
+    // Check arguments (buffer alignment, image size, ...)
+    *errcode_ret = kernel->checkArgsForDevice(device);
+
+    if (*errcode_ret != CL_SUCCESS)
+        return;
+}
+
+KernelEvent::~KernelEvent()
+{
+    if (p_global_work_offset)
+        std::free(p_global_work_offset);
+
+    if (p_global_work_size)
+        std::free(p_global_work_size);
+
+    if (p_local_work_size)
+        std::free(p_local_work_size);
+
+    if (p_max_work_item_sizes)
+        std::free(p_max_work_item_sizes);
+}
+
+cl_uint KernelEvent::work_dim() const
+{
+    return p_work_dim;
+}
+
+size_t KernelEvent::global_work_offset(cl_uint dim) const
+{
+    return p_global_work_offset[dim];
+}
+
+size_t KernelEvent::global_work_size(cl_uint dim) const
+{
+    return p_global_work_size[dim];
+}
+
+size_t KernelEvent::local_work_size(cl_uint dim) const
+{
+    return p_local_work_size[dim];
+}
+
+Kernel *KernelEvent::kernel() const
+{
+    return p_kernel;
+}
+
+Event::Type KernelEvent::type() const
+{
+    return Event::NDRangeKernel;
+}
+
+static size_t one = 1;
+
+TaskEvent::TaskEvent(CommandQueue *parent,
+                     Kernel *kernel,
+                     cl_uint num_events_in_wait_list,
+                     const Event **event_wait_list,
+                     cl_int *errcode_ret)
+: KernelEvent(parent, kernel, 1, 0, &one, &one, num_events_in_wait_list,
+              event_wait_list, errcode_ret)
+{
+    // TODO: CL_INVALID_WORK_GROUP_SIZE if
+    // __attribute__((reqd_work_group_size(X, Y, Z))) != (1, 1, 1)
+}
+
+Event::Type TaskEvent::type() const
+{
+    return Event::TaskKernel;
 }
 
 /*

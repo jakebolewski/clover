@@ -78,6 +78,8 @@ class DeviceKernel
 		virtual cl_ulong localMemSize() const = 0;
         virtual cl_ulong privateMemSize() const = 0;
 		virtual size_t preferredWorkGroupSizeMultiple() const = 0;
+        virtual size_t guessWorkGroupSize(cl_uint num_dims, cl_uint dim,
+                                          size_t global_work_size) const = 0;
 };
 
 }

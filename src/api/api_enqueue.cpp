@@ -328,7 +328,41 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
                        const cl_event * event_wait_list,
                        cl_event *       event)
 {
-    return 0;
+    cl_int rs = CL_SUCCESS;
+
+    if (!command_queue)
+    {
+        return CL_INVALID_COMMAND_QUEUE;
+    }
+
+    Coal::KernelEvent *command = new Coal::KernelEvent(
+        (Coal::CommandQueue *)command_queue,
+        (Coal::Kernel *)kernel,
+        work_dim, global_work_offset, global_work_size, local_work_size,
+        num_events_in_wait_list, (const Coal::Event **)event_wait_list, &rs
+    );
+
+    if (rs != CL_SUCCESS)
+    {
+        delete command;
+        return rs;
+    }
+
+    rs = command_queue->queueEvent(command);
+
+    if (rs != CL_SUCCESS)
+    {
+        delete command;
+        return rs;
+    }
+
+    if (event)
+    {
+        *event = (cl_event)command;
+        command->reference();
+    }
+
+    return rs;
 }
 
 cl_int
@@ -338,7 +372,40 @@ clEnqueueTask(cl_command_queue  command_queue,
               const cl_event *  event_wait_list,
               cl_event *        event)
 {
-    return 0;
+    cl_int rs = CL_SUCCESS;
+
+    if (!command_queue)
+    {
+        return CL_INVALID_COMMAND_QUEUE;
+    }
+
+    Coal::TaskEvent *command = new Coal::TaskEvent(
+        (Coal::CommandQueue *)command_queue,
+        (Coal::Kernel *)kernel,
+        num_events_in_wait_list, (const Coal::Event **)event_wait_list, &rs
+    );
+
+    if (rs != CL_SUCCESS)
+    {
+        delete command;
+        return rs;
+    }
+
+    rs = command_queue->queueEvent(command);
+
+    if (rs != CL_SUCCESS)
+    {
+        delete command;
+        return rs;
+    }
+
+    if (event)
+    {
+        *event = (cl_event)command;
+        command->reference();
+    }
+
+    return rs;
 }
 
 cl_int

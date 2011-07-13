@@ -1,6 +1,7 @@
 #include "kernel.h"
 #include "propertylist.h"
 #include "program.h"
+#include "memobject.h"
 #include "deviceinterface.h"
 
 #include <string>
@@ -17,6 +18,11 @@ Kernel::Kernel(Program *program)
 : p_program(program), p_references(1)
 {
     clRetainProgram((cl_program)program); // TODO: Say a kernel is attached to the program (that becomes unalterable)
+
+    null_dep.device = 0;
+    null_dep.kernel = 0;
+    null_dep.function = 0;
+    null_dep.module = 0;
 }
 
 Kernel::~Kernel()
@@ -53,6 +59,8 @@ const Kernel::DeviceDependent &Kernel::deviceDependent(DeviceInterface *device) 
         if (rs.device == device || (!device && p_device_dependent.size() == 1))
             return rs;
     }
+
+    return null_dep;
 }
 
 Kernel::DeviceDependent &Kernel::deviceDependent(DeviceInterface *device)
@@ -64,6 +72,8 @@ Kernel::DeviceDependent &Kernel::deviceDependent(DeviceInterface *device)
         if (rs.device == device || (!device && p_device_dependent.size() == 1))
             return rs;
     }
+
+    return null_dep;
 }
 
 cl_int Kernel::addFunction(DeviceInterface *device, llvm::Function *function,
@@ -277,6 +287,92 @@ cl_int Kernel::setArg(cl_uint index, size_t size, const void *value)
 Program *Kernel::program() const
 {
     return p_program;
+}
+
+bool Kernel::argsSpecified() const
+{
+    for (int i=0; i<p_args.size(); ++i)
+    {
+        if (!p_args[i].set)
+            return false;
+    }
+
+    return true;
+}
+
+cl_int Kernel::checkArgsForDevice(DeviceInterface *device) const
+{
+    const DeviceDependent &dep = deviceDependent(device);
+    cl_int rs;
+
+    for (int i=0; i<p_args.size(); ++i)
+    {
+        const Arg &a = p_args[i];
+
+        if (a.kind == Arg::Buffer)
+        {
+            MemObject *buffer = (MemObject *)a.value.cl_mem_val;
+
+            if (buffer->type() == MemObject::SubBuffer)
+            {
+                cl_uint align;
+                rs = device->info(CL_DEVICE_MEM_BASE_ADDR_ALIGN, sizeof(uint),
+                                  &align, 0);
+
+                if (rs != CL_SUCCESS) return rs;
+
+                size_t mask = 0;
+
+                for (int i=0; i<align; ++i)
+                    mask = 1 | (mask << 1);
+
+                if (((SubBuffer *)buffer)->offset() | mask)
+                    return CL_MISALIGNED_SUB_BUFFER_OFFSET;
+            }
+        }
+        else if (a.kind == Arg::Image2D)
+        {
+            Image2D *image = (Image2D *)a.value.cl_mem_val;
+            size_t maxWidth, maxHeight;
+
+            rs = device->info(CL_DEVICE_IMAGE2D_MAX_WIDTH, sizeof(size_t),
+                              &maxWidth, 0);
+            rs |= device->info(CL_DEVICE_IMAGE2D_MAX_HEIGHT, sizeof(size_t),
+                               &maxHeight, 0);
+
+            if (rs != CL_SUCCESS) return rs;
+
+            if (image->width() > maxWidth || image->height() > maxHeight)
+                return CL_INVALID_IMAGE_SIZE;
+        }
+        else if (a.kind == Arg::Image3D)
+        {
+            Image3D *image = (Image3D *)a.value.cl_mem_val;
+            size_t maxWidth, maxHeight, maxDepth;
+
+            rs = device->info(CL_DEVICE_IMAGE3D_MAX_WIDTH, sizeof(size_t),
+                              &maxWidth, 0);
+            rs |= device->info(CL_DEVICE_IMAGE3D_MAX_HEIGHT, sizeof(size_t),
+                               &maxHeight, 0);
+            rs |= device->info(CL_DEVICE_IMAGE3D_MAX_DEPTH, sizeof(size_t),
+                               &maxDepth, 0);
+
+            if (rs != CL_SUCCESS) return rs;
+
+            if (image->width() > maxWidth || image->height() > maxHeight ||
+                image->depth() > maxDepth)
+                return CL_INVALID_IMAGE_SIZE;
+        }
+    }
+
+    return CL_SUCCESS;
+}
+
+DeviceKernel *Kernel::deviceDependentKernel(DeviceInterface *device) const
+{
+    const DeviceDependent &dep = deviceDependent(device);
+
+    return dep.kernel;
 }
 
 cl_int Kernel::info(cl_kernel_info param_name,

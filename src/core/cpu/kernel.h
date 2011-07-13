@@ -19,6 +19,8 @@ class CPUKernel : public DeviceKernel
 		cl_ulong localMemSize() const;
         cl_ulong privateMemSize() const;
 		size_t preferredWorkGroupSizeMultiple() const;
+        size_t guessWorkGroupSize(cl_uint num_dims, cl_uint dim,
+                                  size_t global_work_size) const;
 
     private:
         CPUDevice *p_device;

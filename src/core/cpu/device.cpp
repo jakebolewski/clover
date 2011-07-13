@@ -312,7 +312,7 @@ cl_int CPUDevice::info(cl_device_info param_name,
             break;
 
         case CL_DEVICE_MEM_BASE_ADDR_ALIGN:
-            SIMPLE_ASSIGN(cl_uint, 16);
+            SIMPLE_ASSIGN(cl_uint, 0);
             break;
 
         case CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE:
