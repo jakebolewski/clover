@@ -11,6 +11,9 @@
 #include <llvm/Transforms/IPO.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 
+#include <string>
+#include <iostream>
+
 using namespace Coal;
 
 CPUProgram::CPUProgram(CPUDevice *device, Program *program)
@@ -76,9 +79,21 @@ bool CPUProgram::initJIT()
         return false;
 
     // Create the JIT
-    p_jit = llvm::ExecutionEngine::create(p_module, false, 0,
-                                          llvm::CodeGenOpt::Default, false);
+    std::string err;
+    llvm::EngineBuilder builder(p_module);
 
+    builder.setErrorStr(&err);
+    builder.setAllocateGVsWithCode(false);
+
+    p_jit = builder.create();
+
+    if (!p_jit)
+    {
+        std::cout << "Unable to create a JIT: " << err << std::endl;
+        return false;
+    }
+
+    p_jit->DisableSymbolSearching(true);    // Avoid an enormous security hole (a kernel calling system())
     p_jit->InstallLazyFunctionCreator(&getBuiltin);
 
     return true;

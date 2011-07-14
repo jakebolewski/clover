@@ -116,7 +116,6 @@ class Event
         virtual ~Event();
 
         virtual Type type() const = 0;
-        virtual bool lastSlot() const; /*!< The last slot of a NDRange event will be executed */
         bool isDummy() const;      /*!< Doesn't do anything, it's just an event type */
 
         void reference();

@@ -624,11 +624,6 @@ Event::Type KernelEvent::type() const
     return Event::NDRangeKernel;
 }
 
-bool KernelEvent::lastSlot() const
-{
-    return p_dev_kernel->lastSlot();
-}
-
 static size_t one = 1;
 
 TaskEvent::TaskEvent(CommandQueue *parent,

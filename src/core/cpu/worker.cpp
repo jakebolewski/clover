@@ -15,7 +15,8 @@ using namespace Coal;
 void *worker(void *data)
 {
     CPUDevice *device = (CPUDevice *)data;
-    bool stop = false, success, last_slot;
+    bool stop = false, last_run;
+    cl_int errcode;
     Event *event;
 
     while (true)
@@ -30,8 +31,9 @@ void *worker(void *data)
         Event::Type t = event->type();
         CommandQueue *queue = 0;
         cl_command_queue_properties queue_props = 0;
-        success = true;
-        last_slot = event->lastSlot();
+
+        last_run = true;
+        errcode = CL_SUCCESS;
 
         event->info(CL_EVENT_COMMAND_QUEUE, sizeof(CommandQueue *), &queue, 0);
 
@@ -79,8 +81,14 @@ void *worker(void *data)
             case Event::TaskKernel:
             {
                 KernelEvent *e = (KernelEvent *)event;
-                CPUKernel *k = (CPUKernel *)e->kernel()->deviceDependentKernel(device);
+                CPUKernelEvent *ke = (CPUKernelEvent *)e->deviceData();
+                last_run = ke->lastNoLock();
 
+                // Take an instance
+                CPUKernelWorkGroup *instance = ke->takeInstance();
+
+                if (!instance->run())
+                    errcode = CL_INVALID_PROGRAM_EXECUTABLE;
 
                 break;
             }
@@ -89,16 +97,27 @@ void *worker(void *data)
         }
 
         // Cleanups
-        if (success && last_slot)
+        if (errcode = CL_SUCCESS)
         {
-            event->setStatus(Event::Complete);
+            if (last_run)
+            {
+                event->setStatus(Event::Complete);
+
+                if (queue_props & CL_QUEUE_PROFILING_ENABLE)
+                    event->updateTiming(Event::End);
+
+                // Clean the queue
+                if (queue)
+                    queue->cleanEvents();
+            }
+        }
+        else
+        {
+            // The event failed
+            event->setStatus((Event::Status)errcode);
 
             if (queue_props & CL_QUEUE_PROFILING_ENABLE)
-                event->updateTiming(Event::End);
-
-            // Clean the queue
-            if (queue)
-                queue->cleanEvents();
+                    event->updateTiming(Event::End);
         }
     }
 

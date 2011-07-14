@@ -6,6 +6,7 @@
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include <vector>
 #include <string>
+#include <pthread.h>
 
 namespace llvm
 {
@@ -31,7 +32,7 @@ class CPUKernel : public DeviceKernel
 		size_t preferredWorkGroupSizeMultiple() const;
         size_t guessWorkGroupSize(cl_uint num_dims, cl_uint dim,
                                   size_t global_work_size) const;
-        bool lastSlot() const;
+
         Kernel *kernel() const;
         CPUDevice *device() const;
 
@@ -47,7 +48,8 @@ class CPUKernel : public DeviceKernel
 class CPUKernelWorkGroup
 {
     public:
-        CPUKernelWorkGroup(CPUKernel *kernel, KernelEvent *event);
+        CPUKernelWorkGroup(CPUKernel *kernel, KernelEvent *event,
+                           const size_t *work_group_index);
         ~CPUKernelWorkGroup();
 
         bool run();
@@ -57,6 +59,25 @@ class CPUKernelWorkGroup
         KernelEvent *p_event;
         size_t *p_index, *p_current, *p_maxs;
         size_t p_table_sizes;
+};
+
+class CPUKernelEvent
+{
+    public:
+        CPUKernelEvent(CPUDevice *device, KernelEvent *event);
+        ~CPUKernelEvent();
+
+        bool reserve();  /*!< The next Work Group that will execute will be the last. Locks the event */
+        bool lastNoLock() const; /*!< Same as reserve() but without locking. */
+        CPUKernelWorkGroup *takeInstance(); /*!< Must be called exactly one time after reserv(). Unlocks the event */
+        const size_t *currentWorkGroup() const;
+
+    private:
+        CPUDevice *p_device;
+        KernelEvent *p_event;
+        size_t *p_current_work_group, *p_max_work_groups;
+        size_t p_table_sizes;
+        pthread_mutex_t p_mutex;
 };
 
 }

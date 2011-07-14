@@ -169,8 +169,6 @@ class KernelEvent : public Event
 
         virtual Type type() const;
 
-        bool lastSlot() const;
-
     private:
         cl_uint p_work_dim;
         size_t *p_global_work_offset, *p_global_work_size, *p_local_work_size,

@@ -106,6 +106,10 @@ cl_int CPUDevice::initEventDeviceData(Event *event)
             if (!prog->initJIT())
                 return CL_INVALID_PROGRAM_EXECUTABLE;
 
+            // Set device-specific data
+            CPUKernelEvent *cpu_e = new CPUKernelEvent(this, e);
+            e->setDeviceData((void *)cpu_e);
+
             break;
         }
         default:
@@ -139,7 +143,16 @@ Event *CPUDevice::getEvent(bool &stop)
     Event *event = p_events.front();
 
     // If the run of this event will finish it, remove it from the list
-    if (event->lastSlot())
+    bool last_slot = true;
+
+    if (event->type() == Event::NDRangeKernel ||
+        event->type() == Event::TaskKernel)
+    {
+        CPUKernelEvent *ke = (CPUKernelEvent *)event->deviceData();
+        last_slot = ke->reserve();
+    }
+
+    if (last_slot)
     {
         p_num_events--;
         p_events.pop_front();

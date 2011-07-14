@@ -412,11 +412,6 @@ void Event::setReleaseParent(bool release)
     p_release_parent = release;
 }
 
-bool Event::lastSlot() const
-{
-    return true;
-}
-
 bool Event::isDummy() const
 {
     // A dummy event has nothing to do on an execution device and must be
