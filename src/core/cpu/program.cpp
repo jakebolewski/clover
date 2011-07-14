@@ -1,5 +1,6 @@
 #include "program.h"
 #include "device.h"
+#include "kernel.h"
 
 #include "../program.h"
 
@@ -77,6 +78,8 @@ bool CPUProgram::initJIT()
     // Create the JIT
     p_jit = llvm::ExecutionEngine::create(p_module, false, 0,
                                           llvm::CodeGenOpt::Default, false);
+
+    p_jit->InstallLazyFunctionCreator(&getBuiltin);
 
     return true;
 }

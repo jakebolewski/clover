@@ -80,8 +80,7 @@ void *worker(void *data)
             {
                 KernelEvent *e = (KernelEvent *)event;
                 CPUKernel *k = (CPUKernel *)e->kernel()->deviceDependentKernel(device);
-                e->setLastSlot(true);
-                k->callFunction();
+
 
                 break;
             }

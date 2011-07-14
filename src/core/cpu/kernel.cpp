@@ -1,9 +1,12 @@
 #include "kernel.h"
 #include "device.h"
 #include "buffer.h"
+#include "program.h"
 
 #include "../kernel.h"
 #include "../memobject.h"
+#include "../events.h"
+#include "../program.h"
 
 #include <llvm/Function.h>
 #include <llvm/Constants.h>
@@ -13,11 +16,54 @@
 #include <llvm/Instructions.h>
 #include <llvm/LLVMContext.h>
 #include <llvm/Module.h>
+#include <llvm/ExecutionEngine/ExecutionEngine.h>
 
 #include <cstdlib>
+#include <cstring>
 #include <iostream>
 
 using namespace Coal;
+
+template<typename T>
+bool incVec(cl_ulong dims, T *vec, T *maxs)
+{
+    bool overflow = false;
+
+    for (cl_ulong i=0; i<dims; ++i)
+    {
+        vec[i] += 1;
+
+        if (vec[i] >= maxs[i])
+        {
+            vec[i] = 0;
+            overflow = true;
+        }
+        else
+        {
+            overflow = false;
+            break;
+        }
+    }
+
+    return overflow;
+}
+
+static llvm::Constant *getPointerConstant(llvm::LLVMContext &C,
+                                          const llvm::Type *type,
+                                          void *const *value)
+{
+    llvm::Constant *rs = 0;
+
+    if (sizeof(void *) == 4)
+        rs = llvm::ConstantInt::get(llvm::Type::getInt32Ty(C), *(uint32_t *)value);
+    else
+        rs = llvm::ConstantInt::get(llvm::Type::getInt64Ty(C), *(uint64_t *)value);
+
+    // Cast to kernel's pointer type
+    rs = llvm::ConstantExpr::getIntToPtr(rs, type);
+
+    return rs;
+}
 
 CPUKernel::CPUKernel(CPUDevice *device, Kernel *kernel, llvm::Function *function)
 : DeviceKernel(), p_device(device), p_kernel(kernel), p_function(function),
@@ -100,24 +146,22 @@ llvm::Function *CPUKernel::function() const
     return p_function;
 }
 
-static llvm::Constant *getPointerConstant(llvm::LLVMContext &C,
-                                          const llvm::Type *type,
-                                          void *const *value)
+Kernel *CPUKernel::kernel() const
 {
-    llvm::Constant *rs = 0;
-
-    if (sizeof(void *) == 4)
-        rs = llvm::ConstantInt::get(llvm::Type::getInt32Ty(C), *(uint32_t *)value);
-    else
-        rs = llvm::ConstantInt::get(llvm::Type::getInt64Ty(C), *(uint64_t *)value);
-
-    // Cast to kernel's pointer type
-    rs = llvm::ConstantExpr::getIntToPtr(rs, type);
-
-    return rs;
+    return p_kernel;
 }
 
-llvm::Function *CPUKernel::callFunction()
+CPUDevice *CPUKernel::device() const
+{
+    return p_device;
+}
+
+bool CPUKernel::lastSlot() const
+{
+    return true;
+}
+
+llvm::Function *CPUKernel::callFunction(std::vector<void *> &freeLocal)
 {
     // If we can reuse the same function between work groups, do it
     if (!p_kernel->needsLocalAllocation() && p_call_function)
@@ -193,11 +237,12 @@ llvm::Function *CPUKernel::callFunction()
                     if (a.file() == Kernel::Arg::Local)
                     {
                         // Alloc a buffer and pass it to the kernel
-                        // NOTE: Free this after use !
                         void *local_buffer = std::malloc(a.allocAtKernelRuntime());
                         C = getPointerConstant(stub->getContext(),
                                                k_func_type->getParamType(i),
                                                &local_buffer);
+
+                        freeLocal.push_back(local_buffer);
                     }
                     else
                     {
@@ -269,12 +314,80 @@ llvm::Function *CPUKernel::callFunction()
     // Create a return instruction to end the stub
     llvm::ReturnInst::Create(stub->getContext(), block);
 
-    // DEBUG
-    stub->getParent()->dump();
-
     // Retain the function if it can be reused
     if (!p_kernel->needsLocalAllocation())
         p_call_function = stub;
 
     return stub;
+}
+
+/*
+ * CPUKernelWorkGroup
+ */
+CPUKernelWorkGroup::CPUKernelWorkGroup(CPUKernel *kernel, KernelEvent *event)
+: p_kernel(kernel), p_event(event), p_index(0), p_current(0), p_maxs(0)
+{
+    p_table_sizes = event->work_dim() * sizeof(size_t);
+
+    p_index = (size_t *)std::malloc(p_table_sizes);
+    p_current = (size_t *)std::malloc(p_table_sizes);
+    p_maxs = (size_t *)std::malloc(p_table_sizes);
+
+    // TODO: Set index
+
+    // Set maxs
+    for (unsigned int i=0; i<event->work_dim(); ++i)
+    {
+        p_maxs[i] = event->local_work_size(i);
+    }
+}
+
+CPUKernelWorkGroup::~CPUKernelWorkGroup()
+{
+    std::free(p_index);
+    std::free(p_current);
+    std::free(p_maxs);
+}
+
+bool CPUKernelWorkGroup::run()
+{
+    // Set current pos to 0
+    std::memset(p_current, 0, p_event->work_dim() * sizeof(size_t));
+
+    // Get the kernel function to call
+    bool free_after = p_kernel->kernel()->needsLocalAllocation();
+    std::vector<void *> local_to_free;
+    llvm::Function *kernel_func = p_kernel->callFunction(local_to_free);
+
+    if (!kernel_func)
+        return false;
+
+    CPUProgram *prog =
+        (CPUProgram *)(p_kernel->kernel()->program()
+            ->deviceDependentProgram(p_kernel->device()));
+
+    void (*kernel_func_addr)() = (void(*)())prog->jit()->getPointerToFunction(kernel_func);
+
+    // Tell the builtins this thread will run a kernel
+    setThreadLocalWorkGroup(this);
+
+    do
+    {
+        // Simply call the "call function", it and the builtins will do the rest
+        kernel_func_addr();
+    } while (!incVec(p_event->work_dim(), p_current, p_maxs));
+
+    // We may have some cleanup to do
+    if (free_after)
+    {
+        for (int i=0; i<local_to_free.size(); ++i)
+        {
+            std::free(local_to_free[i]);
+        }
+
+        // Bye function
+        kernel_func->eraseFromParent();
+    }
+
+    return true;
 }

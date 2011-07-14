@@ -4,7 +4,6 @@
 #include "commandqueue.h"
 
 #include <vector>
-#include <pthread.h>
 
 namespace Coal
 {
@@ -171,7 +170,6 @@ class KernelEvent : public Event
         virtual Type type() const;
 
         bool lastSlot() const;
-        void setLastSlot(bool last_slot);
 
     private:
         cl_uint p_work_dim;
@@ -179,8 +177,6 @@ class KernelEvent : public Event
                *p_max_work_item_sizes;
         Kernel *p_kernel;
         DeviceKernel *p_dev_kernel;
-        bool p_last_slot;
-        pthread_mutex_t p_mutex;
 };
 
 class TaskEvent : public KernelEvent

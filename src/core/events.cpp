@@ -370,13 +370,9 @@ KernelEvent::KernelEvent(CommandQueue *parent,
                          cl_int *errcode_ret)
 : Event(parent, Queued, num_events_in_wait_list, event_wait_list, errcode_ret),
   p_kernel(kernel), p_work_dim(work_dim), p_global_work_offset(0),
-  p_global_work_size(0), p_local_work_size(0), p_max_work_item_sizes(0),
-  p_last_slot(false)
+  p_global_work_size(0), p_local_work_size(0), p_max_work_item_sizes(0)
 {
     *errcode_ret = CL_SUCCESS;
-
-    // Locking machinery
-    pthread_mutex_init(&p_mutex, 0);
 
     // Sanity checks
     if (!kernel)
@@ -580,8 +576,6 @@ KernelEvent::KernelEvent(CommandQueue *parent,
 
 KernelEvent::~KernelEvent()
 {
-    pthread_mutex_destroy(&p_mutex);
-
     if (p_global_work_offset)
         std::free(p_global_work_offset);
 
@@ -632,21 +626,7 @@ Event::Type KernelEvent::type() const
 
 bool KernelEvent::lastSlot() const
 {
-    bool rs;
-    KernelEvent *hack = (KernelEvent *)this;
-
-    pthread_mutex_lock(&hack->p_mutex);
-    rs = p_last_slot;
-    pthread_mutex_unlock(&hack->p_mutex);
-
-    return rs;
-}
-
-void KernelEvent::setLastSlot(bool last_slot)
-{
-    pthread_mutex_lock(&p_mutex);
-    p_last_slot = last_slot;
-    pthread_mutex_unlock(&p_mutex);
+    return p_dev_kernel->lastSlot();
 }
 
 static size_t one = 1;
