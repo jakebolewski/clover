@@ -5,6 +5,8 @@
 #include <cstring>
 #include <cstdlib>
 
+#include <llvm/Target/TargetSelect.h>
+
 using namespace Coal;
 
 static void default_pfn_notify(const char *, const void *, size_t, void *)
@@ -24,6 +26,10 @@ Context::Context(const cl_context_properties *properties,
 {
     if (!p_pfn_notify)
         p_pfn_notify = &default_pfn_notify;
+
+    // Intialize LLVM, this can be done more than one time per program
+    llvm::InitializeNativeTarget();
+    llvm::InitializeNativeTargetAsmPrinter();
 
     // Explore the properties
     if (properties)

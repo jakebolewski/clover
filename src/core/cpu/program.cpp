@@ -10,6 +10,8 @@
 #include <llvm/Transforms/Scalar.h>
 #include <llvm/Transforms/IPO.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
+#include <llvm/ExecutionEngine/JIT.h>
+#include <llvm/ExecutionEngine/Interpreter.h>
 
 #include <string>
 #include <iostream>
