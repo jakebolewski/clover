@@ -116,7 +116,7 @@ class Event
         virtual ~Event();
 
         virtual Type type() const = 0;
-        bool isSingleShot() const; /*!< Cannot be split on several execution units */
+        virtual bool lastSlot() const; /*!< The last slot of a NDRange event will be executed */
         bool isDummy() const;      /*!< Doesn't do anything, it's just an event type */
 
         void reference();

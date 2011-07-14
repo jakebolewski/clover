@@ -1,10 +1,12 @@
 #include "worker.h"
 #include "device.h"
 #include "buffer.h"
+#include "kernel.h"
 
 #include "../commandqueue.h"
 #include "../events.h"
 #include "../memobject.h"
+#include "../kernel.h"
 
 #include <cstring>
 
@@ -13,7 +15,7 @@ using namespace Coal;
 void *worker(void *data)
 {
     CPUDevice *device = (CPUDevice *)data;
-    bool stop = false, success;
+    bool stop = false, success, last_slot;
     Event *event;
 
     while (true)
@@ -29,6 +31,7 @@ void *worker(void *data)
         CommandQueue *queue = 0;
         cl_command_queue_properties queue_props = 0;
         success = true;
+        last_slot = event->lastSlot();
 
         event->info(CL_EVENT_COMMAND_QUEUE, sizeof(CommandQueue *), &queue, 0);
 
@@ -76,6 +79,9 @@ void *worker(void *data)
             case Event::TaskKernel:
             {
                 KernelEvent *e = (KernelEvent *)event;
+                CPUKernel *k = (CPUKernel *)e->kernel()->deviceDependentKernel(device);
+                e->setLastSlot(true);
+                k->callFunction();
 
                 break;
             }
@@ -84,7 +90,7 @@ void *worker(void *data)
         }
 
         // Cleanups
-        if (success)
+        if (success && last_slot)
         {
             event->setStatus(Event::Complete);
 

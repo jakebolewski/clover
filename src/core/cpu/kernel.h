@@ -3,6 +3,14 @@
 
 #include "../deviceinterface.h"
 
+#include <llvm/ExecutionEngine/GenericValue.h>
+#include <vector>
+
+namespace llvm
+{
+    class Function;
+}
+
 namespace Coal
 {
 
@@ -12,7 +20,7 @@ class Kernel;
 class CPUKernel : public DeviceKernel
 {
     public:
-        CPUKernel(CPUDevice *device, Kernel *kernel);
+        CPUKernel(CPUDevice *device, Kernel *kernel, llvm::Function *function);
         ~CPUKernel();
 
         size_t workGroupSize() const;
@@ -22,9 +30,13 @@ class CPUKernel : public DeviceKernel
         size_t guessWorkGroupSize(cl_uint num_dims, cl_uint dim,
                                   size_t global_work_size) const;
 
+        llvm::Function *function() const;
+        llvm::Function *callFunction();
+
     private:
         CPUDevice *p_device;
         Kernel *p_kernel;
+        llvm::Function *p_function, *p_call_function;
 };
 
 }

@@ -9,6 +9,8 @@
 #include "../commandqueue.h"
 #include "../events.h"
 #include "../memobject.h"
+#include "../kernel.h"
+#include "../program.h"
 
 #include <cstring>
 #include <cstdlib>
@@ -68,9 +70,10 @@ DeviceProgram *CPUDevice::createDeviceProgram(Program *program)
     return (DeviceProgram *)new CPUProgram(this, program);
 }
 
-DeviceKernel *CPUDevice::createDeviceKernel(Kernel *kernel)
+DeviceKernel *CPUDevice::createDeviceKernel(Kernel *kernel,
+                                            llvm::Function *function)
 {
-    return (DeviceKernel *)new CPUKernel(this, kernel);
+    return (DeviceKernel *)new CPUKernel(this, kernel, function);
 }
 
 cl_int CPUDevice::initEventDeviceData(Event *event)
@@ -92,6 +95,19 @@ cl_int CPUDevice::initEventDeviceData(Event *event)
             // Nothing do to
             break;
 
+        case Event::NDRangeKernel:
+        case Event::TaskKernel:
+        {
+            // Instantiate the JIT for the CPU program
+            KernelEvent *e = (KernelEvent *)event;
+            CPUProgram *prog =
+                (CPUProgram *)e->kernel()->program()->deviceDependentProgram(this);
+
+            if (!prog->initJIT())
+                return CL_INVALID_PROGRAM_EXECUTABLE;
+
+            break;
+        }
         default:
             break;
     }
@@ -122,8 +138,8 @@ Event *CPUDevice::getEvent(bool &stop)
 
     Event *event = p_events.front();
 
-    // If event is single-shot, remove it
-    if (event->isSingleShot())
+    // If the run of this event will finish it, remove it from the list
+    if (event->lastSlot())
     {
         p_num_events--;
         p_events.pop_front();

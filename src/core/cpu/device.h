@@ -27,7 +27,8 @@ class CPUDevice : public DeviceInterface
 
         DeviceBuffer *createDeviceBuffer(MemObject *buffer, cl_int *rs);
         DeviceProgram *createDeviceProgram(Program *program);
-        DeviceKernel *createDeviceKernel(Kernel *kernel);
+        DeviceKernel *createDeviceKernel(Kernel *kernel,
+                                         llvm::Function *function);
 
         cl_int initEventDeviceData(Event *event);
 

@@ -25,6 +25,57 @@ class Kernel
         Kernel(Program *program);
         ~Kernel();
 
+        class Arg
+        {
+            public:
+                enum File
+                {
+                    Private = 0,
+                    Global = 1,
+                    Local = 2,
+                    Constant = 3
+                };
+                enum Kind
+                {
+                    Invalid,
+                    Int8,
+                    Int16,
+                    Int32,
+                    Int64,
+                    Float,
+                    Double,
+                    Buffer,
+                    Image2D,
+                    Image3D
+                    // TODO: Sampler
+                };
+
+                Arg(unsigned short vec_dim, File file, Kind kind);
+                ~Arg();
+
+                void alloc();
+                void loadData(const void *data);
+                void setAllocAtKernelRuntime(size_t size);
+
+                bool operator !=(const Arg &b);
+
+                size_t valueSize() const;
+                unsigned short vecDim() const;
+                File file() const;
+                Kind kind() const;
+                bool defined() const;
+                size_t allocAtKernelRuntime() const;
+                const void *value(unsigned short index) const;
+
+            private:
+                unsigned short p_vec_dim;
+                File p_file;
+                Kind p_kind;
+                void *p_data;
+                bool p_defined;
+                size_t p_runtime_alloc;
+        };
+
         void reference();
         bool dereference();
 
@@ -32,12 +83,14 @@ class Kernel
                            llvm::Module *module);
         llvm::Function *function(DeviceInterface *device) const;
         cl_int setArg(cl_uint index, size_t size, const void *value);
+        unsigned int numArgs() const;
+        const Arg &arg(unsigned int index) const;
 
         Program *program() const;
         DeviceKernel *deviceDependentKernel(DeviceInterface *device) const;
 
         bool argsSpecified() const;
-        cl_int checkArgsForDevice(DeviceInterface *device) const;
+        bool needsLocalAllocation() const;  /*!< One or more arguments is __local */
 
         cl_int info(cl_kernel_info param_name,
                     size_t param_value_size,
@@ -53,6 +106,7 @@ class Kernel
         Program *p_program;
         unsigned int p_references;
         std::string p_name;
+        bool p_local_args;
 
         struct DeviceDependent
         {
@@ -60,55 +114,6 @@ class Kernel
             DeviceKernel *kernel;
             llvm::Function *function;
             llvm::Module *module;
-        };
-
-        struct Arg
-        {
-            unsigned short vec_dim;
-            bool set;
-            size_t kernel_alloc_size;  /*!< Size of the memory that must be allocated at kernel execution */
-
-            enum File
-            {
-                Private = 0,
-                Global = 1,
-                Local = 2,
-                Constant = 3
-            } file;
-
-            enum Kind
-            {
-                Invalid,
-                Int8,
-                Int16,
-                Int32,
-                Int64,
-                Float,
-                Double,
-                Buffer,
-                Image2D,
-                Image3D
-                // TODO: Sampler
-            } kind;
-
-            union
-            {
-                #define TYPE_VAL(type) type type##_val
-                TYPE_VAL(uint8_t);
-                TYPE_VAL(uint16_t);
-                TYPE_VAL(uint32_t);
-                TYPE_VAL(uint64_t);
-                TYPE_VAL(cl_float);
-                TYPE_VAL(double);
-                TYPE_VAL(cl_mem);
-                #undef TYPE_VAL
-            } value;
-
-            inline bool operator !=(const Arg &b)
-            {
-                return (kind != b.kind) || (vec_dim != b.vec_dim);
-            }
-            size_t valueSize() const;
         };
 
         std::vector<DeviceDependent> p_device_dependent;

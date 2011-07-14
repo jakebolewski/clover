@@ -3,6 +3,12 @@
 
 #include "../deviceinterface.h"
 
+namespace llvm
+{
+    class ExecutionEngine;
+    class Module;
+}
+
 namespace Coal
 {
 
@@ -17,11 +23,17 @@ class CPUProgram : public DeviceProgram
 
         bool linkStdLib() const;
         void createOptimizationPasses(llvm::PassManager *manager, bool optimize);
-        bool build(const llvm::Module *module);
+        bool build(llvm::Module *module);
+
+        bool initJIT();
+        llvm::ExecutionEngine *jit() const;
 
     private:
         CPUDevice *p_device;
         Program *p_program;
+
+        llvm::ExecutionEngine *p_jit;
+        llvm::Module *p_module;
 };
 
 }

@@ -62,6 +62,7 @@ class Program
 
         Kernel *createKernel(const std::string &name, cl_int *errcode_ret);
         std::vector<Kernel *> createKernels(cl_int *errcode_ret);
+        DeviceProgram *deviceDependentProgram(DeviceInterface *device) const;
 
         cl_int info(cl_program_info param_name,
                     size_t param_value_size,
@@ -93,6 +94,7 @@ class Program
 
         void setDevices(cl_uint num_devices, DeviceInterface * const*devices);
         DeviceDependent &deviceDependent(DeviceInterface *device);
+        const DeviceDependent &deviceDependent(DeviceInterface *device) const;
         std::vector<llvm::Function *> kernelFunctions(DeviceDependent &dep);
 };
 

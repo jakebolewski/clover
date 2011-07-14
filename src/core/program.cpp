@@ -94,6 +94,24 @@ Program::DeviceDependent &Program::deviceDependent(DeviceInterface *device)
     }
 }
 
+const Program::DeviceDependent &Program::deviceDependent(DeviceInterface *device) const
+{
+    for (int i=0; i<p_device_dependent.size(); ++i)
+    {
+        const DeviceDependent &rs = p_device_dependent[i];
+
+        if (rs.device == device || (!device && p_device_dependent.size() == 1))
+            return rs;
+    }
+}
+
+DeviceProgram *Program::deviceDependentProgram(DeviceInterface *device) const
+{
+    const DeviceDependent &dep = deviceDependent(device);
+
+    return dep.program;
+}
+
 std::vector<llvm::Function *> Program::kernelFunctions(DeviceDependent &dep)
 {
     std::vector<llvm::Function *> rs;

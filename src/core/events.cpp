@@ -370,8 +370,14 @@ KernelEvent::KernelEvent(CommandQueue *parent,
                          cl_int *errcode_ret)
 : Event(parent, Queued, num_events_in_wait_list, event_wait_list, errcode_ret),
   p_kernel(kernel), p_work_dim(work_dim), p_global_work_offset(0),
-  p_global_work_size(0), p_local_work_size(0), p_max_work_item_sizes(0)
+  p_global_work_size(0), p_local_work_size(0), p_max_work_item_sizes(0),
+  p_last_slot(false)
 {
+    *errcode_ret = CL_SUCCESS;
+
+    // Locking machinery
+    pthread_mutex_init(&p_mutex, 0);
+
     // Sanity checks
     if (!kernel)
     {
@@ -495,17 +501,87 @@ KernelEvent::KernelEvent(CommandQueue *parent,
     if (work_group_size > max_work_group_size)
     {
         *errcode_ret = CL_INVALID_WORK_GROUP_SIZE;
+        return;
     }
 
     // Check arguments (buffer alignment, image size, ...)
-    *errcode_ret = kernel->checkArgsForDevice(device);
+    for (int i=0; i<kernel->numArgs(); ++i)
+    {
+        const Kernel::Arg &a = kernel->arg(i);
 
-    if (*errcode_ret != CL_SUCCESS)
-        return;
+        if (a.kind() == Kernel::Arg::Buffer)
+        {
+            const MemObject *buffer = *(const MemObject **)(a.value(0));
+
+            if (buffer->type() == MemObject::SubBuffer)
+            {
+                cl_uint align;
+                *errcode_ret = device->info(CL_DEVICE_MEM_BASE_ADDR_ALIGN, sizeof(uint),
+                                  &align, 0);
+
+                if (*errcode_ret != CL_SUCCESS)
+                    return;
+
+                size_t mask = 0;
+
+                for (int i=0; i<align; ++i)
+                    mask = 1 | (mask << 1);
+
+                if (((SubBuffer *)buffer)->offset() | mask)
+                {
+                    *errcode_ret = CL_MISALIGNED_SUB_BUFFER_OFFSET;
+                    return;
+                }
+            }
+        }
+        else if (a.kind() == Kernel::Arg::Image2D)
+        {
+            const Image2D *image = *(const Image2D **)(a.value(0));
+            size_t maxWidth, maxHeight;
+
+            *errcode_ret = device->info(CL_DEVICE_IMAGE2D_MAX_WIDTH,
+                                        sizeof(size_t), &maxWidth, 0);
+            *errcode_ret |= device->info(CL_DEVICE_IMAGE2D_MAX_HEIGHT,
+                                         sizeof(size_t), &maxHeight, 0);
+
+            if (*errcode_ret != CL_SUCCESS)
+                return;
+
+            if (image->width() > maxWidth || image->height() > maxHeight)
+            {
+                *errcode_ret = CL_INVALID_IMAGE_SIZE;
+                return;
+            }
+        }
+        else if (a.kind() == Kernel::Arg::Image3D)
+        {
+            const Image3D *image = *(const Image3D **)a.value(0);
+            size_t maxWidth, maxHeight, maxDepth;
+
+            *errcode_ret = device->info(CL_DEVICE_IMAGE3D_MAX_WIDTH,
+                                        sizeof(size_t), &maxWidth, 0);
+            *errcode_ret |= device->info(CL_DEVICE_IMAGE3D_MAX_HEIGHT,
+                                         sizeof(size_t), &maxHeight, 0);
+            *errcode_ret |= device->info(CL_DEVICE_IMAGE3D_MAX_DEPTH,
+                                         sizeof(size_t), &maxDepth, 0);
+
+            if (*errcode_ret != CL_SUCCESS)
+                return;
+
+            if (image->width() > maxWidth || image->height() > maxHeight ||
+                image->depth() > maxDepth)
+            {
+                *errcode_ret = CL_INVALID_IMAGE_SIZE;
+                return;
+            }
+        }
+    }
 }
 
 KernelEvent::~KernelEvent()
 {
+    pthread_mutex_destroy(&p_mutex);
+
     if (p_global_work_offset)
         std::free(p_global_work_offset);
 
@@ -552,6 +628,25 @@ DeviceKernel *KernelEvent::deviceKernel() const
 Event::Type KernelEvent::type() const
 {
     return Event::NDRangeKernel;
+}
+
+bool KernelEvent::lastSlot() const
+{
+    bool rs;
+    KernelEvent *hack = (KernelEvent *)this;
+
+    pthread_mutex_lock(&hack->p_mutex);
+    rs = p_last_slot;
+    pthread_mutex_unlock(&hack->p_mutex);
+
+    return rs;
+}
+
+void KernelEvent::setLastSlot(bool last_slot)
+{
+    pthread_mutex_lock(&p_mutex);
+    p_last_slot = last_slot;
+    pthread_mutex_unlock(&p_mutex);
 }
 
 static size_t one = 1;

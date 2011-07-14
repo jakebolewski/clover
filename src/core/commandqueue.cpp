@@ -412,12 +412,9 @@ void Event::setReleaseParent(bool release)
     p_release_parent = release;
 }
 
-bool Event::isSingleShot() const
+bool Event::lastSlot() const
 {
-    // NDRangeKernel is a single event that can be executed on several execution
-    // units. The other (buffer copying) must be executed in one part.
-
-    return (type() != NDRangeKernel);
+    return true;
 }
 
 bool Event::isDummy() const

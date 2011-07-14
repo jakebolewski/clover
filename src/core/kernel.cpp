@@ -7,6 +7,7 @@
 #include <string>
 #include <iostream>
 #include <cstring>
+#include <cstdlib>
 
 #include <llvm/Support/Casting.h>
 #include <llvm/Module.h>
@@ -15,7 +16,7 @@
 
 using namespace Coal;
 Kernel::Kernel(Program *program)
-: p_program(program), p_references(1)
+: p_program(program), p_references(1), p_local_args(false)
 {
     clRetainProgram((cl_program)program); // TODO: Say a kernel is attached to the program (that becomes unalterable)
 
@@ -99,21 +100,21 @@ cl_int Kernel::addFunction(DeviceInterface *device, llvm::Function *function,
     for (int i=0; i<f->getNumParams(); ++i)
     {
         const llvm::Type *arg_type = f->getParamType(i);
-        Arg a;
-
-        a.kind = Arg::Invalid;
-        a.vec_dim = 1;
-        a.file = Arg::Private;
-        a.kernel_alloc_size = 0;
-        a.set = false;
+        Arg::Kind kind = Arg::Invalid;
+        Arg::File file = Arg::Private;
+        unsigned short vec_dim = 1;
 
         if (arg_type->isPointerTy())
         {
             // It's a pointer, dereference it
             const llvm::PointerType *p_type = llvm::cast<llvm::PointerType>(arg_type);
 
-            a.file = (Arg::File)p_type->getAddressSpace();
+            file = (Arg::File)p_type->getAddressSpace();
             arg_type = p_type->getElementType();
+
+            // If it's a __local argument, we'll have to allocate memory at run time
+            if (file == Arg::Local)
+                p_local_args = true;
 
             // Get the name of the type to see if it's something like image2d, etc
             std::string name = module->getTypeName(arg_type);
@@ -121,11 +122,13 @@ cl_int Kernel::addFunction(DeviceInterface *device, llvm::Function *function,
             if (name == "image2d")
             {
                 // TODO: Address space qualifiers for image types, and read_only
-                a.kind = Arg::Image2D;
+                kind = Arg::Image2D;
+                file = Arg::Global;
             }
             else if (name == "image3d")
             {
-                a.kind = Arg::Image3D;
+                kind = Arg::Image3D;
+                file = Arg::Global;
             }
             else if (name == "sampler")
             {
@@ -133,7 +136,7 @@ cl_int Kernel::addFunction(DeviceInterface *device, llvm::Function *function,
             }
             else
             {
-                a.kind = Arg::Buffer;
+                kind = Arg::Buffer;
             }
         }
         else
@@ -143,18 +146,18 @@ cl_int Kernel::addFunction(DeviceInterface *device, llvm::Function *function,
                 // It's a vector, we need its element's type
                 const llvm::VectorType *v_type = llvm::cast<llvm::VectorType>(arg_type);
 
-                a.vec_dim = v_type->getNumElements();
+                vec_dim = v_type->getNumElements();
                 arg_type = v_type->getElementType();
             }
 
             // Get type kind
             if (arg_type->isFloatTy())
             {
-                a.kind = Arg::Float;
+                kind = Arg::Float;
             }
             else if (arg_type->isDoubleTy())
             {
-                a.kind = Arg::Double;
+                kind = Arg::Double;
             }
             else if (arg_type->isIntegerTy())
             {
@@ -162,26 +165,29 @@ cl_int Kernel::addFunction(DeviceInterface *device, llvm::Function *function,
 
                 if (i_type->getBitWidth() == 8)
                 {
-                    a.kind = Arg::Int8;
+                    kind = Arg::Int8;
                 }
                 else if (i_type->getBitWidth() == 16)
                 {
-                    a.kind = Arg::Int16;
+                    kind = Arg::Int16;
                 }
                 else if (i_type->getBitWidth() == 32)
                 {
-                    a.kind = Arg::Int32;
+                    kind = Arg::Int32;
                 }
                 else if (i_type->getBitWidth() == 64)
                 {
-                    a.kind = Arg::Int64;
+                    kind = Arg::Int64;
                 }
             }
         }
 
         // Check if we recognized the type
-        if (a.kind == Arg::Invalid)
+        if (kind == Arg::Invalid)
             return CL_INVALID_KERNEL_DEFINITION;
+
+        // Create arg
+        Arg a(vec_dim, file, kind);
 
         // If we also have a function registered, check for signature compliance
         if (!append && a != p_args[i])
@@ -192,7 +198,7 @@ cl_int Kernel::addFunction(DeviceInterface *device, llvm::Function *function,
             p_args.push_back(a);
     }
 
-    dep.kernel = device->createDeviceKernel(this);
+    dep.kernel = device->createDeviceKernel(this, dep.function);
     p_device_dependent.push_back(dep);
 
     return CL_SUCCESS;
@@ -205,31 +211,6 @@ llvm::Function *Kernel::function(DeviceInterface *device) const
     return dep.function;
 }
 
-size_t Kernel::Arg::valueSize() const
-{
-    switch (kind)
-    {
-        case Invalid:
-            return 0;
-        case Int8:
-            return 1;
-        case Int16:
-            return 2;
-        case Int32:
-            return 4;
-        case Int64:
-            return 8;
-        case Float:
-            return sizeof(cl_float);
-        case Double:
-            return sizeof(double);
-        case Buffer:
-        case Image2D:
-        case Image3D:
-            return sizeof(cl_mem);
-    }
-}
-
 cl_int Kernel::setArg(cl_uint index, size_t size, const void *value)
 {
     if (index > p_args.size())
@@ -238,7 +219,7 @@ cl_int Kernel::setArg(cl_uint index, size_t size, const void *value)
     Arg &arg = p_args[index];
 
     // Special case for __local pointers
-    if (arg.file == Arg::Local)
+    if (arg.file() == Arg::Local)
     {
         if (size == 0)
             return CL_INVALID_ARG_SIZE;
@@ -246,7 +227,7 @@ cl_int Kernel::setArg(cl_uint index, size_t size, const void *value)
         if (value != 0)
             return CL_INVALID_ARG_VALUE;
 
-        arg.kernel_alloc_size = size;
+        arg.setAllocAtKernelRuntime(size);
 
         return CL_SUCCESS;
     }
@@ -258,17 +239,17 @@ cl_int Kernel::setArg(cl_uint index, size_t size, const void *value)
         return CL_INVALID_ARG_SIZE;
 
     // Check for null values
+    cl_mem null_mem = 0;
+
     if (!value)
     {
-        switch (arg.kind)
+        switch (arg.kind())
         {
             case Arg::Buffer:
             case Arg::Image2D:
             case Arg::Image3D:
                 // Special case buffers : value can be 0 (or point to 0)
-                arg.value.cl_mem_val = 0;
-                arg.set = true;
-                return CL_SUCCESS;
+                value = &null_mem;
 
             // TODO samplers
             default:
@@ -277,11 +258,20 @@ cl_int Kernel::setArg(cl_uint index, size_t size, const void *value)
     }
 
     // Copy the data
-    std::memcpy(&arg.value, value, arg_size);
-
-    arg.set = true;
+    arg.alloc();
+    arg.loadData(value);
 
     return CL_SUCCESS;
+}
+
+unsigned int Kernel::numArgs() const
+{
+    return p_args.size();
+}
+
+const Kernel::Arg &Kernel::arg(unsigned int index) const
+{
+    return p_args.at(index);
 }
 
 Program *Kernel::program() const
@@ -293,79 +283,16 @@ bool Kernel::argsSpecified() const
 {
     for (int i=0; i<p_args.size(); ++i)
     {
-        if (!p_args[i].set)
+        if (!p_args[i].defined())
             return false;
     }
 
     return true;
 }
 
-cl_int Kernel::checkArgsForDevice(DeviceInterface *device) const
+bool Kernel::needsLocalAllocation() const
 {
-    const DeviceDependent &dep = deviceDependent(device);
-    cl_int rs;
-
-    for (int i=0; i<p_args.size(); ++i)
-    {
-        const Arg &a = p_args[i];
-
-        if (a.kind == Arg::Buffer)
-        {
-            MemObject *buffer = (MemObject *)a.value.cl_mem_val;
-
-            if (buffer->type() == MemObject::SubBuffer)
-            {
-                cl_uint align;
-                rs = device->info(CL_DEVICE_MEM_BASE_ADDR_ALIGN, sizeof(uint),
-                                  &align, 0);
-
-                if (rs != CL_SUCCESS) return rs;
-
-                size_t mask = 0;
-
-                for (int i=0; i<align; ++i)
-                    mask = 1 | (mask << 1);
-
-                if (((SubBuffer *)buffer)->offset() | mask)
-                    return CL_MISALIGNED_SUB_BUFFER_OFFSET;
-            }
-        }
-        else if (a.kind == Arg::Image2D)
-        {
-            Image2D *image = (Image2D *)a.value.cl_mem_val;
-            size_t maxWidth, maxHeight;
-
-            rs = device->info(CL_DEVICE_IMAGE2D_MAX_WIDTH, sizeof(size_t),
-                              &maxWidth, 0);
-            rs |= device->info(CL_DEVICE_IMAGE2D_MAX_HEIGHT, sizeof(size_t),
-                               &maxHeight, 0);
-
-            if (rs != CL_SUCCESS) return rs;
-
-            if (image->width() > maxWidth || image->height() > maxHeight)
-                return CL_INVALID_IMAGE_SIZE;
-        }
-        else if (a.kind == Arg::Image3D)
-        {
-            Image3D *image = (Image3D *)a.value.cl_mem_val;
-            size_t maxWidth, maxHeight, maxDepth;
-
-            rs = device->info(CL_DEVICE_IMAGE3D_MAX_WIDTH, sizeof(size_t),
-                              &maxWidth, 0);
-            rs |= device->info(CL_DEVICE_IMAGE3D_MAX_HEIGHT, sizeof(size_t),
-                               &maxHeight, 0);
-            rs |= device->info(CL_DEVICE_IMAGE3D_MAX_DEPTH, sizeof(size_t),
-                               &maxDepth, 0);
-
-            if (rs != CL_SUCCESS) return rs;
-
-            if (image->width() > maxWidth || image->height() > maxHeight ||
-                image->depth() > maxDepth)
-                return CL_INVALID_IMAGE_SIZE;
-        }
-    }
-
-    return CL_SUCCESS;
+    return p_local_args;
 }
 
 DeviceKernel *Kernel::deviceDependentKernel(DeviceInterface *device) const
@@ -485,4 +412,107 @@ cl_int Kernel::workGroupInfo(DeviceInterface *device,
         std::memcpy(param_value, value, value_length);
 
     return CL_SUCCESS;
+}
+
+/*
+ * Kernel::Arg
+ */
+Kernel::Arg::Arg(unsigned short vec_dim, File file, Kind kind)
+: p_vec_dim(vec_dim), p_file(file), p_kind(kind), p_defined(false),
+  p_runtime_alloc(0), p_data(0)
+{
+
+}
+
+Kernel::Arg::~Arg()
+{
+    if (p_data)
+        std::free(p_data);
+}
+
+void Kernel::Arg::alloc()
+{
+    if (!p_data)
+        p_data = std::malloc(p_vec_dim * valueSize());
+}
+
+void Kernel::Arg::loadData(const void *data)
+{
+    std::memcpy(p_data, data, p_vec_dim * valueSize());
+    p_defined = true;
+}
+
+void Kernel::Arg::setAllocAtKernelRuntime(size_t size)
+{
+    p_runtime_alloc = size;
+    p_defined = true;
+}
+
+bool Kernel::Arg::operator!=(const Arg &b)
+{
+    bool same = (p_vec_dim == b.p_vec_dim) &&
+                (p_file == b.p_file) &&
+                (p_kind == b.p_kind);
+
+    return !same;
+}
+
+size_t Kernel::Arg::valueSize() const
+{
+    switch (p_kind)
+    {
+        case Invalid:
+            return 0;
+        case Int8:
+            return 1;
+        case Int16:
+            return 2;
+        case Int32:
+            return 4;
+        case Int64:
+            return 8;
+        case Float:
+            return sizeof(cl_float);
+        case Double:
+            return sizeof(double);
+        case Buffer:
+        case Image2D:
+        case Image3D:
+            return sizeof(cl_mem);
+    }
+}
+
+unsigned short Kernel::Arg::vecDim() const
+{
+    return p_vec_dim;
+}
+
+Kernel::Arg::File Kernel::Arg::file() const
+{
+    return p_file;
+}
+
+Kernel::Arg::Kind Kernel::Arg::kind() const
+{
+    return p_kind;
+}
+
+bool Kernel::Arg::defined() const
+{
+    return p_defined;
+}
+
+size_t Kernel::Arg::allocAtKernelRuntime() const
+{
+    return p_runtime_alloc;
+}
+
+const void *Kernel::Arg::value(unsigned short index) const
+{
+    const char *data = (const char *)p_data;
+    unsigned int offset = index * valueSize();
+
+    data += offset;
+
+    return (const void *)data;
 }

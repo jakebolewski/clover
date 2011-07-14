@@ -8,18 +8,20 @@
 #include <llvm/Analysis/Verifier.h>
 #include <llvm/Transforms/Scalar.h>
 #include <llvm/Transforms/IPO.h>
+#include <llvm/ExecutionEngine/ExecutionEngine.h>
 
 using namespace Coal;
 
 CPUProgram::CPUProgram(CPUDevice *device, Program *program)
-: DeviceProgram(), p_device(device), p_program(program)
+: DeviceProgram(), p_device(device), p_program(program), p_jit(0)
 {
 
 }
 
 CPUProgram::~CPUProgram()
 {
-
+    if (p_jit)
+        delete p_jit;
 }
 
 bool CPUProgram::linkStdLib() const
@@ -56,8 +58,30 @@ void CPUProgram::createOptimizationPasses(llvm::PassManager *manager, bool optim
     }
 }
 
-bool CPUProgram::build(const llvm::Module *module)
+bool CPUProgram::build(llvm::Module *module)
 {
     // Nothing to build
+    p_module = module;
+
     return true;
+}
+
+bool CPUProgram::initJIT()
+{
+    if (p_jit)
+        return true;
+
+    if (!p_module)
+        return false;
+
+    // Create the JIT
+    p_jit = llvm::ExecutionEngine::create(p_module, false, 0,
+                                          llvm::CodeGenOpt::Default, false);
+
+    return true;
+}
+
+llvm::ExecutionEngine *CPUProgram::jit() const
+{
+    return p_jit;
 }

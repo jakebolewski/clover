@@ -7,6 +7,7 @@ namespace llvm
 {
     class PassManager;
     class Module;
+    class Function;
 }
 
 namespace Coal
@@ -34,7 +35,8 @@ class DeviceInterface
 
         virtual DeviceBuffer *createDeviceBuffer(MemObject *buffer, cl_int *rs) = 0;
         virtual DeviceProgram *createDeviceProgram(Program *program) = 0;
-        virtual DeviceKernel *createDeviceKernel(Kernel *kernel) = 0;
+        virtual DeviceKernel *createDeviceKernel(Kernel *kernel, 
+                                                 llvm::Function *function) = 0;
 
         virtual void pushEvent(Event *event) = 0;
 
@@ -65,7 +67,7 @@ class DeviceProgram
         virtual bool linkStdLib() const = 0;
         virtual void createOptimizationPasses(llvm::PassManager *manager,
                                               bool optimize) = 0;
-        virtual bool build(const llvm::Module *module) = 0;
+        virtual bool build(llvm::Module *module) = 0;
 };
 
 class DeviceKernel
