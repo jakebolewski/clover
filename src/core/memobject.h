@@ -1,6 +1,8 @@
 #ifndef __MEMOBJECT_H__
 #define __MEMOBJECT_H__
 
+#include "refcounted.h"
+
 #include <CL/cl.h>
 
 namespace Coal
@@ -10,7 +12,7 @@ class DeviceBuffer;
 class Context;
 class DeviceInterface;
 
-class MemObject
+class MemObject : public RefCounted
 {
     public:
         enum Type
@@ -35,9 +37,6 @@ class MemObject
         virtual size_t size() const = 0; /*!< @warning this is a device-independent size */
         virtual Type type() const = 0;
 
-        void reference();
-        bool dereference();
-
         Context *context() const;
         cl_mem_flags flags() const;
         void *host_ptr() const;
@@ -55,7 +54,7 @@ class MemObject
 
     private:
         Context *p_ctx;
-        unsigned int p_references, p_num_devices, p_devices_to_allocate;
+        unsigned int p_num_devices, p_devices_to_allocate;
         cl_mem_flags p_flags;
         void *p_host_ptr;
         DeviceBuffer **p_devicebuffers;

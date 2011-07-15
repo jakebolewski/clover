@@ -33,6 +33,7 @@ set(COAL_SRC_FILES
     core/program.cpp
     core/compiler.cpp
     core/kernel.cpp
+    core/refcounted.cpp
 
     core/cpu/buffer.cpp
     core/cpu/device.cpp

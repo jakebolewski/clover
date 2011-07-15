@@ -16,7 +16,7 @@
 
 using namespace Coal;
 Kernel::Kernel(Program *program)
-: p_program(program), p_references(1), p_local_args(false)
+: RefCounted(), p_program(program), p_local_args(false)
 {
     clRetainProgram((cl_program)program); // TODO: Say a kernel is attached to the program (that becomes unalterable)
 
@@ -28,8 +28,6 @@ Kernel::Kernel(Program *program)
 
 Kernel::~Kernel()
 {
-    clReleaseProgram((cl_program)p_program);
-
     while (p_device_dependent.size())
     {
         DeviceDependent &dep = p_device_dependent.back();
@@ -38,17 +36,8 @@ Kernel::~Kernel()
 
         p_device_dependent.pop_back();
     }
-}
 
-void Kernel::reference()
-{
-    p_references++;
-}
-
-bool Kernel::dereference()
-{
-    p_references--;
-    return (p_references == 0);
+    clReleaseProgram((cl_program)p_program);
 }
 
 const Kernel::DeviceDependent &Kernel::deviceDependent(DeviceInterface *device) const
@@ -327,7 +316,7 @@ cl_int Kernel::info(cl_kernel_info param_name,
             break;
 
         case CL_KERNEL_REFERENCE_COUNT:
-            SIMPLE_ASSIGN(cl_uint, p_references);
+            SIMPLE_ASSIGN(cl_uint, references());
             break;
 
         case CL_KERNEL_CONTEXT:

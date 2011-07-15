@@ -18,7 +18,7 @@ CommandQueue::CommandQueue(Context *ctx,
                            DeviceInterface *device,
                            cl_command_queue_properties properties,
                            cl_int *errcode_ret)
-: p_ctx(ctx), p_device(device), p_properties(properties), p_references(1)
+: RefCounted(), p_ctx(ctx), p_device(device), p_properties(properties)
 {
     // Increment the reference count of the context
     // We begin by doing this to be able to unconditionnally release the context
@@ -47,17 +47,6 @@ CommandQueue::~CommandQueue()
     clReleaseContext((cl_context)p_ctx);
 }
 
-void CommandQueue::reference()
-{
-    p_references++;
-}
-
-bool CommandQueue::dereference()
-{
-    p_references--;
-    return (p_references == 0);
-}
-
 cl_int CommandQueue::info(cl_command_queue_info param_name,
                           size_t param_value_size,
                           void *param_value,
@@ -84,7 +73,7 @@ cl_int CommandQueue::info(cl_command_queue_info param_name,
             break;
 
         case CL_QUEUE_REFERENCE_COUNT:
-            SIMPLE_ASSIGN(cl_uint, p_references);
+            SIMPLE_ASSIGN(cl_uint, references());
             break;
 
         case CL_QUEUE_PROPERTIES:
@@ -204,7 +193,7 @@ void CommandQueue::cleanEvents()
     pthread_mutex_unlock(&p_event_list_mutex);
 
     // Check now if we have to be deleted
-    if (p_references == 0)
+    if (references() == 0)
         delete this;
 }
 
@@ -322,7 +311,7 @@ Event::Event(CommandQueue *parent,
              cl_uint num_events_in_wait_list,
              const Event **event_wait_list,
              cl_int *errcode_ret)
-: p_references(1), p_parent(parent),
+: RefCounted(), p_parent(parent),
   p_num_events_in_wait_list(num_events_in_wait_list), p_event_wait_list(0),
   p_device_data(0), p_status(status), p_release_parent(true)
 {
@@ -435,25 +424,6 @@ bool Event::isDummy() const
         default:
             return false;
     }
-}
-
-void Event::reference()
-{
-    pthread_mutex_lock(&p_state_mutex);
-    p_references++;
-    pthread_mutex_unlock(&p_state_mutex);
-}
-
-bool Event::dereference()
-{
-    pthread_mutex_lock(&p_state_mutex);
-
-    p_references--;
-    bool destroy = (p_references == 0);
-
-    pthread_mutex_unlock(&p_state_mutex);
-
-    return destroy;
 }
 
 void Event::setStatus(Status status)
@@ -609,7 +579,7 @@ cl_int Event::info(cl_event_info param_name,
             break;
 
         case CL_EVENT_REFERENCE_COUNT:
-            SIMPLE_ASSIGN(cl_uint, p_references);
+            SIMPLE_ASSIGN(cl_uint, references());
             break;
 
         default:

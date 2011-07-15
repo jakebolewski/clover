@@ -1,6 +1,8 @@
 #ifndef __KERNEL_H__
 #define __KERNEL_H__
 
+#include "refcounted.h"
+
 #include <CL/cl.h>
 
 #include <vector>
@@ -19,7 +21,7 @@ class Program;
 class DeviceInterface;
 class DeviceKernel;
 
-class Kernel
+class Kernel : public RefCounted
 {
     public:
         Kernel(Program *program);
@@ -76,9 +78,6 @@ class Kernel
                 size_t p_runtime_alloc;
         };
 
-        void reference();
-        bool dereference();
-
         cl_int addFunction(DeviceInterface *device, llvm::Function *function,
                            llvm::Module *module);
         llvm::Function *function(DeviceInterface *device) const;
@@ -104,7 +103,6 @@ class Kernel
 
     private:
         Program *p_program;
-        unsigned int p_references;
         std::string p_name;
         bool p_local_args;
 

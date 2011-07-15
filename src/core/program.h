@@ -1,6 +1,8 @@
 #ifndef __PROGRAM_H__
 #define __PROGRAM_H__
 
+#include "refcounted.h"
+
 #include <CL/cl.h>
 #include <string>
 #include <vector>
@@ -21,7 +23,7 @@ class DeviceInterface;
 class DeviceProgram;
 class Kernel;
 
-class Program
+class Program : public RefCounted
 {
     public:
         Program(Context *ctx);
@@ -53,9 +55,6 @@ class Program
                      void *user_data, cl_uint num_devices,
                      DeviceInterface * const*device_list);
 
-        void reference();
-        bool dereference();
-
         Type type() const;
         State state() const;
         Context *context() const;
@@ -76,7 +75,6 @@ class Program
 
     private:
         Context *p_ctx;
-        unsigned int p_references;
         Type p_type;
         State p_state;
         std::string p_source;

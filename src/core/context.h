@@ -1,6 +1,8 @@
 #ifndef __CONTEXT_H__
 #define __CONTEXT_H__
 
+#include "refcounted.h"
+
 #include <CL/cl.h>
 
 namespace Coal
@@ -8,7 +10,7 @@ namespace Coal
 
 class DeviceInterface;
 
-class Context
+class Context : public RefCounted
 {
     public:
         Context(const cl_context_properties *properties,
@@ -19,9 +21,6 @@ class Context
                 void *user_data,
                 cl_int *errcode_ret);
         ~Context();
-
-        void reference();
-        bool dereference();     /*!< @return true if reference becomes 0 */
 
         cl_int info(cl_context_info param_name,
                     size_t param_value_size,
@@ -37,7 +36,7 @@ class Context
         void *p_user_data;
 
         DeviceInterface **p_devices;
-        unsigned int p_references, p_num_devices, p_props_len;
+        unsigned int p_num_devices, p_props_len;
         cl_platform_id p_platform;
 };
 

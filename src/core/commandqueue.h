@@ -1,6 +1,8 @@
 #ifndef __COMMANDQUEUE_H__
 #define __COMMANDQUEUE_H__
 
+#include "refcounted.h"
+
 #include <CL/cl.h>
 #include <pthread.h>
 
@@ -14,7 +16,7 @@ class Context;
 class DeviceInterface;
 class Event;
 
-class CommandQueue
+class CommandQueue : public RefCounted
 {
     public:
         CommandQueue(Context *ctx,
@@ -22,9 +24,6 @@ class CommandQueue
                      cl_command_queue_properties properties,
                      cl_int *errcode_ret);
         ~CommandQueue();
-
-        void reference();
-        bool dereference();     /*!< @return true if reference becomes 0 */
 
         cl_int queueEvent(Event *event);
 
@@ -46,12 +45,11 @@ class CommandQueue
         DeviceInterface *p_device;
         cl_command_queue_properties p_properties;
 
-        unsigned int p_references;
         std::list<Event *> p_events;
         pthread_mutex_t p_event_list_mutex;
 };
 
-class Event
+class Event : public RefCounted
 {
     public:
         enum Type
@@ -118,9 +116,6 @@ class Event
         virtual Type type() const = 0;
         bool isDummy() const;      /*!< Doesn't do anything, it's just an event type */
 
-        void reference();
-        bool dereference();     /*!< @return true if reference becomes 0 */
-
         void setStatus(Status status);
         void setDeviceData(void *data);
         void updateTiming(Timing timing);
@@ -151,7 +146,6 @@ class Event
         pthread_mutex_t p_state_mutex;
         bool p_release_parent;
 
-        unsigned int p_references;
         Status p_status;
         void *p_device_data;
         std::multimap<Status, CallbackData> p_callbacks;

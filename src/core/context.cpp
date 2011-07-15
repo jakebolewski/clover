@@ -21,7 +21,7 @@ Context::Context(const cl_context_properties *properties,
                                                 size_t, void *),
                  void *user_data,
                  cl_int *errcode_ret)
-: p_references(1), p_properties(0), p_pfn_notify(pfn_notify), p_props_len(0),
+: RefCounted(), p_properties(0), p_pfn_notify(pfn_notify), p_props_len(0),
   p_user_data(user_data), p_platform(0), p_devices(0), p_num_devices(0)
 {
     if (!p_pfn_notify)
@@ -134,17 +134,6 @@ Context::~Context()
         std::free((void *)p_devices);
 }
 
-void Context::reference()
-{
-    p_references++;
-}
-
-bool Context::dereference()
-{
-    p_references--;
-    return (p_references == 0);
-}
-
 cl_int Context::info(cl_context_info param_name,
                      size_t param_value_size,
                      void *param_value,
@@ -160,7 +149,7 @@ cl_int Context::info(cl_context_info param_name,
     switch (param_name)
     {
         case CL_CONTEXT_REFERENCE_COUNT:
-            SIMPLE_ASSIGN(cl_uint, p_references);
+            SIMPLE_ASSIGN(cl_uint, references());
             break;
 
         case CL_CONTEXT_NUM_DEVICES:

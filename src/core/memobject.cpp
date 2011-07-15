@@ -14,8 +14,8 @@ using namespace Coal;
 
 MemObject::MemObject(Context *ctx, cl_mem_flags flags, void *host_ptr,
                      cl_int *errcode_ret)
-: p_ctx(ctx), p_flags(flags), p_host_ptr(host_ptr),
-  p_references(1), p_dtor_callback(0), p_devicebuffers(0), p_num_devices(0)
+: RefCounted(), p_ctx(ctx), p_flags(flags), p_host_ptr(host_ptr),
+  p_dtor_callback(0), p_devicebuffers(0), p_num_devices(0)
 {
     clRetainContext((cl_context)ctx);
 
@@ -168,18 +168,6 @@ bool MemObject::allocate(DeviceInterface *device)
     return true;
 }
 
-void MemObject::reference()
-{
-    p_references++;
-}
-
-bool MemObject:: dereference()
-{
-    p_references--;
-
-    return (p_references == 0);
-}
-
 Context *MemObject::context() const
 {
     return p_ctx;
@@ -306,7 +294,7 @@ cl_int MemObject::info(cl_mem_info param_name,
             break;
 
         case CL_MEM_REFERENCE_COUNT:
-            SIMPLE_ASSIGN(cl_uint, p_references);
+            SIMPLE_ASSIGN(cl_uint, references());
             break;
 
         case CL_MEM_CONTEXT:

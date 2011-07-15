@@ -33,7 +33,7 @@ bool incVec(cl_ulong dims, T *vec, T *maxs)
     {
         vec[i] += 1;
 
-        if (vec[i] >= maxs[i])
+        if (vec[i] > maxs[i])
         {
             vec[i] = 0;
             overflow = true;
@@ -69,13 +69,15 @@ CPUKernel::CPUKernel(CPUDevice *device, Kernel *kernel, llvm::Function *function
 : DeviceKernel(), p_device(device), p_kernel(kernel), p_function(function),
   p_call_function(0)
 {
-
+    pthread_mutex_init(&p_call_function_mutex, 0);
 }
 
 CPUKernel::~CPUKernel()
 {
     if (p_call_function)
         p_call_function->eraseFromParent();
+
+    pthread_mutex_destroy(&p_call_function_mutex);
 }
 
 size_t CPUKernel::workGroupSize() const
@@ -158,9 +160,16 @@ CPUDevice *CPUKernel::device() const
 
 llvm::Function *CPUKernel::callFunction(std::vector<void *> &freeLocal)
 {
+    pthread_mutex_lock(&p_call_function_mutex);
+    
     // If we can reuse the same function between work groups, do it
     if (!p_kernel->needsLocalAllocation() && p_call_function)
-        return p_call_function;
+    {
+        llvm::Function *rs = p_call_function;
+        pthread_mutex_unlock(&p_call_function_mutex);
+        
+        return rs;
+    }
 
     // Create a LLVM function that calls the kernels with its arguments
     // Code inspired from llvm/lib/ExecutionEngine/JIT/JIT.cpp
@@ -313,6 +322,8 @@ llvm::Function *CPUKernel::callFunction(std::vector<void *> &freeLocal)
     if (!p_kernel->needsLocalAllocation())
         p_call_function = stub;
 
+    pthread_mutex_unlock(&p_call_function_mutex);
+    
     return stub;
 }
 
@@ -403,7 +414,7 @@ CPUKernelWorkGroup::CPUKernelWorkGroup(CPUKernel *kernel, KernelEvent *event,
     // Set maxs
     for (unsigned int i=0; i<event->work_dim(); ++i)
     {
-        p_maxs[i] = event->local_work_size(i);
+        p_maxs[i] = event->local_work_size(i) - 1; // 0..n-1, not 1..n
     }
 }
 

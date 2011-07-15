@@ -35,7 +35,7 @@
 using namespace Coal;
 
 Program::Program(Context *ctx)
-: p_ctx(ctx), p_references(1), p_type(Invalid), p_state(Empty)
+: RefCounted(), p_ctx(ctx), p_type(Invalid), p_state(Empty)
 {
     // Retain parent context
     clRetainContext((cl_context)ctx);
@@ -55,17 +55,6 @@ Program::~Program()
 
         p_device_dependent.pop_back();
     }
-}
-
-void Program::reference()
-{
-    p_references++;
-}
-
-bool Program::dereference()
-{
-    p_references--;
-    return (p_references == 0);
 }
 
 void Program::setDevices(cl_uint num_devices, DeviceInterface * const*devices)
@@ -456,7 +445,7 @@ cl_int Program::info(cl_program_info param_name,
     switch (param_name)
     {
         case CL_PROGRAM_REFERENCE_COUNT:
-            SIMPLE_ASSIGN(cl_uint, p_references);
+            SIMPLE_ASSIGN(cl_uint, references());
             break;
 
         case CL_PROGRAM_NUM_DEVICES:

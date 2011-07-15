@@ -27,9 +27,9 @@ class CPUKernel : public DeviceKernel
         ~CPUKernel();
 
         size_t workGroupSize() const;
-		cl_ulong localMemSize() const;
+        cl_ulong localMemSize() const;
         cl_ulong privateMemSize() const;
-		size_t preferredWorkGroupSizeMultiple() const;
+        size_t preferredWorkGroupSizeMultiple() const;
         size_t guessWorkGroupSize(cl_uint num_dims, cl_uint dim,
                                   size_t global_work_size) const;
 
@@ -43,6 +43,7 @@ class CPUKernel : public DeviceKernel
         CPUDevice *p_device;
         Kernel *p_kernel;
         llvm::Function *p_function, *p_call_function;
+        pthread_mutex_t p_call_function_mutex;
 };
 
 class CPUKernelWorkGroup
