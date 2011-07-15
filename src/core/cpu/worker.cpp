@@ -90,6 +90,8 @@ void *worker(void *data)
                 if (!instance->run())
                     errcode = CL_INVALID_PROGRAM_EXECUTABLE;
 
+                delete instance;
+
                 break;
             }
             default:

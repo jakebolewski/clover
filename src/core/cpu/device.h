@@ -31,6 +31,7 @@ class CPUDevice : public DeviceInterface
                                          llvm::Function *function);
 
         cl_int initEventDeviceData(Event *event);
+        void freeEventDeviceData(Event *event);
 
         void pushEvent(Event *event);
         Event *getEvent(bool &stop);

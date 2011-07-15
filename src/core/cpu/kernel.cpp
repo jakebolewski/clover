@@ -456,3 +456,12 @@ bool CPUKernelWorkGroup::run()
 
     return true;
 }
+
+size_t CPUKernelWorkGroup::getGlobalId(cl_uint dimindx) const
+{
+    if (dimindx > p_event->work_dim())
+        return 0;
+
+    return (p_index[dimindx] * p_event->local_work_size(dimindx))
+           + p_event->global_work_offset(dimindx) + p_current[dimindx];
+}

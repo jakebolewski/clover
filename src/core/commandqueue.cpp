@@ -389,6 +389,14 @@ Event::Event(CommandQueue *parent,
 
 Event::~Event()
 {
+    if (p_parent && p_device_data)
+    {
+        DeviceInterface *device = 0;
+        p_parent->info(CL_QUEUE_DEVICE, sizeof(DeviceInterface *), &device, 0);
+
+        device->freeEventDeviceData(this);
+    }
+
     for (int i=0; i<p_num_events_in_wait_list; ++i)
         clReleaseEvent((cl_event)p_event_wait_list[i]);
 

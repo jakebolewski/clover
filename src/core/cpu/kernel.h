@@ -54,6 +54,9 @@ class CPUKernelWorkGroup
 
         bool run();
 
+        // Native functions
+        size_t getGlobalId(cl_uint dimindx) const;
+
     private:
         CPUKernel *p_kernel;
         KernelEvent *p_event;

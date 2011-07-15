@@ -50,8 +50,8 @@ Program::~Program()
         DeviceDependent &dep = p_device_dependent.back();
 
         delete dep.compiler;
-        delete dep.linked_module;
         delete dep.program;
+        delete dep.linked_module;
 
         p_device_dependent.pop_back();
     }

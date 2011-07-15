@@ -27,7 +27,12 @@ CPUProgram::CPUProgram(CPUDevice *device, Program *program)
 CPUProgram::~CPUProgram()
 {
     if (p_jit)
+    {
+        // Dont delete the module
+        p_jit->removeModule(p_module);
+
         delete p_jit;
+    }
 }
 
 bool CPUProgram::linkStdLib() const

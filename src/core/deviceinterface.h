@@ -42,6 +42,7 @@ class DeviceInterface
 
         /** @note must set mapping address of MapBuffer events */
         virtual cl_int initEventDeviceData(Event *event) = 0;
+	virtual void freeEventDeviceData(Event *event) = 0;
 };
 
 class DeviceBuffer

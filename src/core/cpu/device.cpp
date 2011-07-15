@@ -119,6 +119,21 @@ cl_int CPUDevice::initEventDeviceData(Event *event)
     return CL_SUCCESS;
 }
 
+void CPUDevice::freeEventDeviceData(Event *event)
+{
+    switch (event->type())
+    {
+        case Event::NDRangeKernel:
+        case Event::TaskKernel:
+        {
+            CPUKernelEvent *cpu_e = (CPUKernelEvent *)event->deviceData();
+
+            if (cpu_e)
+                delete cpu_e;
+        }
+    }
+}
+
 void CPUDevice::pushEvent(Event *event)
 {
     // Add an event in the list
