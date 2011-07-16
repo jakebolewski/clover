@@ -57,6 +57,7 @@ class CPUKernelWorkGroup
 
         // Native functions
         size_t getGlobalId(cl_uint dimindx) const;
+        cl_uint getWorkDim() const;
 
     private:
         CPUKernel *p_kernel;
@@ -73,7 +74,7 @@ class CPUKernelEvent
 
         bool reserve();  /*!< The next Work Group that will execute will be the last. Locks the event */
         bool lastNoLock() const; /*!< Same as reserve() but without locking. */
-        CPUKernelWorkGroup *takeInstance(); /*!< Must be called exactly one time after reserv(). Unlocks the event */
+        CPUKernelWorkGroup *takeInstance(); /*!< Must be called exactly one time after reserve(). Unlocks the event */
         const size_t *currentWorkGroup() const;
 
     private:

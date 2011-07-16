@@ -280,7 +280,7 @@ llvm::Function *CPUKernel::callFunction(std::vector<void *> &freeLocal)
 
                 case Kernel::Arg::Image2D:
                 case Kernel::Arg::Image3D:
-                    // Assign a pointer to the image object, the instrinsic functions
+                    // Assign a pointer to the image object, the intrinsic functions
                     // will handle them
                     C = getPointerConstant(stub->getContext(),
                                            k_func_type->getParamType(i),
@@ -466,6 +466,11 @@ bool CPUKernelWorkGroup::run()
     }
 
     return true;
+}
+
+cl_uint CPUKernelWorkGroup::getWorkDim() const
+{
+    return p_event->work_dim();
 }
 
 size_t CPUKernelWorkGroup::getGlobalId(cl_uint dimindx) const

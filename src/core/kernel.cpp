@@ -105,27 +105,30 @@ cl_int Kernel::addFunction(DeviceInterface *device, llvm::Function *function,
             if (file == Arg::Local)
                 p_local_args = true;
 
-            // Get the name of the type to see if it's something like image2d, etc
-            std::string name = module->getTypeName(arg_type);
+            kind = Arg::Buffer;
 
-            if (name == "image2d")
+            // If it's a struct, get its name
+            if (arg_type->isStructTy())
             {
-                // TODO: Address space qualifiers for image types, and read_only
-                kind = Arg::Image2D;
-                file = Arg::Global;
-            }
-            else if (name == "image3d")
-            {
-                kind = Arg::Image3D;
-                file = Arg::Global;
-            }
-            else if (name == "sampler")
-            {
-                // TODO: Sampler
-            }
-            else
-            {
-                kind = Arg::Buffer;
+                const llvm::StructType *struct_type =
+                    llvm::cast<llvm::StructType>(arg_type);
+                llvm::StringRef struct_name = struct_type->getName();
+
+                if (struct_name == "imade2d")
+                {
+                    // TODO: Address space qualifiers for image types, and read_only
+                    kind = Arg::Image2D;
+                    file = Arg::Global;
+                }
+                else if (struct_name == "image3d")
+                {
+                    kind = Arg::Image3D;
+                    file = Arg::Global;
+                }
+                else if (struct_name == "sampler")
+                {
+                    // TODO: Sampler
+                }
             }
         }
         else
