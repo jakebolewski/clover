@@ -481,3 +481,59 @@ size_t CPUKernelWorkGroup::getGlobalId(cl_uint dimindx) const
     return (p_index[dimindx] * p_event->local_work_size(dimindx))
            + p_event->global_work_offset(dimindx) + p_current[dimindx];
 }
+
+size_t CPUKernelWorkGroup::getGlobalSize(cl_uint dimindx) const
+{
+    if (dimindx > p_event->work_dim())
+        return 1;
+
+    return p_event->global_work_size(dimindx);
+}
+
+size_t CPUKernelWorkGroup::getLocalSize(cl_uint dimindx) const
+{
+    if (dimindx > p_event->work_dim())
+        return 1;
+
+    return p_event->local_work_size(dimindx);
+}
+
+size_t CPUKernelWorkGroup::getLocalID(cl_uint dimindx) const
+{
+    if (dimindx > p_event->work_dim())
+        return 0;
+
+    return p_current[dimindx];
+}
+
+size_t CPUKernelWorkGroup::getNumGroups(cl_uint dimindx) const
+{
+    if (dimindx > p_event->work_dim())
+        return 1;
+
+    return (p_event->global_work_size(dimindx) /
+            p_event->local_work_size(dimindx));
+}
+
+size_t CPUKernelWorkGroup::getGroupID(cl_uint dimindx) const
+{
+    if (dimindx > p_event->work_dim())
+        return 0;
+
+    return p_index[dimindx];
+}
+
+size_t CPUKernelWorkGroup::getGlobalOffset(cl_uint dimindx) const
+{
+    if (dimindx > p_event->work_dim())
+        return 0;
+
+    return p_event->global_work_offset(dimindx);
+}
+
+void CPUKernelWorkGroup::builtinNotFound(const std::string &name) const
+{
+    std::cout << "OpenCL: Non-existant builtin function " << name
+              << " found in kernel " << p_kernel->function()->getNameStr()
+              << '.' << std::endl;
+}

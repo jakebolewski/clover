@@ -58,6 +58,14 @@ class CPUKernelWorkGroup
         // Native functions
         size_t getGlobalId(cl_uint dimindx) const;
         cl_uint getWorkDim() const;
+        size_t getGlobalSize(cl_uint dimindx) const;
+        size_t getLocalSize(cl_uint dimindx) const;
+        size_t getLocalID(cl_uint dimindx) const;
+        size_t getNumGroups(cl_uint dimindx) const;
+        size_t getGroupID(cl_uint dimindx) const;
+        size_t getGlobalOffset(cl_uint dimindx) const;
+
+        void builtinNotFound(const std::string &name) const;
 
     private:
         CPUKernel *p_kernel;
