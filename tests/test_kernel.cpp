@@ -17,7 +17,7 @@ static const char source[] =
     "__kernel void kernel2(__global int *buf) {\n"
     "    size_t i = get_global_id(0);\n"
     "\n"
-    "    buf[i] = 2 * i;\n"
+    "    buf[i % 256] = 2 * (i % 256);\n"
     "}\n";
 
 static void native_kernel(void *args)
@@ -53,7 +53,7 @@ START_TEST (test_compiled_kernel)
     const char *src = source;
     size_t program_len = sizeof(source);
 
-    int buffer[64];
+    int buffer[256];
 
     result = clGetDeviceIDs(platform, CL_DEVICE_TYPE_DEFAULT, 1, &device, 0);
     fail_if(
@@ -125,8 +125,8 @@ START_TEST (test_compiled_kernel)
         "cannot set kernel argument"
     );
 
-    size_t global_size = sizeof(buffer) / sizeof(buffer[0]);
-    size_t local_size = global_size / 2;
+    size_t local_size = sizeof(buffer) / sizeof(buffer[0]);
+    size_t global_size = 100000 * local_size;
     cl_event event;
     bool ok;
 
@@ -143,7 +143,7 @@ START_TEST (test_compiled_kernel)
     );
 
     ok = true;
-    for (int i=0; i<global_size; ++i)
+    for (int i=0; i<local_size; ++i)
     {
         if (buffer[i] !=  2 * i)
         {

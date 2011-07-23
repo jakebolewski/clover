@@ -422,21 +422,26 @@ CPUKernelWorkGroup::CPUKernelWorkGroup(CPUKernel *kernel, KernelEvent *event,
                                        CPUKernelEvent *cpu_event,
                                        const size_t *work_group_index)
 : p_kernel(kernel), p_event(event), p_index(0), p_current(0), p_maxs(0),
-  p_cpu_event(cpu_event)
+  p_cpu_event(cpu_event), p_global_id(0)
 {
     p_table_sizes = event->work_dim() * sizeof(size_t);
 
     p_index = (size_t *)std::malloc(p_table_sizes);
     p_current = (size_t *)std::malloc(p_table_sizes);
     p_maxs = (size_t *)std::malloc(p_table_sizes);
+    p_global_id = (size_t *)std::malloc(p_table_sizes);
 
     // Set index
     std::memcpy(p_index, work_group_index, p_table_sizes);
 
-    // Set maxs
+    // Set maxs and global id
     for (unsigned int i=0; i<event->work_dim(); ++i)
     {
         p_maxs[i] = event->local_work_size(i) - 1; // 0..n-1, not 1..n
+
+        // Set global id
+        p_global_id[i] = (p_index[i] * p_event->local_work_size(i))
+                         + p_event->global_work_offset(i);
     }
 }
 
@@ -502,8 +507,7 @@ size_t CPUKernelWorkGroup::getGlobalId(cl_uint dimindx) const
     if (dimindx > p_event->work_dim())
         return 0;
 
-    return (p_index[dimindx] * p_event->local_work_size(dimindx))
-           + p_event->global_work_offset(dimindx) + p_current[dimindx];
+    return p_global_id[dimindx] + p_current[dimindx];
 }
 
 size_t CPUKernelWorkGroup::getGlobalSize(cl_uint dimindx) const

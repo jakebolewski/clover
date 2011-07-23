@@ -74,7 +74,7 @@ class CPUKernelWorkGroup
         CPUKernel *p_kernel;
         CPUKernelEvent *p_cpu_event;
         KernelEvent *p_event;
-        size_t *p_index, *p_current, *p_maxs;
+        size_t *p_index, *p_current, *p_maxs, *p_global_id;
         size_t p_table_sizes;
 };
 
