@@ -80,7 +80,7 @@ cl_int Kernel::addFunction(DeviceInterface *device, llvm::Function *function,
 
     // Build the arg list of the kernel (or verify it if a previous function
     // was already registered)
-    const llvm::FunctionType *f = function->getFunctionType();
+    llvm::FunctionType *f = function->getFunctionType();
     bool append = (p_args.size() == 0);
 
     if (!append && p_args.size() != f->getNumParams())
@@ -88,7 +88,7 @@ cl_int Kernel::addFunction(DeviceInterface *device, llvm::Function *function,
 
     for (int i=0; i<f->getNumParams(); ++i)
     {
-        const llvm::Type *arg_type = f->getParamType(i);
+        llvm::Type *arg_type = f->getParamType(i);
         Arg::Kind kind = Arg::Invalid;
         Arg::File file = Arg::Private;
         unsigned short vec_dim = 1;
@@ -96,7 +96,7 @@ cl_int Kernel::addFunction(DeviceInterface *device, llvm::Function *function,
         if (arg_type->isPointerTy())
         {
             // It's a pointer, dereference it
-            const llvm::PointerType *p_type = llvm::cast<llvm::PointerType>(arg_type);
+            llvm::PointerType *p_type = llvm::cast<llvm::PointerType>(arg_type);
 
             file = (Arg::File)p_type->getAddressSpace();
             arg_type = p_type->getElementType();
@@ -110,7 +110,7 @@ cl_int Kernel::addFunction(DeviceInterface *device, llvm::Function *function,
             // If it's a struct, get its name
             if (arg_type->isStructTy())
             {
-                const llvm::StructType *struct_type =
+                llvm::StructType *struct_type =
                     llvm::cast<llvm::StructType>(arg_type);
                 llvm::StringRef struct_name = struct_type->getName();
 
@@ -136,7 +136,7 @@ cl_int Kernel::addFunction(DeviceInterface *device, llvm::Function *function,
             if (arg_type->isVectorTy())
             {
                 // It's a vector, we need its element's type
-                const llvm::VectorType *v_type = llvm::cast<llvm::VectorType>(arg_type);
+                llvm::VectorType *v_type = llvm::cast<llvm::VectorType>(arg_type);
 
                 vec_dim = v_type->getNumElements();
                 arg_type = v_type->getElementType();
@@ -153,7 +153,7 @@ cl_int Kernel::addFunction(DeviceInterface *device, llvm::Function *function,
             }
             else if (arg_type->isIntegerTy())
             {
-                const llvm::IntegerType *i_type = llvm::cast<llvm::IntegerType>(arg_type);
+                llvm::IntegerType *i_type = llvm::cast<llvm::IntegerType>(arg_type);
 
                 if (i_type->getBitWidth() == 8)
                 {

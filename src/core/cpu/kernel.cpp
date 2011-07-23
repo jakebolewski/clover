@@ -49,7 +49,7 @@ bool incVec(cl_ulong dims, T *vec, T *maxs)
 }
 
 static llvm::Constant *getPointerConstant(llvm::LLVMContext &C,
-                                          const llvm::Type *type,
+                                          llvm::Type *type,
                                           void *const *value)
 {
     llvm::Constant *rs = 0;
@@ -174,7 +174,7 @@ llvm::Function *CPUKernel::callFunction(std::vector<void *> &freeLocal)
     // Create a LLVM function that calls the kernels with its arguments
     // Code inspired from llvm/lib/ExecutionEngine/JIT/JIT.cpp
     // Copyright The LLVM Compiler Infrastructure
-    const llvm::FunctionType *k_func_type = p_function->getFunctionType();
+    llvm::FunctionType *k_func_type = p_function->getFunctionType();
     llvm::FunctionType *f_type =
         llvm::FunctionType::get(p_function->getReturnType(), false);
     llvm::Function *stub = llvm::Function::Create(f_type,
@@ -310,8 +310,7 @@ llvm::Function *CPUKernel::callFunction(std::vector<void *> &freeLocal)
     }
 
     // Create the call instruction
-    llvm::CallInst *call_inst = llvm::CallInst::Create(p_function, args.begin(),
-                                                       args.end(), "", block);
+    llvm::CallInst *call_inst = llvm::CallInst::Create(p_function, args, "", block);
     call_inst->setCallingConv(p_function->getCallingConv());
     call_inst->setTailCall();
 
