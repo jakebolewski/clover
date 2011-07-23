@@ -336,6 +336,7 @@ START_TEST (test_events)
 
     clReleaseEvent(write_event);
     clReleaseEvent(user_event);
+    clReleaseMemObject(buf);
     clReleaseCommandQueue(queue);
     clReleaseContext(ctx);
 }

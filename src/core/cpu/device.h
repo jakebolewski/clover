@@ -20,6 +20,8 @@ class CPUDevice : public DeviceInterface
         CPUDevice();
         ~CPUDevice();
 
+        void init();
+
         cl_int info(cl_device_info param_name,
                     size_t param_value_size,
                     void *param_value,
@@ -46,7 +48,7 @@ class CPUDevice : public DeviceInterface
         std::list<Event *> p_events;
         pthread_cond_t p_events_cond;
         pthread_mutex_t p_events_mutex;
-        bool p_stop;
+        bool p_stop, p_initialized;
 };
 
 }

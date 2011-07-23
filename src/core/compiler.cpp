@@ -163,7 +163,7 @@ bool Compiler::compile(const std::string &options,
 
     // Compile
     llvm::OwningPtr<clang::CodeGenAction> act(
-        new clang::EmitLLVMOnlyAction(new llvm::LLVMContext)
+        new clang::EmitLLVMOnlyAction(&llvm::getGlobalContext())
     );
 
     if (!p_compiler.ExecuteAction(*act))

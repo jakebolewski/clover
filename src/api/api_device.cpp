@@ -1,6 +1,8 @@
 #include "CL/cl.h"
 #include <core/cpu/device.h>
 
+static Coal::CPUDevice cpudevice;
+
 cl_int
 clGetDeviceIDs(cl_platform_id   platform,
                cl_device_type   device_type,
@@ -21,8 +23,10 @@ clGetDeviceIDs(cl_platform_id   platform,
     // We currently implement only CPU-based acceleration
     if (device_type & (CL_DEVICE_TYPE_DEFAULT | CL_DEVICE_TYPE_CPU))
     {
+        cpudevice.init();
+        
         if (devices)
-            devices[0] = (cl_device_id)(new Coal::CPUDevice());
+            devices[0] = (cl_device_id)(&cpudevice);
 
         if (num_devices)
             *num_devices = 1;

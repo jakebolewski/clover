@@ -84,6 +84,8 @@ START_TEST (test_create_context)
         ctx == 0,
         "errcode_ret can be NULL"
     );
+
+    clReleaseContext(ctx);
 }
 END_TEST
 
@@ -97,6 +99,8 @@ START_TEST (test_create_context_from_type)
         result != CL_SUCCESS || ctx == 0,
         "unable to create a valid context with a device of type default"
     );
+
+    clReleaseContext(ctx);
 }
 END_TEST
 
@@ -208,6 +212,9 @@ START_TEST (test_get_context_info)
         context_info.properties.prop_platform != CL_CONTEXT_PLATFORM,
         "this context must have a valid CL_CONTEXT_PLATFORM property"
     );
+
+    clReleaseContext(ctx);
+    clReleaseContext(ctx);
 }
 END_TEST
 

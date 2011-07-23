@@ -138,7 +138,7 @@ START_TEST (test_create_sub_buffer)
         "cannot create a valid sub-buffer"
     );
 
-    subbuf = clCreateSubBuffer(subbuf, CL_MEM_WRITE_ONLY,
+    clCreateSubBuffer(subbuf, CL_MEM_WRITE_ONLY,
                             CL_BUFFER_CREATE_TYPE_REGION,
                             (void *)&create_info, &result);
     fail_if(
@@ -240,6 +240,7 @@ START_TEST (test_read_write_subbuf)
         "the buffer must contain \"Hello, world !\""
     );
 
+    clReleaseCommandQueue(queue);
     clReleaseMemObject(subbuf);
     clReleaseMemObject(buf);
     clReleaseContext(ctx);

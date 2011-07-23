@@ -24,23 +24,36 @@ using namespace Coal;
 
 CPUDevice::CPUDevice()
 : DeviceInterface(), p_cores(0), p_workers(0), p_stop(false),
-  p_num_events(0)
+  p_num_events(0), p_initialized(false)
 {
+
+}
+
+void CPUDevice::init()
+{
+    if (p_initialized)
+        return;
+
     // Initialize the locking machinery
     pthread_cond_init(&p_events_cond, 0);
     pthread_mutex_init(&p_events_mutex, 0);
 
-    // Create 4 worker threads
+    // Create worker threads
     p_workers = (pthread_t *)std::malloc(numCPUs() * sizeof(pthread_t));
 
     for (int i=0; i<numCPUs(); ++i)
     {
         pthread_create(&p_workers[i], 0, &worker, this);
     }
+
+    p_initialized = true;
 }
 
 CPUDevice::~CPUDevice()
 {
+    if (!p_initialized)
+        return;
+
     // Terminate the workers and wait for them
     pthread_mutex_lock(&p_events_mutex);
 
@@ -152,8 +165,15 @@ Event *CPUDevice::getEvent(bool &stop)
     // single-shot event.
     pthread_mutex_lock(&p_events_mutex);
 
-    while (p_num_events == 0)
+    while (p_num_events == 0 && !p_stop)
         pthread_cond_wait(&p_events_cond, &p_events_mutex);
+
+    if (p_stop)
+    {
+        pthread_mutex_unlock(&p_events_mutex);
+        stop = true;
+        return 0;
+    }
 
     Event *event = p_events.front();
 
@@ -175,7 +195,6 @@ Event *CPUDevice::getEvent(bool &stop)
 
     pthread_mutex_unlock(&p_events_mutex);
 
-    stop = false;
     return event;
 }
 
