@@ -50,7 +50,7 @@ class MemObject : public RefCounted
         cl_int info(cl_mem_info param_name,
                     size_t param_value_size,
                     void *param_value,
-                    size_t *param_value_size_ret);
+                    size_t *param_value_size_ret) const;
 
     private:
         Context *p_ctx;
@@ -112,7 +112,7 @@ class Image2D : public MemObject
         cl_int imageInfo(cl_image_info param_name,
                          size_t param_value_size,
                          void *param_value,
-                         size_t *param_value_size_ret);
+                         size_t *param_value_size_ret) const;
 
         static size_t element_size(const cl_image_format &format);
         static size_t pixel_size(const cl_image_format &format);

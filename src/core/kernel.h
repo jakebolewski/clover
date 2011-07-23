@@ -94,12 +94,12 @@ class Kernel : public RefCounted
         cl_int info(cl_kernel_info param_name,
                     size_t param_value_size,
                     void *param_value,
-                    size_t *param_value_size_ret);
+                    size_t *param_value_size_ret) const;
         cl_int workGroupInfo(DeviceInterface *device,
                              cl_kernel_work_group_info param_name,
                              size_t param_value_size,
                              void *param_value,
-                             size_t *param_value_size_ret);
+                             size_t *param_value_size_ret) const;
 
     private:
         Program *p_program;

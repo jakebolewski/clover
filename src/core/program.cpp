@@ -430,7 +430,7 @@ Context *Program::context() const
 cl_int Program::info(cl_program_info param_name,
                      size_t param_value_size,
                      void *param_value,
-                     size_t *param_value_size_ret)
+                     size_t *param_value_size_ret) const
 {
     void *value = 0;
     size_t value_length = 0;
@@ -455,7 +455,7 @@ cl_int Program::info(cl_program_info param_name,
         case CL_PROGRAM_DEVICES:
             for (int i=0; i<p_device_dependent.size(); ++i)
             {
-                DeviceDependent &dep = p_device_dependent[i];
+                const DeviceDependent &dep = p_device_dependent[i];
 
                 devices.push_back(dep.device);
             }
@@ -475,7 +475,7 @@ cl_int Program::info(cl_program_info param_name,
         case CL_PROGRAM_BINARY_SIZES:
             for (int i=0; i<p_device_dependent.size(); ++i)
             {
-                DeviceDependent &dep = p_device_dependent[i];
+                const DeviceDependent &dep = p_device_dependent[i];
 
                 binary_sizes.push_back(dep.unlinked_binary.size());
             }
@@ -498,7 +498,7 @@ cl_int Program::info(cl_program_info param_name,
 
             for (int i=0; i<p_device_dependent.size(); ++i)
             {
-                DeviceDependent &dep = p_device_dependent[i];
+                const DeviceDependent &dep = p_device_dependent[i];
                 unsigned char *dest = binaries[i];
 
                 if (!dest)
@@ -534,11 +534,11 @@ cl_int Program::buildInfo(DeviceInterface *device,
                           cl_program_build_info param_name,
                           size_t param_value_size,
                           void *param_value,
-                          size_t *param_value_size_ret)
+                          size_t *param_value_size_ret) const
 {
     const void *value = 0;
     size_t value_length = 0;
-    DeviceDependent &dep = deviceDependent(device);
+    const DeviceDependent &dep = deviceDependent(device);
 
     union {
         cl_build_status cl_build_status_var;

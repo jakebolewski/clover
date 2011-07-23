@@ -175,6 +175,7 @@ Event *CPUDevice::getEvent(bool &stop)
 
     pthread_mutex_unlock(&p_events_mutex);
 
+    stop = false;
     return event;
 }
 

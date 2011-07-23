@@ -297,7 +297,7 @@ DeviceKernel *Kernel::deviceDependentKernel(DeviceInterface *device) const
 cl_int Kernel::info(cl_kernel_info param_name,
                     size_t param_value_size,
                     void *param_value,
-                    size_t *param_value_size_ret)
+                    size_t *param_value_size_ret) const
 {
     void *value = 0;
     size_t value_length = 0;
@@ -350,7 +350,7 @@ cl_int Kernel::workGroupInfo(DeviceInterface *device,
                              cl_kernel_work_group_info param_name,
                              size_t param_value_size,
                              void *param_value,
-                             size_t *param_value_size_ret)
+                             size_t *param_value_size_ret) const
 {
     void *value = 0;
     size_t value_length = 0;
@@ -361,7 +361,7 @@ cl_int Kernel::workGroupInfo(DeviceInterface *device,
         cl_ulong cl_ulong_var;
     };
 
-    DeviceDependent &dep = deviceDependent(device);
+    const DeviceDependent &dep = deviceDependent(device);
 
     switch (param_name)
     {

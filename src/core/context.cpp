@@ -137,7 +137,7 @@ Context::~Context()
 cl_int Context::info(cl_context_info param_name,
                      size_t param_value_size,
                      void *param_value,
-                     size_t *param_value_size_ret)
+                     size_t *param_value_size_ret) const
 {
     void *value = 0;
     size_t value_length = 0;

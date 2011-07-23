@@ -14,11 +14,10 @@ class RefCounted
 
         void reference();
         bool dereference();
-        unsigned int references();
+        unsigned int references() const;
 
     private:
         unsigned int p_references;
-        pthread_mutex_t p_mutex;
 };
 
 }

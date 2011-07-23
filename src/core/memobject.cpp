@@ -239,7 +239,7 @@ typedef void * void_p;
 cl_int MemObject::info(cl_mem_info param_name,
                        size_t param_value_size,
                        void *param_value,
-                       size_t *param_value_size_ret)
+                       size_t *param_value_size_ret) const
 {
     void *value = 0;
     int value_length = 0;
@@ -478,7 +478,7 @@ cl_image_format Image2D::format() const
 cl_int Image2D::imageInfo(cl_image_info param_name,
                          size_t param_value_size,
                          void *param_value,
-                         size_t *param_value_size_ret)
+                         size_t *param_value_size_ret) const
 {
     void *value = 0;
     int value_length = 0;

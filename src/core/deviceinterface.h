@@ -42,7 +42,7 @@ class DeviceInterface
 
         /** @note must set mapping address of MapBuffer events */
         virtual cl_int initEventDeviceData(Event *event) = 0;
-	virtual void freeEventDeviceData(Event *event) = 0;
+        virtual void freeEventDeviceData(Event *event) = 0;
 };
 
 class DeviceBuffer
@@ -73,14 +73,14 @@ class DeviceProgram
 
 class DeviceKernel
 {
-	public:
-		DeviceKernel() {}
-		virtual ~DeviceKernel() {}
+    public:
+        DeviceKernel() {}
+        virtual ~DeviceKernel() {}
 
-		virtual size_t workGroupSize() const = 0;
-		virtual cl_ulong localMemSize() const = 0;
+        virtual size_t workGroupSize() const = 0;
+        virtual cl_ulong localMemSize() const = 0;
         virtual cl_ulong privateMemSize() const = 0;
-		virtual size_t preferredWorkGroupSizeMultiple() const = 0;
+        virtual size_t preferredWorkGroupSizeMultiple() const = 0;
         virtual size_t guessWorkGroupSize(cl_uint num_dims, cl_uint dim,
                                           size_t global_work_size) const = 0;
 };

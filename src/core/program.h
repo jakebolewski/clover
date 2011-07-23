@@ -66,12 +66,12 @@ class Program : public RefCounted
         cl_int info(cl_program_info param_name,
                     size_t param_value_size,
                     void *param_value,
-                    size_t *param_value_size_ret);
+                    size_t *param_value_size_ret) const;
         cl_int buildInfo(DeviceInterface *device,
                          cl_program_build_info param_name,
                          size_t param_value_size,
                          void *param_value,
-                         size_t *param_value_size_ret);
+                         size_t *param_value_size_ret) const;
 
     private:
         Context *p_ctx;

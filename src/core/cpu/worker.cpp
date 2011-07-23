@@ -9,6 +9,7 @@
 #include "../kernel.h"
 
 #include <cstring>
+#include <iostream>
 
 using namespace Coal;
 
@@ -32,7 +33,6 @@ void *worker(void *data)
         CommandQueue *queue = 0;
         cl_command_queue_properties queue_props = 0;
 
-        last_run = true;
         errcode = CL_SUCCESS;
 
         event->info(CL_EVENT_COMMAND_QUEUE, sizeof(CommandQueue *), &queue, 0);
@@ -82,10 +82,10 @@ void *worker(void *data)
             {
                 KernelEvent *e = (KernelEvent *)event;
                 CPUKernelEvent *ke = (CPUKernelEvent *)e->deviceData();
-                last_run = ke->lastNoLock();
 
                 // Take an instance
                 CPUKernelWorkGroup *instance = ke->takeInstance();
+                ke = 0;     // Unlocked, don't use anymore
 
                 if (!instance->run())
                     errcode = CL_INVALID_PROGRAM_EXECUTABLE;
@@ -99,9 +99,18 @@ void *worker(void *data)
         }
 
         // Cleanups
-        if (errcode = CL_SUCCESS)
+        if (errcode == CL_SUCCESS)
         {
-            if (last_run)
+            bool finished = true;
+
+            if (event->type() == Event::NDRangeKernel ||
+                event->type() == Event::TaskKernel)
+            {
+                CPUKernelEvent *ke = (CPUKernelEvent *)event->deviceData();
+                finished = ke->finished();
+            }
+
+            if (finished)
             {
                 event->setStatus(Event::Complete);
 

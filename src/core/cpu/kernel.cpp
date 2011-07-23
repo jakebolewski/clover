@@ -161,13 +161,13 @@ CPUDevice *CPUKernel::device() const
 llvm::Function *CPUKernel::callFunction(std::vector<void *> &freeLocal)
 {
     pthread_mutex_lock(&p_call_function_mutex);
-    
+
     // If we can reuse the same function between work groups, do it
     if (!p_kernel->needsLocalAllocation() && p_call_function)
     {
         llvm::Function *rs = p_call_function;
         pthread_mutex_unlock(&p_call_function_mutex);
-        
+
         return rs;
     }
 
@@ -322,7 +322,7 @@ llvm::Function *CPUKernel::callFunction(std::vector<void *> &freeLocal)
         p_call_function = stub;
 
     pthread_mutex_unlock(&p_call_function_mutex);
-    
+
     return stub;
 }
 
@@ -331,7 +331,7 @@ llvm::Function *CPUKernel::callFunction(std::vector<void *> &freeLocal)
  */
 CPUKernelEvent::CPUKernelEvent(CPUDevice *device, KernelEvent *event)
 : p_device(device), p_event(event), p_current_work_group(0),
-  p_max_work_groups(0)
+  p_max_work_groups(0), p_current_wg(0), p_finished_wg(0)
 {
     // Mutex
     pthread_mutex_init(&p_mutex, 0);
@@ -346,10 +346,14 @@ CPUKernelEvent::CPUKernelEvent(CPUDevice *device, KernelEvent *event)
     std::memset(p_current_work_group, 0, p_table_sizes);
 
     // Populate p_max_work_groups
+    p_num_wg = 1;
+
     for (cl_uint i=0; i<event->work_dim(); ++i)
     {
         p_max_work_groups[i] =
             (event->global_work_size(i) / event->local_work_size(i)) - 1; // 0..n-1, not 1..n
+
+        p_num_wg *= p_max_work_groups[i] + 1;
     }
 }
 
@@ -361,32 +365,49 @@ CPUKernelEvent::~CPUKernelEvent()
     std::free(p_max_work_groups);
 }
 
-bool CPUKernelEvent::lastNoLock() const
+bool CPUKernelEvent::reserve()
 {
     int rs;
 
-    // Last work group if current == max
-    rs = std::memcmp(p_max_work_groups, p_current_work_group, p_table_sizes);
-
-    return (rs == 0);
-}
-
-bool CPUKernelEvent::reserve()
-{
-    // Lock, this will be unlocked in newInstance()
+    // Lock, this will be unlocked in takeInstance()
     pthread_mutex_lock(&p_mutex);
 
-    return lastNoLock();
+    // Last work group if current == max - 1
+    return (p_current_wg == p_num_wg - 1);
+}
+
+bool CPUKernelEvent::finished()
+{
+    bool rs;
+
+    pthread_mutex_lock(&p_mutex);
+
+    rs = (p_finished_wg == p_num_wg);
+
+    pthread_mutex_unlock(&p_mutex);
+
+    return rs;
+}
+
+void CPUKernelEvent::workGroupFinished()
+{
+    pthread_mutex_lock(&p_mutex);
+
+    p_finished_wg++;
+
+    pthread_mutex_unlock(&p_mutex);
 }
 
 CPUKernelWorkGroup *CPUKernelEvent::takeInstance()
 {
     CPUKernelWorkGroup *wg = new CPUKernelWorkGroup((CPUKernel *)p_event->deviceKernel(),
                                                     p_event,
+                                                    this,
                                                     p_current_work_group);
 
     // Increment current work group
     incVec(p_event->work_dim(), p_current_work_group, p_max_work_groups);
+    p_current_wg += 1;
 
     // Release event
     pthread_mutex_unlock(&p_mutex);
@@ -398,8 +419,10 @@ CPUKernelWorkGroup *CPUKernelEvent::takeInstance()
  * CPUKernelWorkGroup
  */
 CPUKernelWorkGroup::CPUKernelWorkGroup(CPUKernel *kernel, KernelEvent *event,
+                                       CPUKernelEvent *cpu_event,
                                        const size_t *work_group_index)
-: p_kernel(kernel), p_event(event), p_index(0), p_current(0), p_maxs(0)
+: p_kernel(kernel), p_event(event), p_index(0), p_current(0), p_maxs(0),
+  p_cpu_event(cpu_event)
 {
     p_table_sizes = event->work_dim() * sizeof(size_t);
 
@@ -422,6 +445,8 @@ CPUKernelWorkGroup::~CPUKernelWorkGroup()
     std::free(p_index);
     std::free(p_current);
     std::free(p_maxs);
+
+    p_cpu_event->workGroupFinished();
 }
 
 bool CPUKernelWorkGroup::run()

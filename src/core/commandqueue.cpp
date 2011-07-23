@@ -50,7 +50,7 @@ CommandQueue::~CommandQueue()
 cl_int CommandQueue::info(cl_command_queue_info param_name,
                           size_t param_value_size,
                           void *param_value,
-                          size_t *param_value_size_ret)
+                          size_t *param_value_size_ret) const
 {
     void *value = 0;
     size_t value_length = 0;
@@ -323,6 +323,8 @@ Event::Event(CommandQueue *parent,
     pthread_cond_init(&p_state_change_cond, 0);
     pthread_mutex_init(&p_state_mutex, 0);
 
+    std::memset(&p_timing, 0, sizeof(p_timing));
+
     // Check sanity of parameters
     if (!event_wait_list && num_events_in_wait_list)
     {
@@ -463,11 +465,20 @@ void Event::setDeviceData(void *data)
 
 void Event::updateTiming(Timing timing)
 {
-    struct timespec tp;
-    cl_ulong rs;
-
     if (timing >= Max)
         return;
+
+    pthread_mutex_lock(&p_state_mutex);
+
+    // Don't update more than one time (NDRangeKernel for example)
+    if (p_timing[timing])
+    {
+        pthread_mutex_unlock(&p_state_mutex);
+        return;
+    }
+
+    struct timespec tp;
+    cl_ulong rs;
 
     if (clock_gettime(CLOCK_MONOTONIC, &tp) != 0)
         clock_gettime(CLOCK_REALTIME, &tp);
@@ -476,6 +487,8 @@ void Event::updateTiming(Timing timing)
     rs += tp.tv_sec * 1000000;
 
     p_timing[timing] = rs;
+
+    pthread_mutex_unlock(&p_state_mutex);
 }
 
 Event::Status Event::status() const
@@ -536,7 +549,7 @@ void Event::setCallback(cl_int command_exec_callback_type,
 cl_int Event::info(cl_event_info param_name,
                    size_t param_value_size,
                    void *param_value,
-                   size_t *param_value_size_ret)
+                   size_t *param_value_size_ret) const
 {
     void *value = 0;
     size_t value_length = 0;
@@ -601,7 +614,7 @@ cl_int Event::info(cl_event_info param_name,
 cl_int Event::profilingInfo(cl_profiling_info param_name,
                             size_t param_value_size,
                             void *param_value,
-                            size_t *param_value_size_ret)
+                            size_t *param_value_size_ret) const
 {
     if (type() == Event::User)
         return CL_PROFILING_INFO_NOT_AVAILABLE;

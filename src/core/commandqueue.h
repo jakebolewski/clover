@@ -30,7 +30,7 @@ class CommandQueue : public RefCounted
         cl_int info(cl_command_queue_info param_name,
                     size_t param_value_size,
                     void *param_value,
-                    size_t *param_value_size_ret);
+                    size_t *param_value_size_ret) const;
 
         cl_int setProperty(cl_command_queue_properties properties,
                            cl_bool enable,
@@ -132,11 +132,11 @@ class Event : public RefCounted
         cl_int info(cl_event_info param_name,
                     size_t param_value_size,
                     void *param_value,
-                    size_t *param_value_size_ret);
+                    size_t *param_value_size_ret) const;
         cl_int profilingInfo(cl_profiling_info param_name,
                              size_t param_value_size,
                              void *param_value,
-                             size_t *param_value_size_ret);
+                             size_t *param_value_size_ret) const;
     private:
         CommandQueue *p_parent;
         cl_uint p_num_events_in_wait_list;

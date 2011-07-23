@@ -46,10 +46,13 @@ class CPUKernel : public DeviceKernel
         pthread_mutex_t p_call_function_mutex;
 };
 
+class CPUKernelEvent;
+
 class CPUKernelWorkGroup
 {
     public:
         CPUKernelWorkGroup(CPUKernel *kernel, KernelEvent *event,
+                           CPUKernelEvent *cpu_event,
                            const size_t *work_group_index);
         ~CPUKernelWorkGroup();
 
@@ -69,6 +72,7 @@ class CPUKernelWorkGroup
 
     private:
         CPUKernel *p_kernel;
+        CPUKernelEvent *p_cpu_event;
         KernelEvent *p_event;
         size_t *p_index, *p_current, *p_maxs;
         size_t p_table_sizes;
@@ -81,15 +85,17 @@ class CPUKernelEvent
         ~CPUKernelEvent();
 
         bool reserve();  /*!< The next Work Group that will execute will be the last. Locks the event */
-        bool lastNoLock() const; /*!< Same as reserve() but without locking. */
+        bool finished(); /*!< All the work groups have finished */
         CPUKernelWorkGroup *takeInstance(); /*!< Must be called exactly one time after reserve(). Unlocks the event */
-        const size_t *currentWorkGroup() const;
+
+        void workGroupFinished();
 
     private:
         CPUDevice *p_device;
         KernelEvent *p_event;
         size_t *p_current_work_group, *p_max_work_groups;
         size_t p_table_sizes;
+        size_t p_current_wg, p_finished_wg, p_num_wg;
         pthread_mutex_t p_mutex;
 };
 
