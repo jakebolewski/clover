@@ -450,6 +450,7 @@ CPUKernelWorkGroup::~CPUKernelWorkGroup()
     std::free(p_index);
     std::free(p_current);
     std::free(p_maxs);
+    std::free(p_global_id);
 
     p_cpu_event->workGroupFinished();
 }
