@@ -2,6 +2,41 @@
 
 #include <core/events.h>
 
+static inline cl_int queueEvent(Coal::CommandQueue *queue,
+                                Coal::Event *command,
+                                cl_event *event,
+                                cl_bool blocking)
+{
+    cl_int rs;
+
+    rs = queue->queueEvent(command);
+
+    if (rs != CL_SUCCESS)
+    {
+        delete command;
+        return rs;
+    }
+
+    if (event)
+    {
+        *event = (cl_event)command;
+        command->reference();
+    }
+
+    if (blocking)
+    {
+        rs = clWaitForEvents(1, (cl_event *)&command);
+
+        if (rs != CL_SUCCESS)
+        {
+            delete command;
+            return rs;
+        }
+    }
+
+    return CL_SUCCESS;
+}
+
 // Enqueued Commands APIs
 cl_int
 clEnqueueReadBuffer(cl_command_queue    command_queue,
@@ -32,25 +67,7 @@ clEnqueueReadBuffer(cl_command_queue    command_queue,
         return rs;
     }
 
-    rs = command_queue->queueEvent(command);
-
-    if (rs != CL_SUCCESS)
-    {
-        delete command;
-        return rs;
-    }
-
-    if (event)
-    {
-        // TODO: Ok to reference ?
-        *event = (cl_event)command;
-        command->reference();
-    }
-
-    if (blocking_read)
-        return clWaitForEvents(1, (cl_event *)&command);
-
-    return CL_SUCCESS;
+    return queueEvent(command_queue, command, event, blocking_read);
 }
 
 cl_int
@@ -82,24 +99,7 @@ clEnqueueWriteBuffer(cl_command_queue   command_queue,
         return rs;
     }
 
-    rs = command_queue->queueEvent(command);
-
-    if (rs != CL_SUCCESS)
-    {
-        delete command;
-        return rs;
-    }
-
-    if (event)
-    {
-        *event = (cl_event)command;
-        command->reference();
-    }
-
-    if (blocking_write)
-        return clWaitForEvents(1, (cl_event *)&command);
-
-    return CL_SUCCESS;
+    return queueEvent(command_queue, command, event, blocking_write);
 }
 
 cl_int
@@ -228,31 +228,12 @@ clEnqueueMapBuffer(cl_command_queue command_queue,
         return 0;
     }
 
-    *errcode_ret = command_queue->queueEvent(command);
+    *errcode_ret = queueEvent(command_queue, command, event, blocking_map);
 
     if (*errcode_ret != CL_SUCCESS)
-    {
-        delete command;
         return 0;
-    }
-
-    if (event)
-    {
-        *event = (cl_event)command;
-        command->reference();
-    }
-
-    if (blocking_map)
-    {
-        *errcode_ret = clWaitForEvents(1, (cl_event *)&command);
-
-        if (*errcode_ret != CL_SUCCESS)
-        {
-            clReleaseEvent((cl_event)command);
-        }
-    }
-
-    return command->ptr();
+    else
+        return command->ptr();
 }
 
 void *
@@ -300,21 +281,7 @@ clEnqueueUnmapMemObject(cl_command_queue command_queue,
         return rs;
     }
 
-    rs = command_queue->queueEvent(command);
-
-    if (rs != CL_SUCCESS)
-    {
-        delete command;
-        return rs;
-    }
-
-    if (event)
-    {
-        *event = (cl_event)command;
-        command->reference();
-    }
-
-    return rs;
+    return queueEvent(command_queue, command, event, false);
 }
 
 cl_int
@@ -348,21 +315,7 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
         return rs;
     }
 
-    rs = command_queue->queueEvent(command);
-
-    if (rs != CL_SUCCESS)
-    {
-        delete command;
-        return rs;
-    }
-
-    if (event)
-    {
-        *event = (cl_event)command;
-        command->reference();
-    }
-
-    return rs;
+    return queueEvent(command_queue, command, event, false);
 }
 
 cl_int
@@ -391,21 +344,7 @@ clEnqueueTask(cl_command_queue  command_queue,
         return rs;
     }
 
-    rs = command_queue->queueEvent(command);
-
-    if (rs != CL_SUCCESS)
-    {
-        delete command;
-        return rs;
-    }
-
-    if (event)
-    {
-        *event = (cl_event)command;
-        command->reference();
-    }
-
-    return rs;
+    return queueEvent(command_queue, command, event, false);
 }
 
 cl_int
@@ -438,21 +377,7 @@ clEnqueueNativeKernel(cl_command_queue  command_queue,
         return rs;
     }
 
-    rs = command_queue->queueEvent(command);
-
-    if (rs != CL_SUCCESS)
-    {
-        delete command;
-        return rs;
-    }
-
-    if (event)
-    {
-        *event = (cl_event)command;
-        command->reference();
-    }
-
-    return CL_SUCCESS;
+    return queueEvent(command_queue, command, event, false);
 }
 
 cl_int
