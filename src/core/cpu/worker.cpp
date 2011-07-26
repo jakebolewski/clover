@@ -13,6 +13,19 @@
 
 using namespace Coal;
 
+static unsigned char *imageData(unsigned char *base, size_t x, size_t y,
+                                size_t z, size_t row_pitch, size_t slice_pitch,
+                                unsigned int bytes_per_pixel)
+{
+    unsigned char *result = base;
+
+    result += (z * slice_pitch) +
+              (y * row_pitch) +
+              (x * bytes_per_pixel);
+
+    return result;
+}
+
 void *worker(void *data)
 {
     CPUDevice *device = (CPUDevice *)data;
@@ -62,6 +75,45 @@ void *worker(void *data)
                     std::memcpy(data, e->ptr(), e->cb());
 
                 break;
+            }
+            case Event::ReadBufferRect:
+            case Event::WriteBufferRect:
+            {
+                ReadWriteBufferRectEvent *e = (ReadWriteBufferRectEvent *)event;
+                CPUBuffer *buf = (CPUBuffer *)e->buffer()->deviceBuffer(device);
+
+                unsigned char *host = (unsigned char *)e->ptr();
+                unsigned char *mem = (unsigned char *)buf->data();
+
+                // Iterate over the lines to copy and use memcpy
+                for (size_t z=0; z<e->region(2); ++z)
+                {
+                    for (size_t y=0; y<e->region(1); ++y)
+                    {
+                        unsigned char *h;
+                        unsigned char *b;
+
+                        h = imageData(host,
+                                      e->host_origin(0),
+                                      y + e->host_origin(1),
+                                      z + e->host_origin(2),
+                                      e->host_row_pitch(),
+                                      e->host_slice_pitch(),
+                                      1);
+
+                        b = imageData(mem,
+                                      e->buffer_origin(0),
+                                      y + e->buffer_origin(1),
+                                      z + e->buffer_origin(2),
+                                      e->buffer_row_pitch(),
+                                      e->buffer_slice_pitch(),
+                                      1);
+                        if (t == Event::ReadBufferRect)
+                            std::memcpy(h, b, e->region(0));
+                        else
+                            std::memcpy(b, h, e->region(0));
+                    }
+                }
             }
             case Event::MapBuffer:
                 // All was already done in CPUBuffer::initEventDeviceData()

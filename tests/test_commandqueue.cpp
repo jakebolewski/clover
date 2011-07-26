@@ -1,3 +1,6 @@
+#include <cstring>
+#include <iostream>
+
 #include "test_commandqueue.h"
 #include "CL/cl.h"
 
@@ -342,6 +345,114 @@ START_TEST (test_events)
 }
 END_TEST
 
+START_TEST (test_read_write_rect)
+{
+    cl_platform_id platform = 0;
+    cl_device_id device;
+    cl_context ctx;
+    cl_command_queue queue;
+    cl_int result;
+    cl_mem buf;
+
+    // Grid xyz = (5 x 7 x 2)
+    unsigned char grid[70] = {
+        0, 0, 0, 0, 0,
+        0, 1, 1, 1, 0,
+        1, 2, 2, 2, 1,
+        1, 2, 3, 2, 1,
+        1, 2, 2, 2, 1,
+        0, 1, 1, 1, 0,
+        0, 0, 0, 0, 0,
+
+        0, 0, 1, 0, 0,
+        0, 0, 2, 0, 0,
+        0, 1, 3, 1, 0,
+        0, 2, 3, 2, 0,
+        1, 3, 3, 3, 1,
+        2, 3, 3, 3, 2,
+        3, 3, 3, 3, 3
+    };
+
+    // Middle of the "image" : 3 x 3 x 2 centered at (3, 3)
+    unsigned char part[18] = {
+        2, 2, 2,
+        2, 3, 2,
+        2, 2, 2,
+
+        1, 3, 1,
+        2, 3, 2,
+        3, 3, 3
+    };
+
+    unsigned char buffer[70], buffer_part[18];
+    size_t host_origin[3] = {0, 0, 0};
+    size_t buf_origin[3] = {0, 0, 0};
+    size_t region[3] = {5, 7, 2};
+
+    result = clGetDeviceIDs(platform, CL_DEVICE_TYPE_DEFAULT, 1, &device, 0);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to get the default device"
+    );
+
+    ctx = clCreateContext(0, 1, &device, 0, 0, &result);
+    fail_if(
+        result != CL_SUCCESS || ctx == 0,
+        "unable to create a valid context"
+    );
+
+    queue = clCreateCommandQueue(ctx, device, 0, &result);
+    fail_if(
+        result != CL_SUCCESS || queue == 0,
+        "cannot create a command queue"
+    );
+
+    buf = clCreateBuffer(ctx, CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR,
+                         sizeof(buffer), buffer, &result);
+    fail_if(
+        result != CL_SUCCESS,
+        "cannot create a valid CL_MEM_USE_HOST_PTR read-write buffer"
+    );
+
+    // Write grid into buffer
+    result = clEnqueueWriteBufferRect(queue, buf, 1, buf_origin, host_origin,
+                                      region, 0, 0, 0, 0, grid, 0, 0, 0);
+    std::cout << result << std::endl;
+    fail_if(
+        result != CL_SUCCESS,
+        "cannot enqueue a blocking write buffer rect event with pitches guessed"
+    );
+    fail_if(
+        std::memcmp(buffer, grid, sizeof(buffer)) != 0,
+        "buffer doesn't contain the data"
+    );
+
+    // Read it back into a temporary region
+    buf_origin[0] = 1;
+    buf_origin[1] = 2;
+    buf_origin[2] = 0;
+    // host_origin remains (0, 0, 0)
+    region[0] = 3;
+    region[1] = 3;
+    region[2] = 2;
+
+    result = clEnqueueReadBufferRect(queue, buf, 1, buf_origin, host_origin,
+                                     region, 5, 5*7, 0, 0, buffer_part, 0, 0, 0);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to queue a blocking write buffer rect event with host pitches guessed"
+    );
+    fail_if(
+        std::memcmp(buffer_part, part, sizeof(part)) != 0,
+        "the part of the buffer was not correctly read"
+    );
+
+    clReleaseMemObject(buf);
+    clReleaseCommandQueue(queue);
+    clReleaseContext(ctx);
+}
+END_TEST
+
 TCase *cl_commandqueue_tcase_create(void)
 {
     TCase *tc = NULL;
@@ -350,5 +461,6 @@ TCase *cl_commandqueue_tcase_create(void)
     tcase_add_test(tc, test_get_command_queue_info);
     tcase_add_test(tc, test_object_tree);
     tcase_add_test(tc, test_events);
+    tcase_add_test(tc, test_read_write_rect);
     return tc;
 }

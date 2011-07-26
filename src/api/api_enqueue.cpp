@@ -103,6 +103,82 @@ clEnqueueWriteBuffer(cl_command_queue   command_queue,
 }
 
 cl_int
+clEnqueueReadBufferRect(cl_command_queue    command_queue,
+                        cl_mem              buffer,
+                        cl_bool             blocking_read,
+                        const size_t *      buffer_origin,
+                        const size_t *      host_origin,
+                        const size_t *      region,
+                        size_t              buffer_row_pitch,
+                        size_t              buffer_slice_pitch,
+                        size_t              host_row_pitch,
+                        size_t              host_slice_pitch,
+                        void *              ptr,
+                        cl_uint             num_events_in_wait_list,
+                        const cl_event *    event_wait_list,
+                        cl_event *          event)
+{
+    cl_int rs = CL_SUCCESS;
+
+    if (!command_queue)
+        return CL_INVALID_COMMAND_QUEUE;
+
+    Coal::ReadBufferRectEvent *command = new Coal::ReadBufferRectEvent(
+        (Coal::CommandQueue *)command_queue,
+        (Coal::MemObject *)buffer,
+        buffer_origin, host_origin, region, buffer_row_pitch, buffer_slice_pitch,
+        host_row_pitch, host_slice_pitch, ptr,
+        num_events_in_wait_list, (const Coal::Event **)event_wait_list, &rs
+    );
+
+    if (rs != CL_SUCCESS)
+    {
+        delete command;
+        return rs;
+    }
+
+    return queueEvent(command_queue, command, event, blocking_read);
+}
+
+cl_int
+clEnqueueWriteBufferRect(cl_command_queue    command_queue,
+                        cl_mem              buffer,
+                        cl_bool             blocking_write,
+                        const size_t *      buffer_origin,
+                        const size_t *      host_origin,
+                        const size_t *      region,
+                        size_t              buffer_row_pitch,
+                        size_t              buffer_slice_pitch,
+                        size_t              host_row_pitch,
+                        size_t              host_slice_pitch,
+                        const void *        ptr,
+                        cl_uint             num_events_in_wait_list,
+                        const cl_event *    event_wait_list,
+                        cl_event *          event)
+{
+    cl_int rs = CL_SUCCESS;
+
+    if (!command_queue)
+        return CL_INVALID_COMMAND_QUEUE;
+
+    Coal::WriteBufferRectEvent *command = new Coal::WriteBufferRectEvent(
+        (Coal::CommandQueue *)command_queue,
+        (Coal::MemObject *)buffer,
+        buffer_origin, host_origin, region, buffer_row_pitch, buffer_slice_pitch,
+        host_row_pitch, host_slice_pitch, (void *)ptr,
+        num_events_in_wait_list, (const Coal::Event **)event_wait_list, &rs
+    );
+
+    if (rs != CL_SUCCESS)
+    {
+        delete command;
+        return rs;
+    }
+
+    return queueEvent(command_queue, command, event, blocking_write);
+}
+
+cl_int
 clEnqueueCopyBuffer(cl_command_queue    command_queue,
                     cl_mem              src_buffer,
                     cl_mem              dst_buffer,

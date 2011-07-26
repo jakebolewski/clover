@@ -678,3 +678,196 @@ void UserEvent::flushQueues()
     for (it = p_dependent_queues.begin(); it != p_dependent_queues.end(); ++it)
         (*it)->pushEventsOnDevice();
 }
+
+/*
+ * ReadWriteBufferRectEvent
+ */
+ReadWriteBufferRectEvent::ReadWriteBufferRectEvent(CommandQueue *parent,
+                                                   MemObject *buffer,
+                                                   const size_t buffer_origin[3],
+                                                   const size_t host_origin[3],
+                                                   const size_t region[3],
+                                                   size_t buffer_row_pitch,
+                                                   size_t buffer_slice_pitch,
+                                                   size_t host_row_pitch,
+                                                   size_t host_slice_pitch,
+                                                   void *ptr,
+                                                   cl_uint num_events_in_wait_list,
+                                                   const Event **event_wait_list,
+                                                   cl_int *errcode_ret)
+: BufferEvent (parent, buffer, num_events_in_wait_list, event_wait_list,
+               errcode_ret), p_ptr(ptr)
+{
+    if (!ptr)
+    {
+        *errcode_ret = CL_INVALID_VALUE;
+        return;
+    }
+
+    // Copy the vectors
+    std::memcpy(&p_buffer_origin, buffer_origin, 3 * sizeof(size_t));
+    std::memcpy(&p_host_origin, host_origin, 3 * sizeof(size_t));
+
+    for (unsigned int i=0; i<3; ++i)
+    {
+        if (!region[i])
+        {
+            *errcode_ret = CL_INVALID_VALUE;
+            return;
+        }
+
+        p_region[i] = region[i];
+    }
+    // Compute the pitches
+    p_buffer_row_pitch = region[0];
+
+    if (buffer_row_pitch)
+    {
+        if (buffer_row_pitch < p_buffer_row_pitch)
+        {
+            *errcode_ret = CL_INVALID_VALUE;
+            return;
+        }
+
+        p_buffer_row_pitch = buffer_row_pitch;
+    }
+
+    p_buffer_slice_pitch = region[1] * p_buffer_row_pitch;
+
+    if (buffer_slice_pitch)
+    {
+        if (buffer_slice_pitch < p_buffer_slice_pitch)
+        {
+            *errcode_ret = CL_INVALID_VALUE;
+            return;
+        }
+
+        p_buffer_slice_pitch = buffer_slice_pitch;
+    }
+
+    p_host_row_pitch = region[0];
+
+    if (host_row_pitch)
+    {
+        if (host_row_pitch < p_host_row_pitch)
+        {
+            *errcode_ret = CL_INVALID_VALUE;
+            return;
+        }
+
+        p_host_row_pitch = host_row_pitch;
+    }
+
+    p_host_slice_pitch = region[1] * p_host_row_pitch;
+
+    if (host_slice_pitch)
+    {
+        if (host_slice_pitch < p_host_slice_pitch)
+        {
+            *errcode_ret = CL_INVALID_VALUE;
+            return;
+        }
+
+        p_host_slice_pitch = host_slice_pitch;
+    }
+
+    // Check for out-of-bounds
+    if (buffer_origin[0] + region[0] > p_buffer_row_pitch ||
+        (buffer_origin[1] + region[1]) * p_buffer_row_pitch > p_buffer_slice_pitch ||
+        (buffer_origin[2] + region[2]) * p_buffer_slice_pitch > buffer->size())
+    {
+        *errcode_ret = CL_INVALID_VALUE;
+        return;
+    }
+}
+
+size_t ReadWriteBufferRectEvent::buffer_origin(unsigned int index) const
+{
+    return p_buffer_origin[index];
+}
+
+size_t ReadWriteBufferRectEvent::host_origin(unsigned int index) const
+{
+    return p_host_origin[index];
+}
+
+size_t ReadWriteBufferRectEvent::region(unsigned int index) const
+{
+    return p_region[index];
+}
+
+size_t ReadWriteBufferRectEvent::buffer_row_pitch() const
+{
+    return p_buffer_row_pitch;
+}
+
+size_t ReadWriteBufferRectEvent::buffer_slice_pitch() const
+{
+    return p_buffer_slice_pitch;
+}
+
+size_t ReadWriteBufferRectEvent::host_row_pitch() const
+{
+    return p_host_row_pitch;
+}
+
+size_t ReadWriteBufferRectEvent::host_slice_pitch() const
+{
+    return p_host_slice_pitch;
+}
+
+void *ReadWriteBufferRectEvent::ptr() const
+{
+    return p_ptr;
+}
+
+ReadBufferRectEvent::ReadBufferRectEvent (CommandQueue *parent,
+                                          MemObject *buffer,
+                                          const size_t buffer_origin[3],
+                                          const size_t host_origin[3],
+                                          const size_t region[3],
+                                          size_t buffer_row_pitch,
+                                          size_t buffer_slice_pitch,
+                                          size_t host_row_pitch,
+                                          size_t host_slice_pitch,
+                                          void *ptr,
+                                          cl_uint num_events_in_wait_list,
+                                          const Event **event_wait_list,
+                                          cl_int *errcode_ret)
+: ReadWriteBufferRectEvent(parent, buffer, buffer_origin, host_origin, region,
+                           buffer_row_pitch, buffer_slice_pitch, host_row_pitch,
+                           host_slice_pitch, ptr, num_events_in_wait_list,
+                           event_wait_list, errcode_ret)
+{
+}
+
+Event::Type ReadBufferRectEvent::type() const
+{
+    return ReadBufferRect;
+}
+
+WriteBufferRectEvent::WriteBufferRectEvent (CommandQueue *parent,
+                                            MemObject *buffer,
+                                            const size_t buffer_origin[3],
+                                            const size_t host_origin[3],
+                                            const size_t region[3],
+                                            size_t buffer_row_pitch,
+                                            size_t buffer_slice_pitch,
+                                            size_t host_row_pitch,
+                                            size_t host_slice_pitch,
+                                            void *ptr,
+                                            cl_uint num_events_in_wait_list,
+                                            const Event **event_wait_list,
+                                            cl_int *errcode_ret)
+: ReadWriteBufferRectEvent (parent, buffer, buffer_origin, host_origin, region,
+                            buffer_row_pitch, buffer_slice_pitch, host_row_pitch,
+                            host_slice_pitch, ptr, num_events_in_wait_list,
+                            event_wait_list, errcode_ret)
+{
+}
+
+Event::Type WriteBufferRectEvent::type() const
+{
+    return WriteBufferRect;
+}
+

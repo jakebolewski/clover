@@ -121,6 +121,79 @@ class UnmapBufferEvent : public BufferEvent
         void *p_mapping;
 };
 
+class ReadWriteBufferRectEvent : public BufferEvent
+{
+    public:
+        ReadWriteBufferRectEvent(CommandQueue *parent,
+                                 MemObject *buffer,
+                                 const size_t buffer_origin[3],
+                                 const size_t host_origin[3],
+                                 const size_t region[3],
+                                 size_t buffer_row_pitch,
+                                 size_t buffer_slice_pitch,
+                                 size_t host_row_pitch,
+                                 size_t host_slice_pitch,
+                                 void *ptr,
+                                 cl_uint num_events_in_wait_list,
+                                 const Event **event_wait_list,
+                                 cl_int *errcode_ret);
+
+        size_t buffer_origin(unsigned int index) const;
+        size_t host_origin(unsigned int index) const;
+        size_t region(unsigned int index) const;
+        size_t buffer_row_pitch() const;
+        size_t buffer_slice_pitch() const;
+        size_t host_row_pitch() const;
+        size_t host_slice_pitch() const;
+        void *ptr() const;
+
+    private:
+        size_t p_buffer_origin[3], p_host_origin[3], p_region[3];
+        size_t p_buffer_row_pitch, p_buffer_slice_pitch;
+        size_t p_host_row_pitch, p_host_slice_pitch;
+        void *p_ptr;
+};
+
+class ReadBufferRectEvent : public ReadWriteBufferRectEvent
+{
+    public:
+        ReadBufferRectEvent(CommandQueue *parent,
+                            MemObject *buffer,
+                            const size_t buffer_origin[3],
+                            const size_t host_origin[3],
+                            const size_t region[3],
+                            size_t buffer_row_pitch,
+                            size_t buffer_slice_pitch,
+                            size_t host_row_pitch,
+                            size_t host_slice_pitch,
+                            void *ptr,
+                            cl_uint num_events_in_wait_list,
+                            const Event **event_wait_list,
+                            cl_int *errcode_ret);
+
+        Type type() const;
+};
+
+class WriteBufferRectEvent : public ReadWriteBufferRectEvent
+{
+    public:
+        WriteBufferRectEvent(CommandQueue *parent,
+                             MemObject *buffer,
+                             const size_t buffer_origin[3],
+                             const size_t host_origin[3],
+                             const size_t region[3],
+                             size_t buffer_row_pitch,
+                             size_t buffer_slice_pitch,
+                             size_t host_row_pitch,
+                             size_t host_slice_pitch,
+                             void *ptr,
+                             cl_uint num_events_in_wait_list,
+                             const Event **event_wait_list,
+                             cl_int *errcode_ret);
+
+        Type type() const;
+};
+
 class NativeKernelEvent : public Event
 {
     public:
