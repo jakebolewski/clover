@@ -251,18 +251,26 @@ END_TEST
 START_TEST (test_images)
 {
     cl_context ctx;
-    cl_mem image2d;
+    cl_mem image2d, image3d;
     cl_int result;
 
     unsigned char image2d_data_24bpp[] = {
-        255, 0, 0,  0, 255, 0,
-        0, 0, 255,  255, 255, 0
+        255, 0, 0, 0,  0, 255, 0, 0,
+        0, 0, 255, 0,  255, 255, 0, 0
+    };
+
+    unsigned char image3d_data_24bpp[] = {
+        255, 0, 0, 0,  0, 255, 0, 0,
+        0, 0, 255, 0,  255, 255, 0, 0,
+
+        128, 0, 0, 0,  0, 128, 0, 0,
+        0, 0, 128, 0,  128, 128, 0, 0
     };
 
     cl_image_format fmt;
 
     fmt.image_channel_data_type = CL_UNORM_INT8;
-    fmt.image_channel_order = CL_RGB;
+    fmt.image_channel_order = CL_RGBx;
 
     ctx = clCreateContextFromType(0, CL_DEVICE_TYPE_CPU, 0, 0, &result);
     fail_if(
@@ -284,6 +292,14 @@ START_TEST (test_images)
         "cannot create a valid 2x2 image2D"
     );
 
+    image3d = clCreateImage3D(ctx, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR, &fmt,
+                              2, 2, 2, 0, 0, image3d_data_24bpp, &result);
+    fail_if(
+        result != CL_SUCCESS || image3d == 0,
+        "cannot create a valid 2x2x2 image3D"
+    );
+
+    clReleaseMemObject(image3d);
     clReleaseMemObject(image2d);
     clReleaseContext(ctx);
 }

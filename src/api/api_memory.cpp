@@ -139,7 +139,31 @@ clCreateImage3D(cl_context              context,
                 void *                  host_ptr,
                 cl_int *                errcode_ret)
 {
-    return 0;
+    cl_int dummy_errcode;
+
+    if (!errcode_ret)
+        errcode_ret = &dummy_errcode;
+
+    if (!context)
+    {
+        *errcode_ret = CL_INVALID_CONTEXT;
+        return 0;
+    }
+
+    *errcode_ret = CL_SUCCESS;
+
+    Coal::Image3D *image = new Coal::Image3D(context, image_width, image_height,
+                                             image_depth, image_row_pitch,
+                                             image_slice_pitch, image_format,
+                                             host_ptr, flags, errcode_ret);
+
+    if (*errcode_ret != CL_SUCCESS || (*errcode_ret = image->init()) != CL_SUCCESS)
+    {
+        delete image;
+        return 0;
+    }
+
+    return (cl_mem)image;
 }
 
 cl_int

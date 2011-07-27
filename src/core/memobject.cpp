@@ -671,20 +671,43 @@ Image3D::Image3D(Context *ctx, size_t width, size_t height, size_t depth,
                  const cl_image_format *format, void *host_ptr,
                  cl_mem_flags flags, cl_int *errcode_ret)
 : Image2D(ctx, width, height, row_pitch, format, host_ptr, flags, errcode_ret),
-  p_depth(depth), p_slice_pitch(slice_pitch)
+  p_depth(depth)
 {
+    if (depth <= 1)
+    {
+        *errcode_ret = CL_INVALID_IMAGE_SIZE;
+        return;
+    }
 
+    // Slice pitch
+    p_slice_pitch = height * this->row_pitch();
+
+    if (slice_pitch)
+    {
+        if (!host_ptr)
+        {
+            // slice_pitch must be 0 if host_ptr is null
+            *errcode_ret = CL_INVALID_IMAGE_SIZE;
+            return;
+        }
+        if (slice_pitch < p_slice_pitch)
+        {
+            *errcode_ret = CL_INVALID_IMAGE_SIZE;
+            return;
+        }
+        if (slice_pitch % this->row_pitch() != 0)
+        {
+            *errcode_ret = CL_INVALID_IMAGE_SIZE;
+            return;
+        }
+
+        p_slice_pitch = slice_pitch;
+    }
 }
 
 size_t Image3D::size() const
 {
-    if (slice_pitch())
-        return depth() * slice_pitch();
-    else
-        if (row_pitch())
-            return depth() * height() * row_pitch();
-        else
-            return depth() * height() * width() * pixel_size(format());
+    return depth() * slice_pitch();
 }
 
 MemObject::Type Image3D::type() const
