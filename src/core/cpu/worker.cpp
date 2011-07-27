@@ -88,40 +88,59 @@ void *worker(void *data)
             }
             case Event::ReadBufferRect:
             case Event::WriteBufferRect:
+            case Event::CopyBufferRect:
             {
-                ReadWriteBufferRectEvent *e = (ReadWriteBufferRectEvent *)event;
-                CPUBuffer *buf = (CPUBuffer *)e->buffer()->deviceBuffer(device);
+                // src = buffer and dst = mem if note copy
+                ReadWriteCopyBufferRectEvent *e = (ReadWriteCopyBufferRectEvent *)event;
+                CPUBuffer *src_buf = (CPUBuffer *)e->source()->deviceBuffer(device);
 
-                unsigned char *host = (unsigned char *)e->ptr();
-                unsigned char *mem = (unsigned char *)buf->data();
+                unsigned char *src = (unsigned char *)src_buf->data();
+                unsigned char *dst;
+
+                if (t == Event::CopyBufferRect)
+                {
+                    CopyBufferRectEvent *cbre = (CopyBufferRectEvent *)e;
+                    CPUBuffer *dst_buf =
+                        (CPUBuffer *)cbre->destination()->deviceBuffer(device);
+
+                    dst = (unsigned char *)dst_buf->data();
+                }
+                else
+                {
+                    // dst = host memory location
+                    ReadWriteBufferRectEvent *rwbre = (ReadWriteBufferRectEvent *)e;
+
+                    dst = (unsigned char *)rwbre->ptr();
+                }
 
                 // Iterate over the lines to copy and use memcpy
                 for (size_t z=0; z<e->region(2); ++z)
                 {
                     for (size_t y=0; y<e->region(1); ++y)
                     {
-                        unsigned char *h;
-                        unsigned char *b;
+                        unsigned char *s;
+                        unsigned char *d;
 
-                        h = imageData(host,
-                                      e->host_origin(0),
-                                      y + e->host_origin(1),
-                                      z + e->host_origin(2),
-                                      e->host_row_pitch(),
-                                      e->host_slice_pitch(),
+                        d = imageData(dst,
+                                      e->dst_origin(0),
+                                      y + e->dst_origin(1),
+                                      z + e->dst_origin(2),
+                                      e->dst_row_pitch(),
+                                      e->dst_slice_pitch(),
                                       1);
 
-                        b = imageData(mem,
-                                      e->buffer_origin(0),
-                                      y + e->buffer_origin(1),
-                                      z + e->buffer_origin(2),
-                                      e->buffer_row_pitch(),
-                                      e->buffer_slice_pitch(),
+                        s = imageData(src,
+                                      e->src_origin(0),
+                                      y + e->src_origin(1),
+                                      z + e->src_origin(2),
+                                      e->src_row_pitch(),
+                                      e->src_slice_pitch(),
                                       1);
-                        if (t == Event::ReadBufferRect)
-                            std::memcpy(h, b, e->region(0));
+
+                        if (t == Event::WriteBufferRect)
+                            std::memcpy(s, d, e->region(0)); // Write dest (memory) in src
                         else
-                            std::memcpy(b, h, e->region(0));
+                            std::memcpy(d, s, e->region(0)); // Write src (buffer) in dest (memory), or copy the buffers
                     }
                 }
 

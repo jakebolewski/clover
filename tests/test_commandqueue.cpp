@@ -1,4 +1,5 @@
 #include <cstring>
+#include <cstdlib>
 #include <iostream>
 
 #include "test_commandqueue.h"
@@ -352,7 +353,7 @@ START_TEST (test_read_write_rect)
     cl_context ctx;
     cl_command_queue queue;
     cl_int result;
-    cl_mem buf;
+    cl_mem buf, buf_part;
 
     // Grid xyz = (5 x 7 x 2)
     unsigned char grid[70] = {
@@ -414,6 +415,13 @@ START_TEST (test_read_write_rect)
         "cannot create a valid CL_MEM_USE_HOST_PTR read-write buffer"
     );
 
+    buf_part = clCreateBuffer(ctx, CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR,
+                              sizeof(buffer_part), buffer_part, &result);
+    fail_if(
+        result != CL_SUCCESS,
+        "cannot create a buffer for the part that will be read"
+    );
+
     // Write grid into buffer
     result = clEnqueueWriteBufferRect(queue, buf, 1, buf_origin, host_origin,
                                       region, 0, 0, 0, 0, grid, 0, 0, 0);
@@ -446,6 +454,29 @@ START_TEST (test_read_write_rect)
         "the part of the buffer was not correctly read"
     );
 
+    // Clear the temporary region and re-read into it using buf_part
+    std::memset(buffer_part, 0, sizeof(buffer_part));
+    cl_event event;
+
+    result = clEnqueueCopyBufferRect(queue, buf, buf_part, buf_origin,
+                                     host_origin, region, 5, 5*7, 0, 0, 0, 0, &event);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to queue a copy buffer rect event"
+    );
+
+    result = clWaitForEvents(1, &event);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to wait for the event"
+    );
+
+    fail_if(
+        std::memcmp(buffer_part, part, sizeof(part)) != 0,
+        "the part of the buffer was not correctly read using a buffer"
+    );
+
+    clReleaseMemObject(buf_part);
     clReleaseMemObject(buf);
     clReleaseCommandQueue(queue);
     clReleaseContext(ctx);

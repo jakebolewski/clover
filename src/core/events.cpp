@@ -32,7 +32,7 @@ BufferEvent::BufferEvent(CommandQueue *parent,
     Context *ctx = 0;
     *errcode_ret = parent->info(CL_QUEUE_CONTEXT, sizeof(Context *), &ctx, 0);
 
-    if (errcode_ret != CL_SUCCESS) return;
+    if (*errcode_ret != CL_SUCCESS) return;
 
     if (buffer->context() != ctx)
     {
@@ -45,7 +45,7 @@ BufferEvent::BufferEvent(CommandQueue *parent,
     *errcode_ret = parent->info(CL_QUEUE_DEVICE, sizeof(DeviceInterface *),
                                 &device, 0);
 
-    if (errcode_ret != CL_SUCCESS)
+    if (*errcode_ret != CL_SUCCESS)
         return;
 
     if (!isSubBufferAligned(buffer, device))
@@ -87,7 +87,7 @@ bool BufferEvent::isSubBufferAligned(const MemObject *buffer,
     for (int i=0; i<align; ++i)
         mask = 1 | (mask << 1);
 
-    if (((SubBuffer *)buffer)->offset() | mask)
+    if (((SubBuffer *)buffer)->offset() & mask)
         return false;
 
     return true;
@@ -288,7 +288,7 @@ CopyBufferEvent::CopyBufferEvent(CommandQueue *parent,
     *errcode_ret = parent->info(CL_QUEUE_DEVICE, sizeof(DeviceInterface *),
                                 &device, 0);
 
-    if (errcode_ret != CL_SUCCESS)
+    if (*errcode_ret != CL_SUCCESS)
         return;
 
     if (!isSubBufferAligned(destination, device))
@@ -753,6 +753,203 @@ void UserEvent::flushQueues()
 /*
  * ReadWriteBufferRectEvent
  */
+ReadWriteCopyBufferRectEvent::ReadWriteCopyBufferRectEvent(CommandQueue *parent,
+                                                           MemObject *source,
+                                                           const size_t src_origin[3],
+                                                           const size_t dst_origin[3],
+                                                           const size_t region[3],
+                                                           size_t src_row_pitch,
+                                                           size_t src_slice_pitch,
+                                                           size_t dst_row_pitch,
+                                                           size_t dst_slice_pitch,
+                                                           cl_uint num_events_in_wait_list,
+                                                           const Event **event_wait_list,
+                                                           cl_int *errcode_ret)
+: BufferEvent (parent, source, num_events_in_wait_list, event_wait_list,
+               errcode_ret)
+{
+    // Copy the vectors
+    std::memcpy(&p_src_origin, src_origin, 3 * sizeof(size_t));
+    std::memcpy(&p_dst_origin, dst_origin, 3 * sizeof(size_t));
+
+    for (unsigned int i=0; i<3; ++i)
+    {
+        if (!region[i])
+        {
+            *errcode_ret = CL_INVALID_VALUE;
+            return;
+        }
+
+        p_region[i] = region[i];
+    }
+    // Compute the pitches
+    p_src_row_pitch = region[0];
+
+    if (src_row_pitch)
+    {
+        if (src_row_pitch < p_src_row_pitch)
+        {
+            *errcode_ret = CL_INVALID_VALUE;
+            return;
+        }
+
+        p_src_row_pitch = src_row_pitch;
+    }
+
+    p_src_slice_pitch = region[1] * p_src_row_pitch;
+
+    if (src_slice_pitch)
+    {
+        if (src_slice_pitch < p_src_slice_pitch)
+        {
+            *errcode_ret = CL_INVALID_VALUE;
+            return;
+        }
+
+        p_src_slice_pitch = src_slice_pitch;
+    }
+
+    p_dst_row_pitch = region[0];
+
+    if (dst_row_pitch)
+    {
+        if (dst_row_pitch < p_dst_row_pitch)
+        {
+            *errcode_ret = CL_INVALID_VALUE;
+            return;
+        }
+
+        p_dst_row_pitch = dst_row_pitch;
+    }
+
+    p_dst_slice_pitch = region[1] * p_dst_row_pitch;
+
+    if (dst_slice_pitch)
+    {
+        if (dst_slice_pitch < p_dst_slice_pitch)
+        {
+            *errcode_ret = CL_INVALID_VALUE;
+            return;
+        }
+
+        p_dst_slice_pitch = dst_slice_pitch;
+    }
+}
+
+size_t ReadWriteCopyBufferRectEvent::src_origin(unsigned int index) const
+{
+    return p_src_origin[index];
+}
+
+size_t ReadWriteCopyBufferRectEvent::dst_origin(unsigned int index) const
+{
+    return p_dst_origin[index];
+}
+
+size_t ReadWriteCopyBufferRectEvent::region(unsigned int index) const
+{
+    return p_region[index];
+}
+
+size_t ReadWriteCopyBufferRectEvent::src_row_pitch() const
+{
+    return p_src_row_pitch;
+}
+
+size_t ReadWriteCopyBufferRectEvent::src_slice_pitch() const
+{
+    return p_src_slice_pitch;
+}
+
+size_t ReadWriteCopyBufferRectEvent::dst_row_pitch() const
+{
+    return p_dst_row_pitch;
+}
+
+size_t ReadWriteCopyBufferRectEvent::dst_slice_pitch() const
+{
+    return p_dst_slice_pitch;
+}
+
+MemObject *ReadWriteCopyBufferRectEvent::source() const
+{
+    return buffer();
+}
+
+CopyBufferRectEvent::CopyBufferRectEvent(CommandQueue *parent,
+                                         MemObject *source,
+                                         MemObject *destination,
+                                         const size_t src_origin[3],
+                                         const size_t dst_origin[3],
+                                         const size_t region[3],
+                                         size_t src_row_pitch,
+                                         size_t src_slice_pitch,
+                                         size_t dst_row_pitch,
+                                         size_t dst_slice_pitch,
+                                         cl_uint num_events_in_wait_list,
+                                         const Event **event_wait_list,
+                                         cl_int *errcode_ret)
+: ReadWriteCopyBufferRectEvent(parent, source, src_origin, dst_origin, region,
+                               src_row_pitch, src_slice_pitch, dst_row_pitch,
+                               dst_slice_pitch, num_events_in_wait_list,
+                               event_wait_list, errcode_ret),
+  p_destination(destination)
+{
+    if (!destination)
+    {
+        *errcode_ret = CL_INVALID_MEM_OBJECT;
+        return;
+    }
+
+    // Check for out-of-bounds
+    if (src_origin[0] + region[0] > this->src_row_pitch() ||
+        (src_origin[1] + region[1]) * this->src_row_pitch() > this->src_slice_pitch() ||
+        (src_origin[2] + region[2]) * this->src_slice_pitch() > source->size())
+    {
+        *errcode_ret = CL_INVALID_VALUE;
+        return;
+    }
+
+    if (dst_origin[0] + region[0] > this->dst_row_pitch() ||
+        (dst_origin[1] + region[1]) * this->dst_row_pitch() > this->dst_slice_pitch() ||
+        (dst_origin[2] + region[2]) * this->dst_slice_pitch() > destination->size())
+    {
+        *errcode_ret = CL_INVALID_VALUE;
+        return;
+    }
+
+    // Check alignment of destination (source already checked by BufferEvent)
+    DeviceInterface *device = 0;
+    *errcode_ret = parent->info(CL_QUEUE_DEVICE, sizeof(DeviceInterface *),
+                                &device, 0);
+
+    if (*errcode_ret != CL_SUCCESS)
+        return;
+
+    if (!isSubBufferAligned(destination, device))
+    {
+        *errcode_ret = CL_MISALIGNED_SUB_BUFFER_OFFSET;
+        return;
+    }
+
+    // Allocate the buffer for the device
+    if (!destination->allocate(device))
+    {
+        *errcode_ret = CL_MEM_OBJECT_ALLOCATION_FAILURE;
+        return;
+    }
+}
+
+Event::Type CopyBufferRectEvent::type() const
+{
+    return Event::CopyBufferRect;
+}
+
+MemObject *CopyBufferRectEvent::destination() const
+{
+    return p_destination;
+}
+
 ReadWriteBufferRectEvent::ReadWriteBufferRectEvent(CommandQueue *parent,
                                                    MemObject *buffer,
                                                    const size_t buffer_origin[3],
@@ -766,8 +963,11 @@ ReadWriteBufferRectEvent::ReadWriteBufferRectEvent(CommandQueue *parent,
                                                    cl_uint num_events_in_wait_list,
                                                    const Event **event_wait_list,
                                                    cl_int *errcode_ret)
-: BufferEvent (parent, buffer, num_events_in_wait_list, event_wait_list,
-               errcode_ret), p_ptr(ptr)
+: ReadWriteCopyBufferRectEvent(parent, buffer, buffer_origin, host_origin, region,
+                               buffer_row_pitch, buffer_slice_pitch,
+                               host_row_pitch, host_slice_pitch,
+                               num_events_in_wait_list, event_wait_list, errcode_ret),
+  p_ptr(ptr)
 {
     if (!ptr)
     {
@@ -775,116 +975,14 @@ ReadWriteBufferRectEvent::ReadWriteBufferRectEvent(CommandQueue *parent,
         return;
     }
 
-    // Copy the vectors
-    std::memcpy(&p_buffer_origin, buffer_origin, 3 * sizeof(size_t));
-    std::memcpy(&p_host_origin, host_origin, 3 * sizeof(size_t));
-
-    for (unsigned int i=0; i<3; ++i)
-    {
-        if (!region[i])
-        {
-            *errcode_ret = CL_INVALID_VALUE;
-            return;
-        }
-
-        p_region[i] = region[i];
-    }
-    // Compute the pitches
-    p_buffer_row_pitch = region[0];
-
-    if (buffer_row_pitch)
-    {
-        if (buffer_row_pitch < p_buffer_row_pitch)
-        {
-            *errcode_ret = CL_INVALID_VALUE;
-            return;
-        }
-
-        p_buffer_row_pitch = buffer_row_pitch;
-    }
-
-    p_buffer_slice_pitch = region[1] * p_buffer_row_pitch;
-
-    if (buffer_slice_pitch)
-    {
-        if (buffer_slice_pitch < p_buffer_slice_pitch)
-        {
-            *errcode_ret = CL_INVALID_VALUE;
-            return;
-        }
-
-        p_buffer_slice_pitch = buffer_slice_pitch;
-    }
-
-    p_host_row_pitch = region[0];
-
-    if (host_row_pitch)
-    {
-        if (host_row_pitch < p_host_row_pitch)
-        {
-            *errcode_ret = CL_INVALID_VALUE;
-            return;
-        }
-
-        p_host_row_pitch = host_row_pitch;
-    }
-
-    p_host_slice_pitch = region[1] * p_host_row_pitch;
-
-    if (host_slice_pitch)
-    {
-        if (host_slice_pitch < p_host_slice_pitch)
-        {
-            *errcode_ret = CL_INVALID_VALUE;
-            return;
-        }
-
-        p_host_slice_pitch = host_slice_pitch;
-    }
-
     // Check for out-of-bounds
-    if (buffer_origin[0] + region[0] > p_buffer_row_pitch ||
-        (buffer_origin[1] + region[1]) * p_buffer_row_pitch > p_buffer_slice_pitch ||
-        (buffer_origin[2] + region[2]) * p_buffer_slice_pitch > buffer->size())
+    if (buffer_origin[0] + region[0] > src_row_pitch() ||
+        (buffer_origin[1] + region[1]) * src_row_pitch() > src_slice_pitch() ||
+        (buffer_origin[2] + region[2]) * src_slice_pitch() > buffer->size())
     {
         *errcode_ret = CL_INVALID_VALUE;
         return;
     }
-}
-
-size_t ReadWriteBufferRectEvent::buffer_origin(unsigned int index) const
-{
-    return p_buffer_origin[index];
-}
-
-size_t ReadWriteBufferRectEvent::host_origin(unsigned int index) const
-{
-    return p_host_origin[index];
-}
-
-size_t ReadWriteBufferRectEvent::region(unsigned int index) const
-{
-    return p_region[index];
-}
-
-size_t ReadWriteBufferRectEvent::buffer_row_pitch() const
-{
-    return p_buffer_row_pitch;
-}
-
-size_t ReadWriteBufferRectEvent::buffer_slice_pitch() const
-{
-    return p_buffer_slice_pitch;
-}
-
-size_t ReadWriteBufferRectEvent::host_row_pitch() const
-{
-    return p_host_row_pitch;
-}
-
-size_t ReadWriteBufferRectEvent::host_slice_pitch() const
-{
-    return p_host_slice_pitch;
 }
 
 void *ReadWriteBufferRectEvent::ptr() const

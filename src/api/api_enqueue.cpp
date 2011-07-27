@@ -179,6 +179,44 @@ clEnqueueWriteBufferRect(cl_command_queue    command_queue,
 }
 
 cl_int
+clEnqueueCopyBufferRect(cl_command_queue    command_queue,
+                        cl_mem              src_buffer,
+                        cl_mem              dst_buffer,
+                        const size_t *      src_origin,
+                        const size_t *      dst_origin,
+                        const size_t *      region,
+                        size_t              src_row_pitch,
+                        size_t              src_slice_pitch,
+                        size_t              dst_row_pitch,
+                        size_t              dst_slice_pitch,
+                        cl_uint             num_events_in_wait_list,
+                        const cl_event *    event_wait_list,
+                        cl_event *          event)
+{
+    cl_int rs = CL_SUCCESS;
+
+    if (!command_queue)
+        return CL_INVALID_COMMAND_QUEUE;
+
+    Coal::CopyBufferRectEvent *command = new Coal::CopyBufferRectEvent(
+        (Coal::CommandQueue *)command_queue,
+        (Coal::MemObject *)src_buffer,
+        (Coal::MemObject *)dst_buffer,
+        src_origin, dst_origin, region, src_row_pitch, src_slice_pitch,
+        dst_row_pitch, dst_slice_pitch,
+        num_events_in_wait_list, (const Coal::Event **)event_wait_list, &rs
+    );
+
+    if (rs != CL_SUCCESS)
+    {
+        delete command;
+        return rs;
+    }
+
+    return queueEvent(command_queue, command, event, false);
+}
+
+cl_int
 clEnqueueCopyBuffer(cl_command_queue    command_queue,
                     cl_mem              src_buffer,
                     cl_mem              dst_buffer,
