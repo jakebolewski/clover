@@ -31,7 +31,7 @@ class DeviceInterface
         virtual cl_int info(cl_device_info param_name,
                             size_t param_value_size,
                             void *param_value,
-                            size_t *param_value_size_ret) = 0;
+                            size_t *param_value_size_ret) const = 0;
 
         virtual DeviceBuffer *createDeviceBuffer(MemObject *buffer, cl_int *rs) = 0;
         virtual DeviceProgram *createDeviceProgram(Program *program) = 0;

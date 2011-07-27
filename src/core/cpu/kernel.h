@@ -75,6 +75,7 @@ class CPUKernelWorkGroup
         CPUKernel *p_kernel;
         CPUKernelEvent *p_cpu_event;
         KernelEvent *p_event;
+        cl_uint p_work_dim;
         size_t p_index[MAX_WORK_DIMS],
                p_current[MAX_WORK_DIMS],
                p_maxs[MAX_WORK_DIMS],

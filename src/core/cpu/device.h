@@ -25,7 +25,7 @@ class CPUDevice : public DeviceInterface
         cl_int info(cl_device_info param_name,
                     size_t param_value_size,
                     void *param_value,
-                    size_t *param_value_size_ret);
+                    size_t *param_value_size_ret) const;
 
         DeviceBuffer *createDeviceBuffer(MemObject *buffer, cl_int *rs);
         DeviceProgram *createDeviceProgram(Program *program);
@@ -38,11 +38,12 @@ class CPUDevice : public DeviceInterface
         void pushEvent(Event *event);
         Event *getEvent(bool &stop);
 
-        unsigned int numCPUs();
-        float cpuMhz();
+        unsigned int numCPUs() const;
+        float cpuMhz() const;
 
     private:
         unsigned int p_cores, p_num_events;
+        float p_cpu_mhz;
         pthread_t *p_workers;
 
         std::list<Event *> p_events;

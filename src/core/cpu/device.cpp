@@ -38,6 +38,30 @@ void CPUDevice::init()
     pthread_cond_init(&p_events_cond, 0);
     pthread_mutex_init(&p_events_mutex, 0);
 
+    // Get info about the system
+    p_cores = sysconf(_SC_NPROCESSORS_ONLN);
+    p_cpu_mhz = 0.0f;
+
+    std::filebuf fb;
+    fb.open("/proc/cpuinfo", std::ios::in);
+    std::istream is(&fb);
+
+    while (!is.eof())
+    {
+        std::string key, value;
+
+        std::getline(is, key, ':');
+        is.ignore(1);
+        std::getline(is, value);
+
+        if (key.compare(0, 7, "cpu MHz") == 0)
+        {
+            std::istringstream ss(value);
+            ss >> p_cpu_mhz;
+            break;
+        }
+    }
+
     // Create worker threads
     p_workers = (pthread_t *)std::malloc(numCPUs() * sizeof(pthread_t));
 
@@ -198,38 +222,14 @@ Event *CPUDevice::getEvent(bool &stop)
     return event;
 }
 
-unsigned int CPUDevice::numCPUs()
+unsigned int CPUDevice::numCPUs() const
 {
-    if (p_cores) return p_cores;
-
-    return (p_cores = sysconf(_SC_NPROCESSORS_ONLN));
+    return p_cores;
 }
 
-float CPUDevice::cpuMhz()
+float CPUDevice::cpuMhz() const
 {
-    std::filebuf fb;
-    fb.open("/proc/cpuinfo", std::ios::in);
-    std::istream is(&fb);
-
-    float cpuMhz = 0.0;
-
-    while (!is.eof())
-    {
-        std::string key, value;
-
-        std::getline(is, key, ':');
-        is.ignore(1);
-        std::getline(is, value);
-
-        if (key.compare(0, 7, "cpu MHz") == 0)
-        {
-            std::istringstream ss(value);
-            ss >> cpuMhz;
-            break;
-        }
-    }
-
-    return cpuMhz;
+    return p_cpu_mhz;
 }
 
 // From inner parentheses to outher ones :
@@ -248,7 +248,7 @@ float CPUDevice::cpuMhz()
 cl_int CPUDevice::info(cl_device_info param_name,
                        size_t param_value_size,
                        void *param_value,
-                       size_t *param_value_size_ret)
+                       size_t *param_value_size_ret) const
 {
     void *value = 0;
     size_t value_length = 0;

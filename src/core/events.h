@@ -12,6 +12,7 @@ namespace Coal
 class MemObject;
 class Kernel;
 class DeviceKernel;
+class DeviceInterface;
 
 class BufferEvent : public Event
 {
@@ -23,6 +24,9 @@ class BufferEvent : public Event
                     cl_int *errcode_ret);
 
         MemObject *buffer() const;
+
+        static bool isSubBufferAligned(const MemObject *buffer,
+                                       const DeviceInterface *device);
 
     private:
         MemObject *p_buffer;

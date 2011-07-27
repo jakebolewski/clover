@@ -42,29 +42,16 @@ BufferEvent::BufferEvent(CommandQueue *parent,
 
     // Alignment of SubBuffers
     DeviceInterface *device = 0;
-    cl_uint align;
     *errcode_ret = parent->info(CL_QUEUE_DEVICE, sizeof(DeviceInterface *),
                                 &device, 0);
 
-    if (errcode_ret != CL_SUCCESS) return;
+    if (errcode_ret != CL_SUCCESS)
+        return;
 
-    if (buffer->type() == MemObject::SubBuffer)
+    if (!isSubBufferAligned(buffer, device))
     {
-        *errcode_ret = device->info(CL_DEVICE_MEM_BASE_ADDR_ALIGN, sizeof(uint),
-                                    &align, 0);
-
-        if (*errcode_ret != CL_SUCCESS) return;
-
-        size_t mask = 0;
-
-        for (int i=0; i<align; ++i)
-            mask = 1 | (mask << 1);
-
-        if (((SubBuffer *)buffer)->offset() | mask)
-        {
-            *errcode_ret = CL_MISALIGNED_SUB_BUFFER_OFFSET;
-            return;
-        }
+        *errcode_ret = CL_MISALIGNED_SUB_BUFFER_OFFSET;
+        return;
     }
 
     // Allocate the buffer for the device
@@ -78,6 +65,32 @@ BufferEvent::BufferEvent(CommandQueue *parent,
 MemObject *BufferEvent::buffer() const
 {
     return p_buffer;
+}
+
+bool BufferEvent::isSubBufferAligned(const MemObject *buffer,
+                                     const DeviceInterface *device)
+{
+    cl_uint align;
+    cl_int rs;
+
+    if (buffer->type() != MemObject::SubBuffer)
+        return true;
+
+    rs = device->info(CL_DEVICE_MEM_BASE_ADDR_ALIGN, sizeof(uint),
+                      &align, 0);
+
+    if (rs != CL_SUCCESS)
+        return false;
+
+    size_t mask = 0;
+
+    for (int i=0; i<align; ++i)
+        mask = 1 | (mask << 1);
+
+    if (((SubBuffer *)buffer)->offset() | mask)
+        return false;
+
+    return true;
 }
 
 ReadWriteBufferEvent::ReadWriteBufferEvent(CommandQueue *parent,
@@ -502,25 +515,10 @@ KernelEvent::KernelEvent(CommandQueue *parent,
         {
             const MemObject *buffer = *(const MemObject **)(a.value(0));
 
-            if (buffer->type() == MemObject::SubBuffer)
+            if (!BufferEvent::isSubBufferAligned(buffer, device))
             {
-                cl_uint align;
-                *errcode_ret = device->info(CL_DEVICE_MEM_BASE_ADDR_ALIGN, sizeof(uint),
-                                  &align, 0);
-
-                if (*errcode_ret != CL_SUCCESS)
-                    return;
-
-                size_t mask = 0;
-
-                for (int i=0; i<align; ++i)
-                    mask = 1 | (mask << 1);
-
-                if (((SubBuffer *)buffer)->offset() | mask)
-                {
-                    *errcode_ret = CL_MISALIGNED_SUB_BUFFER_OFFSET;
-                    return;
-                }
+                *errcode_ret = CL_MISALIGNED_SUB_BUFFER_OFFSET;
+                return;
             }
         }
         else if (a.kind() == Kernel::Arg::Image2D)

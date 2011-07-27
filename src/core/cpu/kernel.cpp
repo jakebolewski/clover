@@ -132,7 +132,7 @@ size_t CPUKernel::guessWorkGroupSize(cl_uint num_dims, cl_uint dim,
 
         // Don't let the loop go up to global_work_size, the overhead would be
         // too huge
-        if (divisor > cpus * 32)
+        if (divisor > global_work_size || divisor > cpus * 32)
         {
             divisor = 1;  // Not parallel but has no CommandQueue overhead
             break;
@@ -411,20 +411,21 @@ CPUKernelWorkGroup *CPUKernelEvent::takeInstance()
 CPUKernelWorkGroup::CPUKernelWorkGroup(CPUKernel *kernel, KernelEvent *event,
                                        CPUKernelEvent *cpu_event,
                                        const size_t *work_group_index)
-: p_kernel(kernel), p_event(event), p_cpu_event(cpu_event)
+: p_kernel(kernel), p_event(event), p_cpu_event(cpu_event),
+  p_work_dim(event->work_dim())
 {
 
     // Set index
-    std::memcpy(p_index, work_group_index, event->work_dim() * sizeof(size_t));
+    std::memcpy(p_index, work_group_index, p_work_dim * sizeof(size_t));
 
     // Set maxs and global id
-    for (unsigned int i=0; i<event->work_dim(); ++i)
+    for (unsigned int i=0; i<p_work_dim; ++i)
     {
         p_maxs[i] = event->local_work_size(i) - 1; // 0..n-1, not 1..n
 
         // Set global id
-        p_global_id[i] = (p_index[i] * p_event->local_work_size(i))
-                         + p_event->global_work_offset(i);
+        p_global_id[i] = (p_index[i] * event->local_work_size(i))
+                         + event->global_work_offset(i);
     }
 }
 
@@ -436,7 +437,7 @@ CPUKernelWorkGroup::~CPUKernelWorkGroup()
 bool CPUKernelWorkGroup::run()
 {
     // Set current pos to 0
-    std::memset(p_current, 0, p_event->work_dim() * sizeof(size_t));
+    std::memset(p_current, 0, p_work_dim * sizeof(size_t));
 
     // Get the kernel function to call
     bool free_after = p_kernel->kernel()->needsLocalAllocation();
@@ -459,7 +460,7 @@ bool CPUKernelWorkGroup::run()
     {
         // Simply call the "call function", it and the builtins will do the rest
         kernel_func_addr();
-    } while (!incVec(p_event->work_dim(), p_current, p_maxs));
+    } while (!incVec(p_work_dim, p_current, p_maxs));
 
     // We may have some cleanup to do
     if (free_after)
@@ -478,12 +479,12 @@ bool CPUKernelWorkGroup::run()
 
 cl_uint CPUKernelWorkGroup::getWorkDim() const
 {
-    return p_event->work_dim();
+    return p_work_dim;
 }
 
 size_t CPUKernelWorkGroup::getGlobalId(cl_uint dimindx) const
 {
-    if (dimindx > p_event->work_dim())
+    if (dimindx > p_work_dim)
         return 0;
 
     return p_global_id[dimindx] + p_current[dimindx];
@@ -491,7 +492,7 @@ size_t CPUKernelWorkGroup::getGlobalId(cl_uint dimindx) const
 
 size_t CPUKernelWorkGroup::getGlobalSize(cl_uint dimindx) const
 {
-    if (dimindx > p_event->work_dim())
+    if (dimindx >p_work_dim)
         return 1;
 
     return p_event->global_work_size(dimindx);
@@ -499,7 +500,7 @@ size_t CPUKernelWorkGroup::getGlobalSize(cl_uint dimindx) const
 
 size_t CPUKernelWorkGroup::getLocalSize(cl_uint dimindx) const
 {
-    if (dimindx > p_event->work_dim())
+    if (dimindx > p_work_dim)
         return 1;
 
     return p_event->local_work_size(dimindx);
@@ -507,7 +508,7 @@ size_t CPUKernelWorkGroup::getLocalSize(cl_uint dimindx) const
 
 size_t CPUKernelWorkGroup::getLocalID(cl_uint dimindx) const
 {
-    if (dimindx > p_event->work_dim())
+    if (dimindx > p_work_dim)
         return 0;
 
     return p_current[dimindx];
@@ -515,7 +516,7 @@ size_t CPUKernelWorkGroup::getLocalID(cl_uint dimindx) const
 
 size_t CPUKernelWorkGroup::getNumGroups(cl_uint dimindx) const
 {
-    if (dimindx > p_event->work_dim())
+    if (dimindx > p_work_dim)
         return 1;
 
     return (p_event->global_work_size(dimindx) /
@@ -524,7 +525,7 @@ size_t CPUKernelWorkGroup::getNumGroups(cl_uint dimindx) const
 
 size_t CPUKernelWorkGroup::getGroupID(cl_uint dimindx) const
 {
-    if (dimindx > p_event->work_dim())
+    if (dimindx > p_work_dim)
         return 0;
 
     return p_index[dimindx];
@@ -532,7 +533,7 @@ size_t CPUKernelWorkGroup::getGroupID(cl_uint dimindx) const
 
 size_t CPUKernelWorkGroup::getGlobalOffset(cl_uint dimindx) const
 {
-    if (dimindx > p_event->work_dim())
+    if (dimindx > p_work_dim)
         return 0;
 
     return p_event->global_work_offset(dimindx);
