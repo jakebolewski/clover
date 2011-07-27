@@ -2,6 +2,7 @@
 #define __EVENTS_H__
 
 #include "commandqueue.h"
+#include "config.h"
 
 #include <vector>
 
@@ -244,8 +245,10 @@ class KernelEvent : public Event
 
     private:
         cl_uint p_work_dim;
-        size_t *p_global_work_offset, *p_global_work_size, *p_local_work_size,
-               *p_max_work_item_sizes;
+        size_t p_global_work_offset[MAX_WORK_DIMS],
+               p_global_work_size[MAX_WORK_DIMS],
+               p_local_work_size[MAX_WORK_DIMS],
+               p_max_work_item_sizes[MAX_WORK_DIMS];
         Kernel *p_kernel;
         DeviceKernel *p_dev_kernel;
 };

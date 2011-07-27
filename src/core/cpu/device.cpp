@@ -265,7 +265,7 @@ cl_int CPUDevice::info(cl_device_info param_name,
         cl_device_exec_capabilities cl_device_exec_capabilities_var;
         cl_command_queue_properties cl_command_queue_properties_var;
         cl_platform_id cl_platform_id_var;
-        size_t three_size_t[3];
+        size_t work_dims[MAX_WORK_DIMS];
     };
 
     switch (param_name)
@@ -283,8 +283,7 @@ cl_int CPUDevice::info(cl_device_info param_name,
             break;
 
         case CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS:
-            // Spec minimum
-            SIMPLE_ASSIGN(cl_uint, 3);
+            SIMPLE_ASSIGN(cl_uint, MAX_WORK_DIMS);
             break;
 
         case CL_DEVICE_MAX_WORK_GROUP_SIZE:
@@ -292,11 +291,12 @@ cl_int CPUDevice::info(cl_device_info param_name,
             break;
 
         case CL_DEVICE_MAX_WORK_ITEM_SIZES:
-            three_size_t[0] = TYPE_MAX(size_t);
-            three_size_t[1] = TYPE_MAX(size_t);
-            three_size_t[2] = TYPE_MAX(size_t);
-            value_length = 3 * sizeof(size_t);
-            value = &three_size_t;
+            for (int i=0; i<MAX_WORK_DIMS; ++i)
+            {
+                work_dims[i] = TYPE_MAX(size_t);
+            }
+            value_length = MAX_WORK_DIMS * sizeof(size_t);
+            value = &work_dims;
             break;
 
         case CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR:

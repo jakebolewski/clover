@@ -2,6 +2,7 @@
 #define __CPU_KERNEL_H__
 
 #include "../deviceinterface.h"
+#include "config.h"
 
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include <vector>
@@ -74,8 +75,10 @@ class CPUKernelWorkGroup
         CPUKernel *p_kernel;
         CPUKernelEvent *p_cpu_event;
         KernelEvent *p_event;
-        size_t *p_index, *p_current, *p_maxs, *p_global_id;
-        size_t p_table_sizes;
+        size_t p_index[MAX_WORK_DIMS],
+               p_current[MAX_WORK_DIMS],
+               p_maxs[MAX_WORK_DIMS],
+               p_global_id[MAX_WORK_DIMS];
 };
 
 class CPUKernelEvent
@@ -93,8 +96,8 @@ class CPUKernelEvent
     private:
         CPUDevice *p_device;
         KernelEvent *p_event;
-        size_t *p_current_work_group, *p_max_work_groups;
-        size_t p_table_sizes;
+        size_t p_current_work_group[MAX_WORK_DIMS],
+               p_max_work_groups[MAX_WORK_DIMS];
         size_t p_current_wg, p_finished_wg, p_num_wg;
         pthread_mutex_t p_mutex;
 };

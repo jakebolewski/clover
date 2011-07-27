@@ -330,20 +330,13 @@ llvm::Function *CPUKernel::callFunction(std::vector<void *> &freeLocal)
  * CPUKernelEvent
  */
 CPUKernelEvent::CPUKernelEvent(CPUDevice *device, KernelEvent *event)
-: p_device(device), p_event(event), p_current_work_group(0),
-  p_max_work_groups(0), p_current_wg(0), p_finished_wg(0)
+: p_device(device), p_event(event), p_current_wg(0), p_finished_wg(0)
 {
     // Mutex
     pthread_mutex_init(&p_mutex, 0);
 
-    // Tables
-    p_table_sizes = event->work_dim() * sizeof(size_t);
-
-    p_current_work_group = (size_t *)std::malloc(p_table_sizes);
-    p_max_work_groups = (size_t *)std::malloc(p_table_sizes);
-
     // Set current work group to (0, 0, ..., 0)
-    std::memset(p_current_work_group, 0, p_table_sizes);
+    std::memset(p_current_work_group, 0, event->work_dim() * sizeof(size_t));
 
     // Populate p_max_work_groups
     p_num_wg = 1;
@@ -360,9 +353,6 @@ CPUKernelEvent::CPUKernelEvent(CPUDevice *device, KernelEvent *event)
 CPUKernelEvent::~CPUKernelEvent()
 {
     pthread_mutex_destroy(&p_mutex);
-
-    std::free(p_current_work_group);
-    std::free(p_max_work_groups);
 }
 
 bool CPUKernelEvent::reserve()
@@ -421,18 +411,11 @@ CPUKernelWorkGroup *CPUKernelEvent::takeInstance()
 CPUKernelWorkGroup::CPUKernelWorkGroup(CPUKernel *kernel, KernelEvent *event,
                                        CPUKernelEvent *cpu_event,
                                        const size_t *work_group_index)
-: p_kernel(kernel), p_event(event), p_index(0), p_current(0), p_maxs(0),
-  p_cpu_event(cpu_event), p_global_id(0)
+: p_kernel(kernel), p_event(event), p_cpu_event(cpu_event)
 {
-    p_table_sizes = event->work_dim() * sizeof(size_t);
-
-    p_index = (size_t *)std::malloc(p_table_sizes);
-    p_current = (size_t *)std::malloc(p_table_sizes);
-    p_maxs = (size_t *)std::malloc(p_table_sizes);
-    p_global_id = (size_t *)std::malloc(p_table_sizes);
 
     // Set index
-    std::memcpy(p_index, work_group_index, p_table_sizes);
+    std::memcpy(p_index, work_group_index, event->work_dim() * sizeof(size_t));
 
     // Set maxs and global id
     for (unsigned int i=0; i<event->work_dim(); ++i)
@@ -447,11 +430,6 @@ CPUKernelWorkGroup::CPUKernelWorkGroup(CPUKernel *kernel, KernelEvent *event,
 
 CPUKernelWorkGroup::~CPUKernelWorkGroup()
 {
-    std::free(p_index);
-    std::free(p_current);
-    std::free(p_maxs);
-    std::free(p_global_id);
-
     p_cpu_event->workGroupFinished();
 }
 

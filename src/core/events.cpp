@@ -369,8 +369,7 @@ KernelEvent::KernelEvent(CommandQueue *parent,
                          const Event **event_wait_list,
                          cl_int *errcode_ret)
 : Event(parent, Queued, num_events_in_wait_list, event_wait_list, errcode_ret),
-  p_kernel(kernel), p_work_dim(work_dim), p_global_work_offset(0),
-  p_global_work_size(0), p_local_work_size(0), p_max_work_item_sizes(0)
+  p_kernel(kernel), p_work_dim(work_dim)
 {
     *errcode_ret = CL_SUCCESS;
 
@@ -385,7 +384,7 @@ KernelEvent::KernelEvent(CommandQueue *parent,
     DeviceInterface *device;
     Context *k_ctx, *q_ctx;
     size_t max_work_group_size;
-    cl_uint max_dims;
+    cl_uint max_dims = 0;
 
     *errcode_ret = parent->info(CL_QUEUE_DEVICE, sizeof(DeviceInterface *),
                                 &device, 0);
@@ -399,13 +398,11 @@ KernelEvent::KernelEvent(CommandQueue *parent,
                                 &max_work_group_size, 0);
     *errcode_ret |= device->info(CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, sizeof(size_t),
                                 &max_dims, 0);
+    *errcode_ret |= device->info(CL_DEVICE_MAX_WORK_ITEM_SIZES,
+                                max_dims * sizeof(size_t), p_max_work_item_sizes, 0);
 
     if (*errcode_ret != CL_SUCCESS)
         return;
-
-    p_max_work_item_sizes = (size_t *)std::malloc(max_dims * sizeof(size_t));
-    *errcode_ret = device->info(CL_DEVICE_MAX_WORK_ITEM_SIZES,
-                                max_dims * sizeof(size_t), p_max_work_item_sizes, 0);
 
     p_dev_kernel = kernel->deviceDependentKernel(device);
 
@@ -437,10 +434,6 @@ KernelEvent::KernelEvent(CommandQueue *parent,
     }
 
     // Populate work_offset, work_size and local_work_size
-    p_global_work_offset = (size_t *)std::malloc(work_dim * sizeof(size_t));
-    p_global_work_size = (size_t *)std::malloc(work_dim * sizeof(size_t));
-    p_local_work_size = (size_t *)std::malloc(work_dim * sizeof(size_t));
-
     size_t work_group_size = 1;
 
     for (int i=0; i<work_dim; ++i)
@@ -576,17 +569,7 @@ KernelEvent::KernelEvent(CommandQueue *parent,
 
 KernelEvent::~KernelEvent()
 {
-    if (p_global_work_offset)
-        std::free(p_global_work_offset);
 
-    if (p_global_work_size)
-        std::free(p_global_work_size);
-
-    if (p_local_work_size)
-        std::free(p_local_work_size);
-
-    if (p_max_work_item_sizes)
-        std::free(p_max_work_item_sizes);
 }
 
 cl_uint KernelEvent::work_dim() const
