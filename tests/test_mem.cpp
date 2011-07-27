@@ -248,6 +248,47 @@ START_TEST (test_read_write_subbuf)
 }
 END_TEST
 
+START_TEST (test_images)
+{
+    cl_context ctx;
+    cl_mem image2d;
+    cl_int result;
+
+    unsigned char image2d_data_24bpp[] = {
+        255, 0, 0,  0, 255, 0,
+        0, 0, 255,  255, 255, 0
+    };
+
+    cl_image_format fmt;
+
+    fmt.image_channel_data_type = CL_UNORM_INT8;
+    fmt.image_channel_order = CL_RGB;
+
+    ctx = clCreateContextFromType(0, CL_DEVICE_TYPE_CPU, 0, 0, &result);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to create a valid context"
+    );
+
+    image2d = clCreateImage2D(ctx, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR, &fmt,
+                              2, 2, 7, image2d_data_24bpp, &result);
+    fail_if(
+        result != CL_INVALID_IMAGE_SIZE,
+        "7 is not a valid row pitch for 24bpp, it isn't divisible by 3"
+    );
+
+    image2d = clCreateImage2D(ctx, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR, &fmt,
+                              2, 2, 0, image2d_data_24bpp, &result);
+    fail_if(
+        result != CL_SUCCESS || image2d == 0,
+        "cannot create a valid 2x2 image2D"
+    );
+
+    clReleaseMemObject(image2d);
+    clReleaseContext(ctx);
+}
+END_TEST
+
 TCase *cl_mem_tcase_create(void)
 {
     TCase *tc = NULL;
@@ -255,5 +296,6 @@ TCase *cl_mem_tcase_create(void)
     tcase_add_test(tc, test_create_buffer);
     tcase_add_test(tc, test_create_sub_buffer);
     tcase_add_test(tc, test_read_write_subbuf);
+    tcase_add_test(tc, test_images);
     return tc;
 }

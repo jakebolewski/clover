@@ -30,6 +30,9 @@ CPUBuffer::CPUBuffer(CPUDevice *device, MemObject *buffer, cl_int *rs)
         // We use the host ptr, we are already allocated
         p_data = buffer->host_ptr();
     }
+
+    // NOTE: This function can also reject Image buffers by setting a value
+    // != CL_SUCCESS in rs.
 }
 
 CPUBuffer::~CPUBuffer()

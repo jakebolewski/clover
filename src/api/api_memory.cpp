@@ -101,7 +101,30 @@ clCreateImage2D(cl_context              context,
                 void *                  host_ptr,
                 cl_int *                errcode_ret)
 {
-    return 0;
+    cl_int dummy_errcode;
+
+    if (!errcode_ret)
+        errcode_ret = &dummy_errcode;
+
+    if (!context)
+    {
+        *errcode_ret = CL_INVALID_CONTEXT;
+        return 0;
+    }
+
+    *errcode_ret = CL_SUCCESS;
+
+    Coal::Image2D *image = new Coal::Image2D(context, image_width, image_height,
+                                             image_row_pitch, image_format,
+                                             host_ptr, flags, errcode_ret);
+
+    if (*errcode_ret != CL_SUCCESS || (*errcode_ret = image->init()) != CL_SUCCESS)
+    {
+        delete image;
+        return 0;
+    }
+
+    return (cl_mem)image;
 }
 
 cl_mem

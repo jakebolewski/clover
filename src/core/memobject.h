@@ -107,7 +107,7 @@ class Image2D : public MemObject
         size_t width() const;
         size_t height() const;
         size_t row_pitch() const;
-        cl_image_format format() const;
+        const cl_image_format &format() const;
 
         cl_int imageInfo(cl_image_info param_name,
                          size_t param_value_size,

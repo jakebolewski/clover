@@ -78,7 +78,7 @@ cl_int MemObject::init()
     DeviceInterface **devices = 0;
     cl_int rs;
 
-    rs = context()->info(CL_CONTEXT_NUM_DEVICES, sizeof(uint), &p_num_devices, 0);
+    rs = context()->info(CL_CONTEXT_NUM_DEVICES, sizeof(unsigned int), &p_num_devices, 0);
 
     if (rs != CL_SUCCESS)
         return rs;
@@ -130,17 +130,27 @@ cl_int MemObject::init()
     }
 
     // Create a DeviceBuffer for each device
+    unsigned int failed_devices = 0;
+
     for (int i=0; i<p_num_devices; ++i)
     {
         DeviceInterface *device = devices[i];
 
+        rs = CL_SUCCESS;
         p_devicebuffers[i] = device->createDeviceBuffer(this, &rs);
 
         if (rs != CL_SUCCESS)
         {
-            std::free((void *)devices);
-            return rs;
+            p_devicebuffers[i] = 0;
+            failed_devices++;
         }
+    }
+
+    if (failed_devices == p_num_devices)
+    {
+        // Each device found a reason to reject the buffer, so it's invalid
+        std::free((void *)devices);
+        return rs;
     }
 
     std::free((void *)devices);
@@ -437,17 +447,51 @@ Image2D::Image2D(Context *ctx, size_t width, size_t height, size_t row_pitch,
                  const cl_image_format *format, void *host_ptr,
                  cl_mem_flags flags, cl_int *errcode_ret)
 : MemObject(ctx, flags, host_ptr, errcode_ret),
-  p_width(width), p_height(height), p_row_pitch(row_pitch), p_format(*format)
+  p_width(width), p_height(height), p_row_pitch(row_pitch)
 {
-    // NOTE for images : pitches must be NULL if host_ptr is NULL
+    if (!width || !height)
+    {
+        *errcode_ret = CL_INVALID_IMAGE_SIZE;
+        return;
+    }
+
+    if (!format)
+    {
+        *errcode_ret = CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
+        return;
+    }
+
+    p_format = *format;
+
+    // Row pitch
+    p_row_pitch = width * pixel_size(p_format);
+
+    if (row_pitch)
+    {
+        if (!host_ptr)
+        {
+            // row_pitch must be 0 if host_ptr is null
+            *errcode_ret = CL_INVALID_IMAGE_SIZE;
+            return;
+        }
+        if (row_pitch < p_row_pitch)
+        {
+            *errcode_ret = CL_INVALID_IMAGE_SIZE;
+            return;
+        }
+        if (row_pitch % pixel_size(p_format) != 0)
+        {
+            *errcode_ret = CL_INVALID_IMAGE_SIZE;
+            return;
+        }
+
+        p_row_pitch = row_pitch;
+    }
 }
 
 size_t Image2D::size() const
 {
-    if (row_pitch())
-        return height() * row_pitch();
-    else
-        return height() * width() * pixel_size(format());
+    return height() * row_pitch();
 }
 
 MemObject::Type Image2D::type() const
@@ -470,7 +514,7 @@ size_t Image2D::row_pitch() const
     return p_row_pitch;
 }
 
-cl_image_format Image2D::format() const
+const cl_image_format &Image2D::format() const
 {
     return p_format;
 }
