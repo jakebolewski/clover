@@ -417,7 +417,6 @@ START_TEST (test_read_write_rect)
     // Write grid into buffer
     result = clEnqueueWriteBufferRect(queue, buf, 1, buf_origin, host_origin,
                                       region, 0, 0, 0, 0, grid, 0, 0, 0);
-    std::cout << result << std::endl;
     fail_if(
         result != CL_SUCCESS,
         "cannot enqueue a blocking write buffer rect event with pitches guessed"
@@ -453,6 +452,77 @@ START_TEST (test_read_write_rect)
 }
 END_TEST
 
+START_TEST (test_copy_buffer)
+{
+    cl_platform_id platform = 0;
+    cl_device_id device;
+    cl_context ctx;
+    cl_command_queue queue;
+    cl_int result;
+    cl_mem src_buf, dst_buf;
+    cl_event event;
+
+    char src[] = "This is the data.";
+    char dst[] = "Overwrite this...";
+
+    result = clGetDeviceIDs(platform, CL_DEVICE_TYPE_DEFAULT, 1, &device, 0);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to get the default device"
+    );
+
+    ctx = clCreateContext(0, 1, &device, 0, 0, &result);
+    fail_if(
+        result != CL_SUCCESS || ctx == 0,
+        "unable to create a valid context"
+    );
+
+    queue = clCreateCommandQueue(ctx, device, 0, &result);
+    fail_if(
+        result != CL_SUCCESS || queue == 0,
+        "cannot create a command queue"
+    );
+
+    src_buf = clCreateBuffer(ctx, CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR,
+                             sizeof(src), src, &result);
+    fail_if(
+        result != CL_SUCCESS,
+        "cannot create the source buffer"
+    );
+
+    dst_buf = clCreateBuffer(ctx, CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR,
+                             sizeof(dst), dst, &result);
+    fail_if(
+        result != CL_SUCCESS,
+        "cannot create the destination buffer"
+    );
+
+    result = clEnqueueCopyBuffer(queue, src_buf, dst_buf, 0, 0, sizeof(src),
+                                 0, 0, &event);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to queue a copy buffer event"
+    );
+
+    result = clWaitForEvents(1, &event);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to wait for the event"
+    );
+
+    fail_if(
+        std::memcmp(src, dst, sizeof(src)) != 0,
+        "the buffer wasn't copied"
+    );
+
+    clReleaseEvent(event);
+    clReleaseMemObject(src_buf);
+    clReleaseMemObject(dst_buf);
+    clReleaseCommandQueue(queue);
+    clReleaseContext(ctx);
+}
+END_TEST
+
 TCase *cl_commandqueue_tcase_create(void)
 {
     TCase *tc = NULL;
@@ -462,5 +532,6 @@ TCase *cl_commandqueue_tcase_create(void)
     tcase_add_test(tc, test_object_tree);
     tcase_add_test(tc, test_events);
     tcase_add_test(tc, test_read_write_rect);
+    tcase_add_test(tc, test_copy_buffer);
     return tc;
 }

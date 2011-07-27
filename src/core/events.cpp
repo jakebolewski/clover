@@ -245,6 +245,96 @@ void *UnmapBufferEvent::mapping() const
     return p_mapping;
 }
 
+CopyBufferEvent::CopyBufferEvent(CommandQueue *parent,
+                                 MemObject *source,
+                                 MemObject *destination,
+                                 size_t src_offset,
+                                 size_t dst_offset,
+                                 size_t cb,
+                                 cl_uint num_events_in_wait_list,
+                                 const Event **event_wait_list,
+                                 cl_int *errcode_ret)
+: BufferEvent(parent, source, num_events_in_wait_list, event_wait_list,
+              errcode_ret), p_destination(destination), p_src_offset(src_offset),
+  p_dst_offset(dst_offset), p_cb(cb)
+{
+    if (!destination)
+    {
+        *errcode_ret = CL_INVALID_MEM_OBJECT;
+        return;
+    }
+
+    // Check for out-of-bounds
+    if (src_offset + cb > source->size() ||
+        dst_offset + cb > destination->size())
+    {
+        *errcode_ret = CL_INVALID_VALUE;
+        return;
+    }
+
+    // Check for overlap
+    if (source == destination)
+    {
+        if ((src_offset < dst_offset && src_offset + cb > dst_offset) ||
+            (dst_offset < src_offset && dst_offset + cb > src_offset))
+        {
+            *errcode_ret = CL_MEM_COPY_OVERLAP;
+            return;
+        }
+    }
+
+    // Check alignement of destination
+    DeviceInterface *device = 0;
+    *errcode_ret = parent->info(CL_QUEUE_DEVICE, sizeof(DeviceInterface *),
+                                &device, 0);
+
+    if (errcode_ret != CL_SUCCESS)
+        return;
+
+    if (!isSubBufferAligned(destination, device))
+    {
+        *errcode_ret = CL_MISALIGNED_SUB_BUFFER_OFFSET;
+        return;
+    }
+
+    // Allocate the buffer for the device
+    if (!destination->allocate(device))
+    {
+        *errcode_ret = CL_MEM_OBJECT_ALLOCATION_FAILURE;
+        return;
+    }
+}
+
+MemObject *CopyBufferEvent::source() const
+{
+    return buffer();
+}
+
+MemObject *CopyBufferEvent::destination() const
+{
+    return p_destination;
+}
+
+size_t CopyBufferEvent::src_offset() const
+{
+    return p_src_offset;
+}
+
+size_t CopyBufferEvent::dst_offset() const
+{
+    return p_dst_offset;
+}
+
+size_t CopyBufferEvent::cb() const
+{
+    return p_cb;
+}
+
+Event::Type CopyBufferEvent::type() const
+{
+    return Event::CopyBuffer;
+}
+
 /*
  * Native kernel
  */

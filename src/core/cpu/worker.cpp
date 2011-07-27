@@ -76,6 +76,16 @@ void *worker(void *data)
 
                 break;
             }
+            case Event::CopyBuffer:
+            {
+                CopyBufferEvent *e = (CopyBufferEvent *)event;
+                CPUBuffer *src = (CPUBuffer *)e->source()->deviceBuffer(device);
+                CPUBuffer *dst = (CPUBuffer *)e->destination()->deviceBuffer(device);
+
+                std::memcpy(dst->data(), src->data(), e->cb());
+
+                break;
+            }
             case Event::ReadBufferRect:
             case Event::WriteBufferRect:
             {
@@ -114,6 +124,8 @@ void *worker(void *data)
                             std::memcpy(b, h, e->region(0));
                     }
                 }
+
+                break;
             }
             case Event::MapBuffer:
                 // All was already done in CPUBuffer::initEventDeviceData()

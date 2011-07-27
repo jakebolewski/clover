@@ -189,7 +189,26 @@ clEnqueueCopyBuffer(cl_command_queue    command_queue,
                     const cl_event *    event_wait_list,
                     cl_event *          event)
 {
-    return 0;
+    cl_int rs = CL_SUCCESS;
+
+    if (!command_queue)
+        return CL_INVALID_COMMAND_QUEUE;
+
+    Coal::CopyBufferEvent *command = new Coal::CopyBufferEvent(
+        (Coal::CommandQueue *)command_queue,
+        (Coal::MemObject *)src_buffer,
+        (Coal::MemObject *)dst_buffer,
+        src_offset, dst_offset, cb,
+        num_events_in_wait_list, (const Coal::Event **)event_wait_list, &rs
+    );
+
+    if (rs != CL_SUCCESS)
+    {
+        delete command;
+        return rs;
+    }
+
+    return queueEvent(command_queue, command, event, false);
 }
 
 cl_int

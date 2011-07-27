@@ -126,6 +126,32 @@ class UnmapBufferEvent : public BufferEvent
         void *p_mapping;
 };
 
+class CopyBufferEvent : public BufferEvent
+{
+    public:
+        CopyBufferEvent(CommandQueue *parent,
+                        MemObject *source,
+                        MemObject *destination,
+                        size_t src_offset,
+                        size_t dst_offset,
+                        size_t cb,
+                        cl_uint num_events_in_wait_list,
+                        const Event **event_wait_list,
+                        cl_int *errcode_ret);
+
+        Type type() const;
+
+        MemObject *source() const;
+        MemObject *destination() const;
+        size_t src_offset() const;
+        size_t dst_offset() const;
+        size_t cb() const;
+
+    private:
+        MemObject *p_destination;
+        size_t p_src_offset, p_dst_offset, p_cb;
+};
+
 class ReadWriteBufferRectEvent : public BufferEvent
 {
     public:
