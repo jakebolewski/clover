@@ -1,6 +1,7 @@
 #include <CL/cl.h>
 
 #include <core/events.h>
+#include <core/memobject.h>
 
 static inline cl_int queueEvent(Coal::CommandQueue *queue,
                                 Coal::Event *command,
@@ -203,7 +204,7 @@ clEnqueueCopyBufferRect(cl_command_queue    command_queue,
         (Coal::MemObject *)src_buffer,
         (Coal::MemObject *)dst_buffer,
         src_origin, dst_origin, region, src_row_pitch, src_slice_pitch,
-        dst_row_pitch, dst_slice_pitch,
+        dst_row_pitch, dst_slice_pitch, 1,
         num_events_in_wait_list, (const Coal::Event **)event_wait_list, &rs
     );
 
@@ -262,7 +263,29 @@ clEnqueueReadImage(cl_command_queue     command_queue,
                    const cl_event *     event_wait_list,
                    cl_event *           event)
 {
-    return 0;
+    cl_int rs = CL_SUCCESS;
+
+    if (!command_queue)
+        return CL_INVALID_COMMAND_QUEUE;
+
+    if (!image || (image->type() != Coal::MemObject::Image2D &&
+        image->type() != Coal::MemObject::Image3D))
+        return CL_INVALID_MEM_OBJECT;
+
+    Coal::ReadImageEvent *command = new Coal::ReadImageEvent(
+        (Coal::CommandQueue *)command_queue,
+        (Coal::Image2D *)image,
+        origin, region, row_pitch, slice_pitch, (void *)ptr,
+        num_events_in_wait_list, (const Coal::Event **)event_wait_list, &rs
+    );
+
+    if (rs != CL_SUCCESS)
+    {
+        delete command;
+        return rs;
+    }
+
+    return queueEvent(command_queue, command, event, blocking_read);
 }
 
 cl_int
@@ -278,7 +301,25 @@ clEnqueueWriteImage(cl_command_queue    command_queue,
                     const cl_event *    event_wait_list,
                     cl_event *          event)
 {
-    return 0;
+    cl_int rs = CL_SUCCESS;
+
+    if (!command_queue)
+        return CL_INVALID_COMMAND_QUEUE;
+
+    Coal::WriteImageEvent *command = new Coal::WriteImageEvent(
+        (Coal::CommandQueue *)command_queue,
+        (Coal::Image2D *)image,
+        origin, region, row_pitch, slice_pitch, (void *)ptr,
+        num_events_in_wait_list, (const Coal::Event **)event_wait_list, &rs
+    );
+
+    if (rs != CL_SUCCESS)
+    {
+        delete command;
+        return rs;
+    }
+
+    return queueEvent(command_queue, command, event, blocking_write);
 }
 
 cl_int

@@ -5,6 +5,7 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <iostream>
 
 using namespace Coal;
 
@@ -463,6 +464,69 @@ Image2D::Image2D(Context *ctx, size_t width, size_t height, size_t row_pitch,
 
     p_format = *format;
 
+    // Check format descriptor
+    switch (p_format.image_channel_data_type)
+    {
+        case CL_UNORM_INT_101010:
+        case CL_UNORM_SHORT_555:
+        case CL_UNORM_SHORT_565:
+            if (p_format.image_channel_order != CL_RGB ||
+                p_format.image_channel_order != CL_RGBx)
+            {
+                *errcode_ret = CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
+                return;
+            }
+    }
+
+    switch (p_format.image_channel_order)
+    {
+        case CL_LUMINANCE:
+        case CL_INTENSITY:
+            switch (p_format.image_channel_data_type)
+            {
+                case CL_UNORM_INT8:
+                case CL_UNORM_INT16:
+                case CL_SNORM_INT8:
+                case CL_SNORM_INT16:
+                case CL_HALF_FLOAT:
+                case CL_FLOAT:
+                    break;
+                default:
+                    *errcode_ret = CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
+                    return;
+            }
+            break;
+
+        case CL_RGB:
+        case CL_RGBx:
+            switch (p_format.image_channel_data_type)
+            {
+                case CL_UNORM_SHORT_555:
+                case CL_UNORM_SHORT_565:
+                case CL_UNORM_INT_101010:
+                    break;
+                default:
+                    *errcode_ret = CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
+                    return;
+            }
+            break;
+
+        case CL_ARGB:
+        case CL_BGRA:
+            switch (p_format.image_channel_data_type)
+            {
+                case CL_UNORM_INT8:
+                case CL_SNORM_INT8:
+                case CL_SIGNED_INT8:
+                case CL_UNSIGNED_INT8:
+                    break;
+                default:
+                    *errcode_ret = CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
+                    return;
+            }
+            break;
+    }
+
     // Row pitch
     p_row_pitch = width * pixel_size(p_format);
 
@@ -636,15 +700,16 @@ size_t Image2D::pixel_size(const cl_image_format &format)
             multiplier = 2;
             break;
 
-        case CL_RGB:
-        case CL_RGBx:
-            multiplier = 3;
-            break;
-
         case CL_RGBA:
         case CL_ARGB:
         case CL_BGRA:
             multiplier = 4;
+            break;
+
+        case CL_RGBx:
+        case CL_RGB:
+            multiplier = 0; // Only special data types allowed (565, 555, etc)
+            break;
 
         default:
             return 0;
@@ -660,6 +725,11 @@ size_t Image2D::pixel_size(const cl_image_format &format)
         default:
             return multiplier * element_size(format);
     }
+}
+
+size_t Image2D::pixel_size() const
+{
+    return pixel_size(p_format);
 }
 
 /*

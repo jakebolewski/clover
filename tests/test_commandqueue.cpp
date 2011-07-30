@@ -554,6 +554,93 @@ START_TEST (test_copy_buffer)
 }
 END_TEST
 
+START_TEST (test_read_write_image)
+{
+    cl_platform_id platform = 0;
+    cl_device_id device;
+    cl_context ctx;
+    cl_command_queue queue;
+    cl_mem image2d;
+    cl_int result;
+
+    unsigned char image2d_data_24bpp[3*3*4] = {
+        255, 0, 0, 0,       0, 255, 0, 0,       128, 128, 128, 0,
+        0, 0, 255, 0,       255, 255, 0, 0,     0, 128, 0, 0,
+        255, 128, 0, 0,     128, 0, 255, 0,     0, 0, 0, 0
+    };
+
+    unsigned char image2d_part_24bpp[2*2*4] = {
+        255, 0, 0, 0,       0, 255, 0, 0,
+        0, 0, 255, 0,       255, 255, 0, 0
+    };
+
+    unsigned char image2d_buffer[3*3*4];
+    unsigned char image2d_part[2*2*4];
+
+    cl_image_format fmt;
+
+    fmt.image_channel_data_type = CL_UNORM_INT8;
+    fmt.image_channel_order = CL_RGBA;
+
+    size_t origin[3] = {0, 0, 0};
+    size_t region[3] = {3, 3, 1};
+
+    result = clGetDeviceIDs(platform, CL_DEVICE_TYPE_DEFAULT, 1, &device, 0);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to get the default device"
+    );
+
+    ctx = clCreateContext(0, 1, &device, 0, 0, &result);
+    fail_if(
+        result != CL_SUCCESS || ctx == 0,
+        "unable to create a valid context"
+    );
+
+    queue = clCreateCommandQueue(ctx, device, 0, &result);
+    fail_if(
+        result != CL_SUCCESS || queue == 0,
+        "cannot create a command queue"
+    );
+
+    image2d = clCreateImage2D(ctx, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR, &fmt,
+                              3, 3, 0, image2d_buffer, &result);
+    fail_if(
+        result != CL_SUCCESS || image2d == 0,
+        "cannot create a valid 3x3 image2D"
+    );
+
+    // Write data in buffer
+    result = clEnqueueWriteImage(queue, image2d, 1, origin, region, 0, 0,
+                                 image2d_data_24bpp, 0, 0, 0);
+    fail_if(
+        result != CL_SUCCESS,
+        "cannot enqueue a blocking write image event"
+    );
+
+    // Read it back
+    region[0] = 2;
+    region[1] = 2;
+
+    result = clEnqueueReadImage(queue, image2d, 1, origin, region, 0, 0,
+                                image2d_part, 0, 0, 0);
+    fail_if(
+        result != CL_SUCCESS,
+        "cannot enqueue a blocking read image event"
+    );
+
+    // Compare
+    fail_if(
+        std::memcmp(image2d_part, image2d_part_24bpp, sizeof(image2d_part)) != 0,
+        "reading and writing images doesn't produce the correct result"
+    );
+
+    clReleaseMemObject(image2d);
+    clReleaseCommandQueue(queue);
+    clReleaseContext(ctx);
+}
+END_TEST
+
 TCase *cl_commandqueue_tcase_create(void)
 {
     TCase *tc = NULL;
@@ -564,5 +651,6 @@ TCase *cl_commandqueue_tcase_create(void)
     tcase_add_test(tc, test_events);
     tcase_add_test(tc, test_read_write_rect);
     tcase_add_test(tc, test_copy_buffer);
+    tcase_add_test(tc, test_read_write_image);
     return tc;
 }

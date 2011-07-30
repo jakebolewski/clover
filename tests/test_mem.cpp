@@ -270,7 +270,7 @@ START_TEST (test_images)
     cl_image_format fmt;
 
     fmt.image_channel_data_type = CL_UNORM_INT8;
-    fmt.image_channel_order = CL_RGBx;
+    fmt.image_channel_order = CL_RGBA;
 
     ctx = clCreateContextFromType(0, CL_DEVICE_TYPE_CPU, 0, 0, &result);
     fail_if(

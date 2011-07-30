@@ -6,6 +6,7 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <iostream>
 
 using namespace Coal;
 
@@ -762,6 +763,7 @@ ReadWriteCopyBufferRectEvent::ReadWriteCopyBufferRectEvent(CommandQueue *parent,
                                                            size_t src_slice_pitch,
                                                            size_t dst_row_pitch,
                                                            size_t dst_slice_pitch,
+                                                           unsigned int bytes_per_element,
                                                            cl_uint num_events_in_wait_list,
                                                            const Event **event_wait_list,
                                                            cl_int *errcode_ret)
@@ -769,8 +771,15 @@ ReadWriteCopyBufferRectEvent::ReadWriteCopyBufferRectEvent(CommandQueue *parent,
                errcode_ret)
 {
     // Copy the vectors
-    std::memcpy(&p_src_origin, src_origin, 3 * sizeof(size_t));
-    std::memcpy(&p_dst_origin, dst_origin, 3 * sizeof(size_t));
+    if (src_origin)
+        std::memcpy(&p_src_origin, src_origin, 3 * sizeof(size_t));
+    else
+        std::memset(&p_src_origin, 0, 3 * sizeof(size_t));
+
+    if (dst_origin)
+        std::memcpy(&p_dst_origin, dst_origin, 3 * sizeof(size_t));
+    else
+        std::memset(&p_dst_origin, 0, 3 * sizeof(size_t));
 
     for (unsigned int i=0; i<3; ++i)
     {
@@ -782,8 +791,14 @@ ReadWriteCopyBufferRectEvent::ReadWriteCopyBufferRectEvent(CommandQueue *parent,
 
         p_region[i] = region[i];
     }
+
+    // Multiply the elements (for images)
+    p_region[0] *= bytes_per_element;
+    p_src_origin[0] *= bytes_per_element;
+    p_dst_origin[0] *= bytes_per_element;
+
     // Compute the pitches
-    p_src_row_pitch = region[0];
+    p_src_row_pitch = p_region[0];
 
     if (src_row_pitch)
     {
@@ -796,7 +811,7 @@ ReadWriteCopyBufferRectEvent::ReadWriteCopyBufferRectEvent(CommandQueue *parent,
         p_src_row_pitch = src_row_pitch;
     }
 
-    p_src_slice_pitch = region[1] * p_src_row_pitch;
+    p_src_slice_pitch = p_region[1] * p_src_row_pitch;
 
     if (src_slice_pitch)
     {
@@ -809,7 +824,7 @@ ReadWriteCopyBufferRectEvent::ReadWriteCopyBufferRectEvent(CommandQueue *parent,
         p_src_slice_pitch = src_slice_pitch;
     }
 
-    p_dst_row_pitch = region[0];
+    p_dst_row_pitch = p_region[0];
 
     if (dst_row_pitch)
     {
@@ -822,7 +837,7 @@ ReadWriteCopyBufferRectEvent::ReadWriteCopyBufferRectEvent(CommandQueue *parent,
         p_dst_row_pitch = dst_row_pitch;
     }
 
-    p_dst_slice_pitch = region[1] * p_dst_row_pitch;
+    p_dst_slice_pitch = p_region[1] * p_dst_row_pitch;
 
     if (dst_slice_pitch)
     {
@@ -886,13 +901,14 @@ CopyBufferRectEvent::CopyBufferRectEvent(CommandQueue *parent,
                                          size_t src_slice_pitch,
                                          size_t dst_row_pitch,
                                          size_t dst_slice_pitch,
+                                         unsigned int bytes_per_element,
                                          cl_uint num_events_in_wait_list,
                                          const Event **event_wait_list,
                                          cl_int *errcode_ret)
 : ReadWriteCopyBufferRectEvent(parent, source, src_origin, dst_origin, region,
                                src_row_pitch, src_slice_pitch, dst_row_pitch,
-                               dst_slice_pitch, num_events_in_wait_list,
-                               event_wait_list, errcode_ret),
+                               dst_slice_pitch, bytes_per_element,
+                               num_events_in_wait_list, event_wait_list, errcode_ret),
   p_destination(destination)
 {
     if (!destination)
@@ -902,7 +918,7 @@ CopyBufferRectEvent::CopyBufferRectEvent(CommandQueue *parent,
     }
 
     // Check for out-of-bounds
-    if (src_origin[0] + region[0] > this->src_row_pitch() ||
+    if ((src_origin[0] + region[0]) * bytes_per_element > this->src_row_pitch() ||
         (src_origin[1] + region[1]) * this->src_row_pitch() > this->src_slice_pitch() ||
         (src_origin[2] + region[2]) * this->src_slice_pitch() > source->size())
     {
@@ -910,7 +926,7 @@ CopyBufferRectEvent::CopyBufferRectEvent(CommandQueue *parent,
         return;
     }
 
-    if (dst_origin[0] + region[0] > this->dst_row_pitch() ||
+    if ((dst_origin[0] + region[0]) * bytes_per_element > this->dst_row_pitch() ||
         (dst_origin[1] + region[1]) * this->dst_row_pitch() > this->dst_slice_pitch() ||
         (dst_origin[2] + region[2]) * this->dst_slice_pitch() > destination->size())
     {
@@ -960,12 +976,13 @@ ReadWriteBufferRectEvent::ReadWriteBufferRectEvent(CommandQueue *parent,
                                                    size_t host_row_pitch,
                                                    size_t host_slice_pitch,
                                                    void *ptr,
+                                                   unsigned int bytes_per_element,
                                                    cl_uint num_events_in_wait_list,
                                                    const Event **event_wait_list,
                                                    cl_int *errcode_ret)
 : ReadWriteCopyBufferRectEvent(parent, buffer, buffer_origin, host_origin, region,
                                buffer_row_pitch, buffer_slice_pitch,
-                               host_row_pitch, host_slice_pitch,
+                               host_row_pitch, host_slice_pitch, bytes_per_element,
                                num_events_in_wait_list, event_wait_list, errcode_ret),
   p_ptr(ptr)
 {
@@ -976,10 +993,11 @@ ReadWriteBufferRectEvent::ReadWriteBufferRectEvent(CommandQueue *parent,
     }
 
     // Check for out-of-bounds
-    if (buffer_origin[0] + region[0] > src_row_pitch() ||
+    if ((buffer_origin[0] + region[0]) * bytes_per_element > src_row_pitch() ||
         (buffer_origin[1] + region[1]) * src_row_pitch() > src_slice_pitch() ||
         (buffer_origin[2] + region[2]) * src_slice_pitch() > buffer->size())
     {
+        std::cout << buffer_origin[0] << '+' << region[0] << '*' << bytes_per_element << '>' << src_row_pitch() << std::endl;
         *errcode_ret = CL_INVALID_VALUE;
         return;
     }
@@ -1005,7 +1023,7 @@ ReadBufferRectEvent::ReadBufferRectEvent (CommandQueue *parent,
                                           cl_int *errcode_ret)
 : ReadWriteBufferRectEvent(parent, buffer, buffer_origin, host_origin, region,
                            buffer_row_pitch, buffer_slice_pitch, host_row_pitch,
-                           host_slice_pitch, ptr, num_events_in_wait_list,
+                           host_slice_pitch, ptr, 1, num_events_in_wait_list,
                            event_wait_list, errcode_ret)
 {
 }
@@ -1030,7 +1048,7 @@ WriteBufferRectEvent::WriteBufferRectEvent (CommandQueue *parent,
                                             cl_int *errcode_ret)
 : ReadWriteBufferRectEvent (parent, buffer, buffer_origin, host_origin, region,
                             buffer_row_pitch, buffer_slice_pitch, host_row_pitch,
-                            host_slice_pitch, ptr, num_events_in_wait_list,
+                            host_slice_pitch, ptr, 1, num_events_in_wait_list,
                             event_wait_list, errcode_ret)
 {
 }
@@ -1040,3 +1058,64 @@ Event::Type WriteBufferRectEvent::type() const
     return WriteBufferRect;
 }
 
+ReadWriteImageEvent::ReadWriteImageEvent (CommandQueue *parent,
+                                          Image2D *image,
+                                          const size_t origin[3],
+                                          const size_t region[3],
+                                          size_t row_pitch,
+                                          size_t slice_pitch,
+                                          void *ptr,
+                                          cl_uint num_events_in_wait_list,
+                                          const Event **event_wait_list,
+                                          cl_int *errcode_ret)
+: ReadWriteBufferRectEvent(parent, image, origin, 0, region, image->row_pitch(),
+                           (image->type() == MemObject::Image3D ?
+                                ((Image3D *)image)->slice_pitch() :
+                                0), row_pitch, slice_pitch, ptr, image->pixel_size(),
+                           num_events_in_wait_list, event_wait_list, errcode_ret)
+{
+    if (image->type() == MemObject::Image2D &&
+        (origin[2] != 0 || region[2] != 1))
+    {
+        *errcode_ret = CL_INVALID_VALUE;
+        return;
+    }
+}
+
+ReadImageEvent::ReadImageEvent(CommandQueue *parent,
+                               Image2D *image,
+                               const size_t origin[3],
+                               const size_t region[3],
+                               size_t row_pitch,
+                               size_t slice_pitch,
+                               void *ptr,
+                               cl_uint num_events_in_wait_list,
+                               const Event **event_wait_list,
+                               cl_int *errcode_ret)
+: ReadWriteImageEvent(parent, image, origin, region, row_pitch, slice_pitch, ptr,
+                      num_events_in_wait_list, event_wait_list, errcode_ret)
+{}
+
+Event::Type ReadImageEvent::type() const
+{
+    return Event::ReadImage;
+}
+
+WriteImageEvent::WriteImageEvent(CommandQueue *parent,
+                                 Image2D *image,
+                                 const size_t origin[3],
+                                 const size_t region[3],
+                                 size_t row_pitch,
+                                 size_t slice_pitch,
+                                 void *ptr,
+                                 cl_uint num_events_in_wait_list,
+                                 const Event **event_wait_list,
+                                 cl_int *errcode_ret)
+: ReadWriteImageEvent (parent, image, origin, region, row_pitch, slice_pitch, ptr,
+                       num_events_in_wait_list, event_wait_list, errcode_ret)
+{}
+
+Event::Type WriteImageEvent::type() const
+{
+    return Event::WriteImage;
+}

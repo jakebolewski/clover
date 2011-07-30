@@ -10,6 +10,7 @@ namespace Coal
 {
 
 class MemObject;
+class Image2D;
 class Kernel;
 class DeviceKernel;
 class DeviceInterface;
@@ -164,6 +165,7 @@ class ReadWriteCopyBufferRectEvent : public BufferEvent
                                      size_t src_slice_pitch,
                                      size_t dst_row_pitch,
                                      size_t dst_slice_pitch,
+                                     unsigned int bytes_per_element,
                                      cl_uint num_events_in_wait_list,
                                      const Event **event_wait_list,
                                      cl_int *errcode_ret);
@@ -196,6 +198,7 @@ class CopyBufferRectEvent : public ReadWriteCopyBufferRectEvent
                             size_t src_slice_pitch,
                             size_t dst_row_pitch,
                             size_t dst_slice_pitch,
+                            unsigned int bytes_per_element,
                             cl_uint num_events_in_wait_list,
                             const Event **event_wait_list,
                             cl_int *errcode_ret);
@@ -220,6 +223,7 @@ class ReadWriteBufferRectEvent : public ReadWriteCopyBufferRectEvent
                                  size_t host_row_pitch,
                                  size_t host_slice_pitch,
                                  void *ptr,
+                                 unsigned int bytes_per_element,
                                  cl_uint num_events_in_wait_list,
                                  const Event **event_wait_list,
                                  cl_int *errcode_ret);
@@ -266,6 +270,55 @@ class WriteBufferRectEvent : public ReadWriteBufferRectEvent
                              cl_uint num_events_in_wait_list,
                              const Event **event_wait_list,
                              cl_int *errcode_ret);
+
+        Type type() const;
+};
+
+class ReadWriteImageEvent : public ReadWriteBufferRectEvent
+{
+    public:
+        ReadWriteImageEvent(CommandQueue *parent,
+                            Image2D *image,
+                            const size_t origin[3],
+                            const size_t region[3],
+                            size_t row_pitch,
+                            size_t slice_pitch,
+                            void *ptr,
+                            cl_uint num_events_in_wait_list,
+                            const Event **event_wait_list,
+                            cl_int *errcode_ret);
+};
+
+class ReadImageEvent : public ReadWriteImageEvent
+{
+    public:
+        ReadImageEvent(CommandQueue *parent,
+                       Image2D *image,
+                       const size_t origin[3],
+                       const size_t region[3],
+                       size_t row_pitch,
+                       size_t slice_pitch,
+                       void *ptr,
+                       cl_uint num_events_in_wait_list,
+                       const Event **event_wait_list,
+                       cl_int *errcode_ret);
+
+        Type type() const;
+};
+
+class WriteImageEvent : public ReadWriteImageEvent
+{
+    public:
+        WriteImageEvent(CommandQueue *parent,
+                        Image2D *image,
+                        const size_t origin[3],
+                        const size_t region[3],
+                        size_t row_pitch,
+                        size_t slice_pitch,
+                        void *ptr,
+                        cl_uint num_events_in_wait_list,
+                        const Event **event_wait_list,
+                        cl_int *errcode_ret);
 
         Type type() const;
 };

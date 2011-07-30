@@ -89,6 +89,8 @@ void *worker(void *data)
             case Event::ReadBufferRect:
             case Event::WriteBufferRect:
             case Event::CopyBufferRect:
+            case Event::ReadImage:
+            case Event::WriteImage:
             {
                 // src = buffer and dst = mem if note copy
                 ReadWriteCopyBufferRectEvent *e = (ReadWriteCopyBufferRectEvent *)event;
@@ -137,7 +139,7 @@ void *worker(void *data)
                                       e->src_slice_pitch(),
                                       1);
 
-                        if (t == Event::WriteBufferRect)
+                        if (t == Event::WriteBufferRect || t == Event::WriteImage)
                             std::memcpy(s, d, e->region(0)); // Write dest (memory) in src
                         else
                             std::memcpy(d, s, e->region(0)); // Write src (buffer) in dest (memory), or copy the buffers

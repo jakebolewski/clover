@@ -116,6 +116,7 @@ class Image2D : public MemObject
 
         static size_t element_size(const cl_image_format &format);
         static size_t pixel_size(const cl_image_format &format);
+        size_t pixel_size() const;
 
     private:
         size_t p_width, p_height, p_row_pitch;
