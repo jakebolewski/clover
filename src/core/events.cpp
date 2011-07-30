@@ -934,6 +934,26 @@ CopyBufferRectEvent::CopyBufferRectEvent(CommandQueue *parent,
         return;
     }
 
+    // Check for overlapping
+    if (source == destination)
+    {
+        unsigned char overlapping_dimensions = 0;
+
+        for (unsigned int i=0; i<3; ++i)
+        {
+            if (dst_origin[i] < src_origin[i] && dst_origin[i] + region[i] > src_origin[i] ||
+                src_origin[i] < dst_origin[i] && src_origin[i] + region[i] > dst_origin[i])
+                overlapping_dimensions++;
+        }
+
+        if (overlapping_dimensions == 3)
+        {
+            // If all the dimensions are overlapping, the region is overlapping
+            *errcode_ret = CL_MEM_COPY_OVERLAP;
+            return;
+        }
+    }
+
     // Check alignment of destination (source already checked by BufferEvent)
     DeviceInterface *device = 0;
     *errcode_ret = parent->info(CL_QUEUE_DEVICE, sizeof(DeviceInterface *),
@@ -997,7 +1017,6 @@ ReadWriteBufferRectEvent::ReadWriteBufferRectEvent(CommandQueue *parent,
         (buffer_origin[1] + region[1]) * src_row_pitch() > src_slice_pitch() ||
         (buffer_origin[2] + region[2]) * src_slice_pitch() > buffer->size())
     {
-        std::cout << buffer_origin[0] << '+' << region[0] << '*' << bytes_per_element << '>' << src_row_pitch() << std::endl;
         *errcode_ret = CL_INVALID_VALUE;
         return;
     }
@@ -1118,4 +1137,57 @@ WriteImageEvent::WriteImageEvent(CommandQueue *parent,
 Event::Type WriteImageEvent::type() const
 {
     return Event::WriteImage;
+}
+
+static bool operator!=(const cl_image_format &a, const cl_image_format &b)
+{
+    return (a.image_channel_data_type != b.image_channel_data_type) ||
+           (a.image_channel_order != b.image_channel_order);
+}
+
+CopyImageEvent::CopyImageEvent(CommandQueue *parent,
+                               Image2D *source,
+                               Image2D *destination,
+                               const size_t src_origin[3],
+                               const size_t dst_origin[3],
+                               const size_t region[3],
+                               cl_uint num_events_in_wait_list,
+                               const Event **event_wait_list,
+                               cl_int *errcode_ret)
+: CopyBufferRectEvent (parent, source, destination, src_origin, dst_origin,
+                       region, source->row_pitch(),
+                       (source->type() == MemObject::Image3D ?
+                            ((Image3D *)source)->slice_pitch() : 0),
+                       destination->row_pitch(),
+                       (destination->type() == MemObject::Image3D ?
+                            ((Image3D *)destination)->slice_pitch() : 0),
+                       source->pixel_size(), num_events_in_wait_list,
+                       event_wait_list, errcode_ret)
+{
+    // Check bounds
+    if (source->type() == MemObject::Image2D &&
+        (src_origin[2] != 0 || region[2] != 1))
+    {
+        *errcode_ret = CL_INVALID_VALUE;
+        return;
+    }
+
+    if (destination->type() == MemObject::Image2D &&
+        (dst_origin[2] != 0 || region[2] != 1))
+    {
+        *errcode_ret = CL_INVALID_VALUE;
+        return;
+    }
+
+    // Formats must match
+    if (source->format() != destination->format())
+    {
+        *errcode_ret = CL_IMAGE_FORMAT_MISMATCH;
+        return;
+    }
+}
+
+Event::Type CopyImageEvent::type() const
+{
+    return Event::CopyImage;
 }

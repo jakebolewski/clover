@@ -560,7 +560,7 @@ START_TEST (test_read_write_image)
     cl_device_id device;
     cl_context ctx;
     cl_command_queue queue;
-    cl_mem image2d;
+    cl_mem image2d, part2d;
     cl_int result;
 
     unsigned char image2d_data_24bpp[3*3*4] = {
@@ -610,6 +610,13 @@ START_TEST (test_read_write_image)
         "cannot create a valid 3x3 image2D"
     );
 
+    part2d = clCreateImage2D(ctx, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR, &fmt,
+                             2, 2, 0, image2d_part, &result);
+    fail_if(
+        result != CL_SUCCESS || image2d == 0,
+        "cannot create a valid 2x2 image2D"
+    );
+
     // Write data in buffer
     result = clEnqueueWriteImage(queue, image2d, 1, origin, region, 0, 0,
                                  image2d_data_24bpp, 0, 0, 0);
@@ -635,6 +642,30 @@ START_TEST (test_read_write_image)
         "reading and writing images doesn't produce the correct result"
     );
 
+    // Read it back using a buffer
+    cl_event event;
+    std::memset(image2d_part, 0, sizeof(image2d_part));
+
+    result = clEnqueueCopyImage(queue, image2d, part2d, origin, origin,
+                                region, 0, 0, &event);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to enqueue a copy image event"
+    );
+
+    result = clWaitForEvents(1, &event);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to wait for events"
+    );
+
+    // Compare
+    fail_if(
+        std::memcmp(image2d_part, image2d_part_24bpp, sizeof(image2d_part)) != 0,
+        "copying images doesn't produce the correct result"
+    );
+
+    clReleaseMemObject(part2d);
     clReleaseMemObject(image2d);
     clReleaseCommandQueue(queue);
     clReleaseContext(ctx);

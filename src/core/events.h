@@ -203,7 +203,7 @@ class CopyBufferRectEvent : public ReadWriteCopyBufferRectEvent
                             const Event **event_wait_list,
                             cl_int *errcode_ret);
 
-        Type type() const;
+        virtual Type type() const;
         MemObject *destination() const;
 
     private:
@@ -319,6 +319,22 @@ class WriteImageEvent : public ReadWriteImageEvent
                         cl_uint num_events_in_wait_list,
                         const Event **event_wait_list,
                         cl_int *errcode_ret);
+
+        Type type() const;
+};
+
+class CopyImageEvent : public CopyBufferRectEvent
+{
+    public:
+        CopyImageEvent(CommandQueue *parent,
+                       Image2D *source,
+                       Image2D *destination,
+                       const size_t src_origin[3],
+                       const size_t dst_origin[3],
+                       const size_t region[3],
+                       cl_uint num_events_in_wait_list,
+                       const Event **event_wait_list,
+                       cl_int *errcode_ret);
 
         Type type() const;
 };

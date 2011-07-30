@@ -91,6 +91,7 @@ void *worker(void *data)
             case Event::CopyBufferRect:
             case Event::ReadImage:
             case Event::WriteImage:
+            case Event::CopyImage:
             {
                 // src = buffer and dst = mem if note copy
                 ReadWriteCopyBufferRectEvent *e = (ReadWriteCopyBufferRectEvent *)event;
@@ -99,7 +100,7 @@ void *worker(void *data)
                 unsigned char *src = (unsigned char *)src_buf->data();
                 unsigned char *dst;
 
-                if (t == Event::CopyBufferRect)
+                if (t == Event::CopyBufferRect || t == Event::CopyImage)
                 {
                     CopyBufferRectEvent *cbre = (CopyBufferRectEvent *)e;
                     CPUBuffer *dst_buf =
