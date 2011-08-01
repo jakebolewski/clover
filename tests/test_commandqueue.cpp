@@ -779,6 +779,26 @@ START_TEST (test_copy_image_buffer)
         "copying data around isn't working the expected way"
     );
 
+    // Map the image and check pointers
+    unsigned char *mapped;
+    size_t row_pitch;
+
+    origin[0] = 0;
+    origin[1] = 0;
+    origin[2] = 0;
+
+    mapped = (unsigned char *)clEnqueueMapImage(queue, image, 1, CL_MAP_READ,
+                                                origin, region, &row_pitch, 0, 0,
+                                                0, 0, &result);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to map an image"
+    );
+    fail_if(
+        mapped != image_buffer,
+        "mapped aread doesn't match host ptr"
+    );
+
     clReleaseEvent(event);
     clReleaseMemObject(image);
     clReleaseMemObject(buffer);

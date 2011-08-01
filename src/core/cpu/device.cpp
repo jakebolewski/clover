@@ -121,11 +121,31 @@ cl_int CPUDevice::initEventDeviceData(Event *event)
         {
             MapBufferEvent *e = (MapBufferEvent *)event;
             CPUBuffer *buf = (CPUBuffer *)e->buffer()->deviceBuffer(this);
-            char *data = (char *)buf->data();
+            unsigned char *data = (unsigned char *)buf->data();
 
             data += e->offset();
 
             e->setPtr((void *)data);
+            break;
+        }
+        case Event::MapImage:
+        {
+            MapImageEvent *e = (MapImageEvent *)event;
+            Image2D *image = (Image2D *)e->buffer();
+            CPUBuffer *buf = (CPUBuffer *)image->deviceBuffer(this);
+            unsigned char *data = (unsigned char *)buf->data();
+
+            data = imageData(data,
+                             e->origin(0),
+                             e->origin(1),
+                             e->origin(2),
+                             image->row_pitch(),
+                             image->slice_pitch(),
+                             image->pixel_size());
+
+            e->setPtr((void *)data);
+            e->setRowPitch(image->row_pitch());
+            e->setSlicePitch(image->slice_pitch());
             break;
         }
         case Event::UnmapMemObject:

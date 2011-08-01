@@ -100,6 +100,7 @@ class MapBufferEvent : public BufferEvent
 
         size_t offset() const;
         size_t cb() const;
+        cl_map_flags flags() const;
         void *ptr() const;
         void setPtr(void *ptr);
 
@@ -107,6 +108,39 @@ class MapBufferEvent : public BufferEvent
         size_t p_offset, p_cb;
         cl_map_flags p_map_flags;
         void *p_ptr;
+};
+
+class MapImageEvent : public BufferEvent
+{
+    public:
+        MapImageEvent(CommandQueue *parent,
+                      Image2D *image,
+                      cl_map_flags map_flags,
+                      const size_t origin[3],
+                      const size_t region[3],
+                      cl_uint num_events_in_wait_list,
+                      const Event **event_wait_list,
+                      cl_int *errcode_ret);
+
+        Type type() const;
+
+        size_t origin(unsigned int index) const;
+        size_t region(unsigned int index) const;
+        cl_map_flags flags() const;
+
+        void *ptr() const;
+        size_t row_pitch() const;
+        size_t slice_pitch() const;
+
+        void setPtr(void *ptr);
+        void setRowPitch(size_t row_pitch);
+        void setSlicePitch(size_t slice_pitch);
+
+    private:
+        cl_map_flags p_map_flags;
+        size_t p_origin[3], p_region[3];
+        void *p_ptr;
+        size_t p_slice_pitch, p_row_pitch;
 };
 
 class UnmapBufferEvent : public BufferEvent

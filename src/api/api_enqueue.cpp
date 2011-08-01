@@ -478,7 +478,55 @@ clEnqueueMapImage(cl_command_queue  command_queue,
                   cl_event *        event,
                   cl_int *          errcode_ret)
 {
-    return 0;
+    cl_int rs;
+
+    if (!errcode_ret)
+        errcode_ret = &rs;
+
+    *errcode_ret = CL_SUCCESS;
+
+    if (!command_queue)
+    {
+        *errcode_ret = CL_INVALID_COMMAND_QUEUE;
+        return 0;
+    }
+
+    Coal::MapImageEvent *command = new Coal::MapImageEvent(
+        (Coal::CommandQueue *)command_queue,
+        (Coal::Image2D *)image,
+        map_flags, origin, region,
+        num_events_in_wait_list, (const Coal::Event **)event_wait_list, errcode_ret
+    );
+
+    if (*errcode_ret != CL_SUCCESS)
+    {
+        delete command;
+        return 0;
+    }
+
+    if (!image_row_pitch ||
+        (image->type() == Coal::MemObject::Image3D && !image_slice_pitch))
+    {
+        *errcode_ret = CL_INVALID_VALUE;
+        delete command;
+        return 0;
+    }
+
+    *errcode_ret = queueEvent(command_queue, command, event, blocking_map);
+
+    if (*errcode_ret != CL_SUCCESS)
+    {
+        return 0;
+    }
+    else
+    {
+        *image_row_pitch = command->row_pitch();
+
+        if (image_slice_pitch)
+            *image_slice_pitch = command->slice_pitch();
+
+        return command->ptr();
+    }
 }
 
 cl_int

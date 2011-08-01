@@ -13,19 +13,6 @@
 
 using namespace Coal;
 
-static unsigned char *imageData(unsigned char *base, size_t x, size_t y,
-                                size_t z, size_t row_pitch, size_t slice_pitch,
-                                unsigned int bytes_per_pixel)
-{
-    unsigned char *result = base;
-
-    result += (z * slice_pitch) +
-              (y * row_pitch) +
-              (x * bytes_per_pixel);
-
-    return result;
-}
-
 void *worker(void *data)
 {
     CPUDevice *device = (CPUDevice *)data;
@@ -173,6 +160,7 @@ void *worker(void *data)
                 break;
             }
             case Event::MapBuffer:
+            case Event::MapImage:
                 // All was already done in CPUBuffer::initEventDeviceData()
                 break;
 

@@ -215,12 +215,126 @@ size_t MapBufferEvent::cb() const
     return p_cb;
 }
 
+cl_map_flags MapBufferEvent::flags() const
+{
+    return p_map_flags;
+}
+
 void *MapBufferEvent::ptr() const
 {
     return p_ptr;
 }
 
 void MapBufferEvent::setPtr(void *ptr)
+{
+    p_ptr = ptr;
+}
+
+MapImageEvent::MapImageEvent(CommandQueue *parent,
+                             Image2D *image,
+                             cl_map_flags map_flags,
+                             const size_t origin[3],
+                             const size_t region[3],
+                             cl_uint num_events_in_wait_list,
+                             const Event **event_wait_list,
+                             cl_int *errcode_ret)
+: BufferEvent (parent, image, num_events_in_wait_list, event_wait_list, errcode_ret)
+{
+    if (*errcode_ret != CL_SUCCESS) return;
+
+    // Check flags
+    if (map_flags & ~(CL_MAP_READ | CL_MAP_WRITE))
+    {
+        *errcode_ret = CL_INVALID_VALUE;
+        return;
+    }
+
+    // Copy the vectors
+    if (origin)
+        std::memcpy(&p_origin, origin, 3 * sizeof(size_t));
+    else
+        std::memset(&p_origin, 0, 3 * sizeof(size_t));
+
+    for (unsigned int i=0; i<3; ++i)
+    {
+        if (!region[i])
+        {
+            *errcode_ret = CL_INVALID_VALUE;
+            return;
+        }
+
+        p_region[i] = region[i];
+    }
+
+    // Multiply the elements (for images)
+    p_region[0] *= image->pixel_size();
+    p_origin[0] *= image->pixel_size();
+
+    // Check for overflow
+    if (image->type() == MemObject::Image2D &&
+        (origin[2] != 0 || region[2] != 1))
+    {
+        *errcode_ret = CL_INVALID_VALUE;
+        return;
+    }
+
+    // Check for out-of-bounds
+    if ((p_origin[0] + p_region[0]) > image->row_pitch() ||
+        (p_origin[1] + p_region[1]) * image->row_pitch() > image->slice_pitch() ||
+        (p_origin[2] + p_region[2]) * image->slice_pitch() > image->size())
+    {
+        *errcode_ret = CL_INVALID_VALUE;
+        return;
+    }
+}
+
+Event::Type MapImageEvent::type() const
+{
+    return Event::MapImage;
+}
+
+
+cl_map_flags MapImageEvent::flags() const
+{
+    return p_map_flags;
+}
+
+size_t MapImageEvent::origin (unsigned int index) const
+{
+    return p_origin[index];
+}
+
+size_t MapImageEvent::region (unsigned int index) const
+{
+    return p_region[index];
+}
+
+size_t MapImageEvent::row_pitch() const
+{
+    return p_row_pitch;
+}
+
+size_t MapImageEvent::slice_pitch() const
+{
+    return p_slice_pitch;
+}
+
+void *MapImageEvent::ptr() const
+{
+    return p_ptr;
+}
+
+void MapImageEvent::setRowPitch (size_t row_pitch)
+{
+    p_row_pitch = row_pitch;
+}
+
+void MapImageEvent::setSlicePitch (size_t slice_pitch)
+{
+    p_slice_pitch = slice_pitch;
+}
+
+void MapImageEvent::setPtr (void *ptr)
 {
     p_ptr = ptr;
 }
