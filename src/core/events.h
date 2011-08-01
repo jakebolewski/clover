@@ -179,7 +179,7 @@ class ReadWriteCopyBufferRectEvent : public BufferEvent
         size_t dst_slice_pitch() const;
         MemObject *source() const;
 
-    private:
+    protected:
         size_t p_src_origin[3], p_dst_origin[3], p_region[3];
         size_t p_src_row_pitch, p_src_slice_pitch;
         size_t p_dst_row_pitch, p_dst_slice_pitch;
@@ -337,6 +337,46 @@ class CopyImageEvent : public CopyBufferRectEvent
                        cl_int *errcode_ret);
 
         Type type() const;
+};
+
+class CopyImageToBufferEvent : public CopyBufferRectEvent
+{
+    public:
+        CopyImageToBufferEvent(CommandQueue *parent,
+                               Image2D *source,
+                               MemObject *destination,
+                               const size_t src_origin[3],
+                               const size_t region[3],
+                               size_t dst_offset,
+                               cl_uint num_events_in_wait_list,
+                               const Event **event_wait_list,
+                               cl_int *errcode_ret);
+
+        size_t offset() const;
+        Type type() const;
+
+    private:
+        size_t p_offset;
+};
+
+class CopyBufferToImageEvent : public CopyBufferRectEvent
+{
+    public:
+        CopyBufferToImageEvent(CommandQueue *parent,
+                               MemObject *source,
+                               Image2D *destination,
+                               size_t src_offset,
+                               const size_t dst_origin[3],
+                               const size_t region[3],
+                               cl_uint num_events_in_wait_list,
+                               const Event **event_wait_list,
+                               cl_int *errcode_ret);
+
+        size_t offset() const;
+        Type type() const;
+
+    private:
+        size_t p_offset;
 };
 
 class NativeKernelEvent : public Event

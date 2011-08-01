@@ -476,6 +476,7 @@ START_TEST (test_read_write_rect)
         "the part of the buffer was not correctly read using a buffer"
     );
 
+    clReleaseEvent(event);
     clReleaseMemObject(buf_part);
     clReleaseMemObject(buf);
     clReleaseCommandQueue(queue);
@@ -665,8 +666,122 @@ START_TEST (test_read_write_image)
         "copying images doesn't produce the correct result"
     );
 
+    clReleaseEvent(event);
     clReleaseMemObject(part2d);
     clReleaseMemObject(image2d);
+    clReleaseCommandQueue(queue);
+    clReleaseContext(ctx);
+}
+END_TEST
+
+START_TEST (test_copy_image_buffer)
+{
+    cl_platform_id platform = 0;
+    cl_device_id device;
+    cl_context ctx;
+    cl_command_queue queue;
+    cl_mem image, buffer;
+    cl_int result;
+    cl_event event;
+
+    unsigned char image_buffer[3*3*4] = {
+        255, 0, 0, 0,       0, 255, 0, 0,       0, 0, 255, 0,
+        128, 0, 0, 0,       0, 128, 0, 0,       0, 0, 128, 0,
+        64, 0, 0, 0,        0, 64, 0, 0,        0, 0, 64, 0
+    };
+
+    // Square that will be put in image_buffer at (1, 0)
+    unsigned char buffer_buffer[2*2*4+1] = {
+        33, // Oh, a padding !
+        255, 255, 255, 0,   255, 0, 255, 0,
+        0, 255, 255, 0,     255, 255, 0, 0
+    };
+
+    // What we must get once re-reading 2x2 rect at (1, 1)
+    unsigned char correct_data[2*2*4] = {
+        0, 255, 255, 0,     255, 255, 0, 0,
+        0, 64, 0, 0,        0, 0, 64, 0
+    };
+
+    cl_image_format fmt;
+
+    fmt.image_channel_data_type = CL_UNORM_INT8;
+    fmt.image_channel_order = CL_RGBA;
+
+    size_t origin[3] = {1, 0, 0};
+    size_t region[3] = {2, 2, 1};
+
+    result = clGetDeviceIDs(platform, CL_DEVICE_TYPE_DEFAULT, 1, &device, 0);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to get the default device"
+    );
+
+    ctx = clCreateContext(0, 1, &device, 0, 0, &result);
+    fail_if(
+        result != CL_SUCCESS || ctx == 0,
+        "unable to create a valid context"
+    );
+
+    queue = clCreateCommandQueue(ctx, device, 0, &result);
+    fail_if(
+        result != CL_SUCCESS || queue == 0,
+        "cannot create a command queue"
+    );
+
+    image = clCreateImage2D(ctx, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR, &fmt,
+                            3, 3, 0, image_buffer, &result);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to create a 3x3 bgra image"
+    );
+
+    buffer = clCreateBuffer(ctx, CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR,
+                            sizeof(buffer_buffer), buffer_buffer, &result);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to create a buffer object"
+    );
+
+    // Write buffer in image
+    result = clEnqueueCopyBufferToImage(queue, buffer, image, 1, origin, region,
+                                        0, 0, &event);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to queue a copy buffer to image event, buffer offset 1, image 2x2 @ (1, 0)"
+    );
+
+    result = clWaitForEvents(1, &event);
+    fail_if(
+        result != CL_SUCCESS,
+        "cannot wait for event"
+    );
+
+    clReleaseEvent(event);
+
+    // Read it back into buffer, again with an offset
+    origin[1] = 1;
+    result = clEnqueueCopyImageToBuffer(queue, image, buffer, origin, region, 1,
+                                        0, 0, &event);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to queue a copy image to buffer event, buffer offset 1, image 2x2 @ (1, 1)"
+    );
+
+    result = clWaitForEvents(1, &event);
+    fail_if(
+        result != CL_SUCCESS,
+        "cannot wait for event"
+    );
+
+    fail_if(
+        std::memcmp(buffer_buffer + 1, correct_data, sizeof(correct_data)) != 0,
+        "copying data around isn't working the expected way"
+    );
+
+    clReleaseEvent(event);
+    clReleaseMemObject(image);
+    clReleaseMemObject(buffer);
     clReleaseCommandQueue(queue);
     clReleaseContext(ctx);
 }
@@ -683,5 +798,6 @@ TCase *cl_commandqueue_tcase_create(void)
     tcase_add_test(tc, test_read_write_rect);
     tcase_add_test(tc, test_copy_buffer);
     tcase_add_test(tc, test_read_write_image);
+    tcase_add_test(tc, test_copy_image_buffer);
     return tc;
 }

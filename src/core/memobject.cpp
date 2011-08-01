@@ -578,6 +578,12 @@ size_t Image2D::row_pitch() const
     return p_row_pitch;
 }
 
+size_t Image2D::slice_pitch() const
+{
+    // An Image2D is made of only one slice
+    return size();
+}
+
 const cl_image_format &Image2D::format() const
 {
     return p_format;

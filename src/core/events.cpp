@@ -22,6 +22,8 @@ BufferEvent::BufferEvent(CommandQueue *parent,
 : Event(parent, Queued, num_events_in_wait_list, event_wait_list, errcode_ret),
   p_buffer(buffer)
 {
+    if (*errcode_ret != CL_SUCCESS) return;
+
     // Correct buffer
     if (!buffer)
     {
@@ -105,6 +107,8 @@ ReadWriteBufferEvent::ReadWriteBufferEvent(CommandQueue *parent,
 : BufferEvent(parent, buffer, num_events_in_wait_list, event_wait_list, errcode_ret),
   p_offset(offset), p_cb(cb), p_ptr(ptr)
 {
+    if (*errcode_ret != CL_SUCCESS) return;
+
     // Check for out-of-bounds reads
     if (!ptr)
     {
@@ -179,6 +183,8 @@ MapBufferEvent::MapBufferEvent(CommandQueue *parent,
 : BufferEvent(parent, buffer, num_events_in_wait_list, event_wait_list, errcode_ret),
   p_offset(offset), p_cb(cb), p_map_flags(map_flags)
 {
+    if (*errcode_ret != CL_SUCCESS) return;
+
     // Check flags
     if (map_flags & ~(CL_MAP_READ | CL_MAP_WRITE))
     {
@@ -228,6 +234,8 @@ UnmapBufferEvent::UnmapBufferEvent(CommandQueue *parent,
 : BufferEvent(parent, buffer, num_events_in_wait_list, event_wait_list, errcode_ret),
   p_mapping(mapped_addr)
 {
+    if (*errcode_ret != CL_SUCCESS) return;
+
     // TODO: Check that p_mapping is ok (will be done in the drivers)
     if (!mapped_addr)
     {
@@ -259,6 +267,8 @@ CopyBufferEvent::CopyBufferEvent(CommandQueue *parent,
               errcode_ret), p_destination(destination), p_src_offset(src_offset),
   p_dst_offset(dst_offset), p_cb(cb)
 {
+    if (*errcode_ret != CL_SUCCESS) return;
+
     if (!destination)
     {
         *errcode_ret = CL_INVALID_MEM_OBJECT;
@@ -352,6 +362,8 @@ NativeKernelEvent::NativeKernelEvent(CommandQueue *parent,
 : Event (parent, Queued, num_events_in_wait_list, event_wait_list, errcode_ret),
   p_user_func((void *)user_func), p_args(0)
 {
+    if (*errcode_ret != CL_SUCCESS) return;
+
     // Parameters sanity
     if (!user_func)
     {
@@ -475,6 +487,8 @@ KernelEvent::KernelEvent(CommandQueue *parent,
 : Event(parent, Queued, num_events_in_wait_list, event_wait_list, errcode_ret),
   p_kernel(kernel), p_work_dim(work_dim)
 {
+    if (*errcode_ret != CL_SUCCESS) return;
+
     *errcode_ret = CL_SUCCESS;
 
     // Sanity checks
@@ -770,6 +784,8 @@ ReadWriteCopyBufferRectEvent::ReadWriteCopyBufferRectEvent(CommandQueue *parent,
 : BufferEvent (parent, source, num_events_in_wait_list, event_wait_list,
                errcode_ret)
 {
+    if (*errcode_ret != CL_SUCCESS) return;
+
     // Copy the vectors
     if (src_origin)
         std::memcpy(&p_src_origin, src_origin, 3 * sizeof(size_t));
@@ -911,6 +927,8 @@ CopyBufferRectEvent::CopyBufferRectEvent(CommandQueue *parent,
                                num_events_in_wait_list, event_wait_list, errcode_ret),
   p_destination(destination)
 {
+    if (*errcode_ret != CL_SUCCESS) return;
+
     if (!destination)
     {
         *errcode_ret = CL_INVALID_MEM_OBJECT;
@@ -918,17 +936,17 @@ CopyBufferRectEvent::CopyBufferRectEvent(CommandQueue *parent,
     }
 
     // Check for out-of-bounds
-    if ((src_origin[0] + region[0]) * bytes_per_element > this->src_row_pitch() ||
-        (src_origin[1] + region[1]) * this->src_row_pitch() > this->src_slice_pitch() ||
-        (src_origin[2] + region[2]) * this->src_slice_pitch() > source->size())
+    if ((p_src_origin[0] + p_region[0]) > p_src_row_pitch ||
+        (p_src_origin[1] + p_region[1]) * p_src_row_pitch > p_src_slice_pitch ||
+        (p_src_origin[2] + p_region[2]) * p_src_slice_pitch > source->size())
     {
         *errcode_ret = CL_INVALID_VALUE;
         return;
     }
 
-    if ((dst_origin[0] + region[0]) * bytes_per_element > this->dst_row_pitch() ||
-        (dst_origin[1] + region[1]) * this->dst_row_pitch() > this->dst_slice_pitch() ||
-        (dst_origin[2] + region[2]) * this->dst_slice_pitch() > destination->size())
+    if ((p_dst_origin[0] + p_region[0]) > p_dst_row_pitch ||
+        (p_dst_origin[1] + p_region[1]) * p_dst_row_pitch > p_dst_slice_pitch ||
+        (p_dst_origin[2] + p_region[2]) * p_dst_slice_pitch > destination->size())
     {
         *errcode_ret = CL_INVALID_VALUE;
         return;
@@ -941,8 +959,8 @@ CopyBufferRectEvent::CopyBufferRectEvent(CommandQueue *parent,
 
         for (unsigned int i=0; i<3; ++i)
         {
-            if (dst_origin[i] < src_origin[i] && dst_origin[i] + region[i] > src_origin[i] ||
-                src_origin[i] < dst_origin[i] && src_origin[i] + region[i] > dst_origin[i])
+            if ((p_dst_origin[i] < p_src_origin[i] && p_dst_origin[i] + p_region[i] > p_src_origin[i]) ||
+                (p_src_origin[i] < p_dst_origin[i] && p_src_origin[i] + p_region[i] > p_dst_origin[i]))
                 overlapping_dimensions++;
         }
 
@@ -1006,6 +1024,8 @@ ReadWriteBufferRectEvent::ReadWriteBufferRectEvent(CommandQueue *parent,
                                num_events_in_wait_list, event_wait_list, errcode_ret),
   p_ptr(ptr)
 {
+    if (*errcode_ret != CL_SUCCESS) return;
+
     if (!ptr)
     {
         *errcode_ret = CL_INVALID_VALUE;
@@ -1013,9 +1033,9 @@ ReadWriteBufferRectEvent::ReadWriteBufferRectEvent(CommandQueue *parent,
     }
 
     // Check for out-of-bounds
-    if ((buffer_origin[0] + region[0]) * bytes_per_element > src_row_pitch() ||
-        (buffer_origin[1] + region[1]) * src_row_pitch() > src_slice_pitch() ||
-        (buffer_origin[2] + region[2]) * src_slice_pitch() > buffer->size())
+    if ((p_src_origin[0] + p_region[0]) > p_src_row_pitch ||
+        (p_src_origin[1] + p_region[1]) * p_src_row_pitch > p_src_slice_pitch ||
+        (p_src_origin[2] + p_region[2]) * p_src_slice_pitch > buffer->size())
     {
         *errcode_ret = CL_INVALID_VALUE;
         return;
@@ -1088,11 +1108,12 @@ ReadWriteImageEvent::ReadWriteImageEvent (CommandQueue *parent,
                                           const Event **event_wait_list,
                                           cl_int *errcode_ret)
 : ReadWriteBufferRectEvent(parent, image, origin, 0, region, image->row_pitch(),
-                           (image->type() == MemObject::Image3D ?
-                                ((Image3D *)image)->slice_pitch() :
-                                0), row_pitch, slice_pitch, ptr, image->pixel_size(),
-                           num_events_in_wait_list, event_wait_list, errcode_ret)
+                           image->slice_pitch(), row_pitch, slice_pitch, ptr,
+                           image->pixel_size(), num_events_in_wait_list,
+                           event_wait_list, errcode_ret)
 {
+    if (*errcode_ret != CL_SUCCESS) return;
+
     if (image->type() == MemObject::Image2D &&
         (origin[2] != 0 || region[2] != 1))
     {
@@ -1155,15 +1176,13 @@ CopyImageEvent::CopyImageEvent(CommandQueue *parent,
                                const Event **event_wait_list,
                                cl_int *errcode_ret)
 : CopyBufferRectEvent (parent, source, destination, src_origin, dst_origin,
-                       region, source->row_pitch(),
-                       (source->type() == MemObject::Image3D ?
-                            ((Image3D *)source)->slice_pitch() : 0),
-                       destination->row_pitch(),
-                       (destination->type() == MemObject::Image3D ?
-                            ((Image3D *)destination)->slice_pitch() : 0),
+                       region, source->row_pitch(), source->slice_pitch(),
+                       destination->row_pitch(), destination->slice_pitch(),
                        source->pixel_size(), num_events_in_wait_list,
                        event_wait_list, errcode_ret)
 {
+    if (*errcode_ret != CL_SUCCESS) return;
+
     // Check bounds
     if (source->type() == MemObject::Image2D &&
         (src_origin[2] != 0 || region[2] != 1))
@@ -1190,4 +1209,94 @@ CopyImageEvent::CopyImageEvent(CommandQueue *parent,
 Event::Type CopyImageEvent::type() const
 {
     return Event::CopyImage;
+}
+
+CopyImageToBufferEvent::CopyImageToBufferEvent(CommandQueue *parent,
+                                               Image2D *source,
+                                               MemObject *destination,
+                                               const size_t src_origin[3],
+                                               const size_t region[3],
+                                               size_t dst_offset,
+                                               cl_uint num_events_in_wait_list,
+                                               const Event **event_wait_list,
+                                               cl_int *errcode_ret)
+: CopyBufferRectEvent(parent, source, destination, src_origin, 0, region,
+                      source->row_pitch(), source->slice_pitch(), 0, 0,
+                      source->pixel_size(), num_events_in_wait_list,
+                      event_wait_list, errcode_ret),
+  p_offset(dst_offset)
+{
+    if (*errcode_ret != CL_SUCCESS) return;
+
+    // Check for buffer overflow
+    size_t dst_cb = region[2] * region[1] * region[0] * source->pixel_size();
+
+    if (dst_offset + dst_cb > destination->size())
+    {
+        *errcode_ret = CL_INVALID_VALUE;
+        return;
+    }
+
+    // Check validity
+    if (source->type() == MemObject::Image2D &&
+        (src_origin[2] != 0 || region[2] != 1))
+    {
+        *errcode_ret = CL_INVALID_VALUE;
+        return;
+    }
+}
+
+size_t CopyImageToBufferEvent::offset() const
+{
+    return p_offset;
+}
+
+Event::Type CopyImageToBufferEvent::type() const
+{
+    return Event::CopyImageToBuffer;
+}
+
+CopyBufferToImageEvent::CopyBufferToImageEvent(CommandQueue *parent,
+                                               MemObject *source,
+                                               Image2D *destination,
+                                               size_t src_offset,
+                                               const size_t dst_origin[3],
+                                               const size_t region[3],
+                                               cl_uint num_events_in_wait_list,
+                                               const Event **event_wait_list,
+                                               cl_int *errcode_ret)
+: CopyBufferRectEvent(parent, source, destination, 0, dst_origin, region, 0, 0,
+                      destination->row_pitch(), destination->slice_pitch(),
+                      destination->pixel_size(), num_events_in_wait_list,
+                      event_wait_list, errcode_ret),
+  p_offset(src_offset)
+{
+    if (*errcode_ret != CL_SUCCESS) return;
+
+    // Check for buffer overflow
+    size_t src_cb = region[2] * region[1] * region[0] * destination->pixel_size();
+
+    if (src_offset + src_cb > source->size())
+    {
+        *errcode_ret = CL_INVALID_VALUE;
+        return;
+    }
+
+    // Check validity
+    if (destination->type() == MemObject::Image2D &&
+        (dst_origin[2] != 0 || region[2] != 1))
+    {
+        *errcode_ret = CL_INVALID_VALUE;
+        return;
+    }
+}
+
+size_t CopyBufferToImageEvent::offset() const
+{
+    return p_offset;
+}
+
+Event::Type CopyBufferToImageEvent::type() const
+{
+    return Event::CopyBufferToImage;
 }

@@ -92,6 +92,8 @@ void *worker(void *data)
             case Event::ReadImage:
             case Event::WriteImage:
             case Event::CopyImage:
+            case Event::CopyBufferToImage:
+            case Event::CopyImageToBuffer:
             {
                 // src = buffer and dst = mem if note copy
                 ReadWriteCopyBufferRectEvent *e = (ReadWriteCopyBufferRectEvent *)event;
@@ -100,20 +102,27 @@ void *worker(void *data)
                 unsigned char *src = (unsigned char *)src_buf->data();
                 unsigned char *dst;
 
-                if (t == Event::CopyBufferRect || t == Event::CopyImage)
+                switch (t)
                 {
-                    CopyBufferRectEvent *cbre = (CopyBufferRectEvent *)e;
-                    CPUBuffer *dst_buf =
-                        (CPUBuffer *)cbre->destination()->deviceBuffer(device);
+                    case Event::CopyBufferRect:
+                    case Event::CopyImage:
+                    case Event::CopyImageToBuffer:
+                    case Event::CopyBufferToImage:
+                    {
+                        CopyBufferRectEvent *cbre = (CopyBufferRectEvent *)e;
+                        CPUBuffer *dst_buf =
+                            (CPUBuffer *)cbre->destination()->deviceBuffer(device);
 
-                    dst = (unsigned char *)dst_buf->data();
-                }
-                else
-                {
-                    // dst = host memory location
-                    ReadWriteBufferRectEvent *rwbre = (ReadWriteBufferRectEvent *)e;
+                        dst = (unsigned char *)dst_buf->data();
+                        break;
+                    }
+                    default:
+                    {
+                        // dst = host memory location
+                        ReadWriteBufferRectEvent *rwbre = (ReadWriteBufferRectEvent *)e;
 
-                    dst = (unsigned char *)rwbre->ptr();
+                        dst = (unsigned char *)rwbre->ptr();
+                    }
                 }
 
                 // Iterate over the lines to copy and use memcpy
@@ -139,6 +148,20 @@ void *worker(void *data)
                                       e->src_row_pitch(),
                                       e->src_slice_pitch(),
                                       1);
+
+                        // Copying and image to a buffer may need to add an offset
+                        // to the buffer address (its rectangular origin is
+                        // always (0, 0, 0)).
+                        if (t == Event::CopyBufferToImage)
+                        {
+                            CopyBufferToImageEvent *cptie = (CopyBufferToImageEvent *)e;
+                            s += cptie->offset();
+                        }
+                        else if (t == Event::CopyImageToBuffer)
+                        {
+                            CopyImageToBufferEvent *citbe = (CopyImageToBufferEvent *)e;
+                            d += citbe->offset();
+                        }
 
                         if (t == Event::WriteBufferRect || t == Event::WriteImage)
                             std::memcpy(s, d, e->region(0)); // Write dest (memory) in src

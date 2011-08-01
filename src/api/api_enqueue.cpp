@@ -365,7 +365,25 @@ clEnqueueCopyImageToBuffer(cl_command_queue command_queue,
                            const cl_event * event_wait_list,
                            cl_event *       event)
 {
-    return 0;
+    cl_int rs = CL_SUCCESS;
+
+    if (!command_queue)
+        return CL_INVALID_COMMAND_QUEUE;
+
+    Coal::CopyImageToBufferEvent *command = new Coal::CopyImageToBufferEvent(
+        (Coal::CommandQueue *)command_queue,
+        (Coal::Image2D *)src_image, (Coal::MemObject *)dst_buffer,
+        src_origin, region, dst_offset,
+        num_events_in_wait_list, (const Coal::Event **)event_wait_list, &rs
+    );
+
+    if (rs != CL_SUCCESS)
+    {
+        delete command;
+        return rs;
+    }
+
+    return queueEvent(command_queue, command, event, false);
 }
 
 cl_int
@@ -379,7 +397,25 @@ clEnqueueCopyBufferToImage(cl_command_queue command_queue,
                            const cl_event * event_wait_list,
                            cl_event *       event)
 {
-    return 0;
+    cl_int rs = CL_SUCCESS;
+
+    if (!command_queue)
+        return CL_INVALID_COMMAND_QUEUE;
+
+    Coal::CopyBufferToImageEvent *command = new Coal::CopyBufferToImageEvent(
+        (Coal::CommandQueue *)command_queue,
+        (Coal::MemObject *)src_buffer, (Coal::Image2D *)dst_image,
+        src_offset, dst_origin, region,
+        num_events_in_wait_list, (const Coal::Event **)event_wait_list, &rs
+    );
+
+    if (rs != CL_SUCCESS)
+    {
+        delete command;
+        return rs;
+    }
+
+    return queueEvent(command_queue, command, event, false);
 }
 
 void *
