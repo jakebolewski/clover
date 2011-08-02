@@ -498,6 +498,37 @@ class UserEvent : public Event
         std::vector<CommandQueue *> p_dependent_queues;
 };
 
+class BarrierEvent : public Event
+{
+    public:
+        BarrierEvent(CommandQueue *parent,
+                     cl_int *errcode_ret);
+
+        Type type() const;
+};
+
+class WaitForEventsEvent : public Event
+{
+    public:
+        WaitForEventsEvent(CommandQueue *parent,
+                           cl_uint num_events_in_wait_list,
+                           const Event **event_wait_list,
+                           cl_int *errcode_ret);
+
+        virtual Type type() const;
+};
+
+class MarkerEvent : public WaitForEventsEvent
+{
+    public:
+        MarkerEvent(CommandQueue *parent,
+                    cl_uint num_events_in_wait_list,
+                    const Event **event_wait_list,
+                    cl_int *errcode_ret);
+
+        Type type() const;
+};
+
 }
 
 #endif

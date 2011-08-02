@@ -40,6 +40,8 @@ class CommandQueue : public RefCounted
         void pushEventsOnDevice();
         void cleanEvents();
 
+        Event **events(unsigned int &count); /*!< @note Retains all the events */
+
     private:
         Context *p_ctx;
         DeviceInterface *p_device;
@@ -75,7 +77,8 @@ class Event : public RefCounted
             WriteBufferRect = CL_COMMAND_WRITE_BUFFER_RECT,
             CopyBufferRect = CL_COMMAND_COPY_BUFFER_RECT,
             User = CL_COMMAND_USER,
-            Barrier
+            Barrier,
+            WaitForEvents
         };
 
         enum Status

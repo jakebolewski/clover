@@ -275,6 +275,12 @@ void CommandQueue::pushEventsOnDevice()
 
         if (skip_event)
         {
+            // If we encounter a WaitForEvents event that is not "finished",
+            // don't push events after it.
+            if (event->type() == Event::WaitForEvents)
+                break;
+
+            // The event has its dependencies not already met.
             ++it;
             continue;
         }
@@ -300,6 +306,36 @@ void CommandQueue::pushEventsOnDevice()
     }
 
     pthread_mutex_unlock(&p_event_list_mutex);
+}
+
+Event **CommandQueue::events(unsigned int &count)
+{
+    Event **result;
+
+    pthread_mutex_lock(&p_event_list_mutex);
+
+    count = p_events.size();
+    result = (Event **)std::malloc(count * sizeof(Event *));
+
+    // Copy each event of the list into result, retaining them
+    unsigned int index = 0;
+    std::list<Event *>::iterator it = p_events.begin();
+
+    while (it != p_events.end())
+    {
+        result[index] = *it;
+        result[index]->reference();
+
+        ++it;
+        ++index;
+    }
+
+    // Now result contains an immutable list of events. Even if the events
+    // become completed in another thread while result is used, the events
+    // are retained and so guaranteed to remain valid.
+    pthread_mutex_unlock(&p_event_list_mutex);
+
+    return result;
 }
 
 /*
@@ -421,6 +457,7 @@ bool Event::isDummy() const
         case Marker:
         case User:
         case Barrier:
+        case WaitForEvents:
             return true;
 
         default:

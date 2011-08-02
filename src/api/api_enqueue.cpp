@@ -3,6 +3,8 @@
 #include <core/events.h>
 #include <core/memobject.h>
 
+#include <cstdlib>
+
 static inline cl_int queueEvent(Coal::CommandQueue *queue,
                                 Coal::Event *command,
                                 cl_event *event,
@@ -660,7 +662,29 @@ cl_int
 clEnqueueMarker(cl_command_queue    command_queue,
                 cl_event *          event)
 {
-    return 0;
+    cl_int rs = CL_SUCCESS;
+
+    if (!command_queue)
+        return CL_INVALID_COMMAND_QUEUE;
+
+    // Get the events in command_queue
+    unsigned int count;
+    Coal::Event **events = command_queue->events(count);
+
+    Coal::MarkerEvent *command = new Coal::MarkerEvent(
+        (Coal::CommandQueue *)command_queue,
+        count, (const Coal::Event **)events, &rs);
+
+    if (rs != CL_SUCCESS)
+    {
+        delete command;
+        return rs;
+    }
+
+    // Free events, they were memcpyed by Coal::Event
+    std::free(events);
+
+    return queueEvent(command_queue, command, event, false);
 }
 
 cl_int
@@ -668,11 +692,40 @@ clEnqueueWaitForEvents(cl_command_queue command_queue,
                        cl_uint          num_events,
                        const cl_event * event_list)
 {
-    return 0;
+    cl_int rs = CL_SUCCESS;
+
+    if (!command_queue)
+        return CL_INVALID_COMMAND_QUEUE;
+
+    Coal::WaitForEventsEvent *command = new Coal::WaitForEventsEvent(
+        (Coal::CommandQueue *)command_queue,
+        num_events, (const Coal::Event **)event_list, &rs);
+
+    if (rs != CL_SUCCESS)
+    {
+        delete command;
+        return rs;
+    }
+
+    return queueEvent(command_queue, command, 0, false);
 }
 
 cl_int
 clEnqueueBarrier(cl_command_queue command_queue)
 {
-    return 0;
+    cl_int rs = CL_SUCCESS;
+
+    if (!command_queue)
+        return CL_INVALID_COMMAND_QUEUE;
+
+    Coal::BarrierEvent *command = new Coal::BarrierEvent(
+        (Coal::CommandQueue *)command_queue, &rs);
+
+    if (rs != CL_SUCCESS)
+    {
+        delete command;
+        return rs;
+    }
+
+    return queueEvent(command_queue, command, 0, false);
 }

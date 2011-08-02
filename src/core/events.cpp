@@ -1414,3 +1414,47 @@ Event::Type CopyBufferToImageEvent::type() const
 {
     return Event::CopyBufferToImage;
 }
+
+/*
+ * Barrier
+ */
+
+BarrierEvent::BarrierEvent(CommandQueue *parent, cl_int *errcode_ret)
+: Event(parent, Queued, 0, 0, errcode_ret)
+{}
+
+Event::Type BarrierEvent::type() const
+{
+    return Event::Barrier;
+}
+
+/*
+ * WaitForEvents
+ */
+
+WaitForEventsEvent::WaitForEventsEvent(CommandQueue *parent,
+                                       cl_uint num_events_in_wait_list,
+                                       const Event **event_wait_list,
+                                       cl_int *errcode_ret)
+: Event(parent, Queued, num_events_in_wait_list, event_wait_list, errcode_ret)
+{}
+
+Event::Type WaitForEventsEvent::type() const
+{
+    return Event::WaitForEvents;
+}
+
+/*
+ * Marker
+ */
+MarkerEvent::MarkerEvent(CommandQueue *parent,
+                         cl_uint num_events_in_wait_list,
+                         const Event **event_wait_list,
+                         cl_int *errcode_ret)
+: WaitForEventsEvent(parent, num_events_in_wait_list, event_wait_list, errcode_ret)
+{}
+
+Event::Type MarkerEvent::type() const
+{
+    return Event::Marker;
+}
