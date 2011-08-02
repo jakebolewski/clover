@@ -2,6 +2,7 @@
 #include <core/memobject.h>
 #include <core/context.h>
 
+#include <cstring>
 
 // Memory Object APIs
 cl_mem
@@ -189,6 +190,124 @@ clReleaseMemObject(cl_mem memobj)
     return CL_SUCCESS;
 }
 
+static cl_image_format supported_formats[] = {
+    { CL_RGBA, CL_UNORM_INT8 },
+    { CL_RGBA, CL_UNORM_INT16 },
+    { CL_RGBA, CL_SNORM_INT8 },
+    { CL_RGBA, CL_SNORM_INT16 },
+    { CL_RGBA, CL_SIGNED_INT8 },
+    { CL_RGBA, CL_SIGNED_INT16 },
+    { CL_RGBA, CL_SIGNED_INT32 },
+    { CL_RGBA, CL_UNSIGNED_INT8 },
+    { CL_RGBA, CL_UNSIGNED_INT16 },
+    { CL_RGBA, CL_UNSIGNED_INT32 },
+    { CL_RGBA, CL_FLOAT },
+
+    { CL_ARGB, CL_UNORM_INT8 },
+    { CL_ARGB, CL_SNORM_INT8 },
+    { CL_ARGB, CL_SIGNED_INT8 },
+    { CL_ARGB, CL_UNSIGNED_INT8 },
+
+    { CL_BGRA, CL_UNORM_INT8 },
+    { CL_BGRA, CL_SNORM_INT8 },
+    { CL_BGRA, CL_SIGNED_INT8 },
+    { CL_BGRA, CL_UNSIGNED_INT8 },
+
+    { CL_RGB, CL_UNORM_SHORT_565 },
+    { CL_RGB, CL_UNORM_SHORT_555 },
+    { CL_RGB, CL_UNORM_INT_101010 },
+
+    { CL_RGBx, CL_UNORM_SHORT_565 },
+    { CL_RGBx, CL_UNORM_SHORT_555 },
+    { CL_RGBx, CL_UNORM_INT_101010 },
+
+    { CL_RG, CL_UNORM_INT8 },
+    { CL_RG, CL_UNORM_INT16 },
+    { CL_RG, CL_SNORM_INT8 },
+    { CL_RG, CL_SNORM_INT16 },
+    { CL_RG, CL_SIGNED_INT8 },
+    { CL_RG, CL_SIGNED_INT16 },
+    { CL_RG, CL_SIGNED_INT32 },
+    { CL_RG, CL_UNSIGNED_INT8 },
+    { CL_RG, CL_UNSIGNED_INT16 },
+    { CL_RG, CL_UNSIGNED_INT32 },
+    { CL_RG, CL_FLOAT },
+
+    { CL_RGx, CL_UNORM_INT8 },
+    { CL_RGx, CL_UNORM_INT16 },
+    { CL_RGx, CL_SNORM_INT8 },
+    { CL_RGx, CL_SNORM_INT16 },
+    { CL_RGx, CL_SIGNED_INT8 },
+    { CL_RGx, CL_SIGNED_INT16 },
+    { CL_RGx, CL_SIGNED_INT32 },
+    { CL_RGx, CL_UNSIGNED_INT8 },
+    { CL_RGx, CL_UNSIGNED_INT16 },
+    { CL_RGx, CL_UNSIGNED_INT32 },
+    { CL_RGx, CL_FLOAT },
+
+    { CL_RA, CL_UNORM_INT8 },
+    { CL_RA, CL_UNORM_INT16 },
+    { CL_RA, CL_SNORM_INT8 },
+    { CL_RA, CL_SNORM_INT16 },
+    { CL_RA, CL_SIGNED_INT8 },
+    { CL_RA, CL_SIGNED_INT16 },
+    { CL_RA, CL_SIGNED_INT32 },
+    { CL_RA, CL_UNSIGNED_INT8 },
+    { CL_RA, CL_UNSIGNED_INT16 },
+    { CL_RA, CL_UNSIGNED_INT32 },
+    { CL_RA, CL_FLOAT },
+
+    { CL_R, CL_UNORM_INT8 },
+    { CL_R, CL_UNORM_INT16 },
+    { CL_R, CL_SNORM_INT8 },
+    { CL_R, CL_SNORM_INT16 },
+    { CL_R, CL_SIGNED_INT8 },
+    { CL_R, CL_SIGNED_INT16 },
+    { CL_R, CL_SIGNED_INT32 },
+    { CL_R, CL_UNSIGNED_INT8 },
+    { CL_R, CL_UNSIGNED_INT16 },
+    { CL_R, CL_UNSIGNED_INT32 },
+    { CL_R, CL_FLOAT },
+
+    { CL_Rx, CL_UNORM_INT8 },
+    { CL_Rx, CL_UNORM_INT16 },
+    { CL_Rx, CL_SNORM_INT8 },
+    { CL_Rx, CL_SNORM_INT16 },
+    { CL_Rx, CL_SIGNED_INT8 },
+    { CL_Rx, CL_SIGNED_INT16 },
+    { CL_Rx, CL_SIGNED_INT32 },
+    { CL_Rx, CL_UNSIGNED_INT8 },
+    { CL_Rx, CL_UNSIGNED_INT16 },
+    { CL_Rx, CL_UNSIGNED_INT32 },
+    { CL_Rx, CL_FLOAT },
+
+    { CL_A, CL_UNORM_INT8 },
+    { CL_A, CL_UNORM_INT16 },
+    { CL_A, CL_SNORM_INT8 },
+    { CL_A, CL_SNORM_INT16 },
+    { CL_A, CL_SIGNED_INT8 },
+    { CL_A, CL_SIGNED_INT16 },
+    { CL_A, CL_SIGNED_INT32 },
+    { CL_A, CL_UNSIGNED_INT8 },
+    { CL_A, CL_UNSIGNED_INT16 },
+    { CL_A, CL_UNSIGNED_INT32 },
+    { CL_A, CL_FLOAT },
+
+    { CL_LUMINANCE, CL_UNORM_INT8 },
+    { CL_LUMINANCE, CL_UNORM_INT16 },
+    { CL_LUMINANCE, CL_SNORM_INT8 },
+    { CL_LUMINANCE, CL_SNORM_INT16 },
+    { CL_LUMINANCE, CL_FLOAT },
+
+    { CL_INTENSITY, CL_UNORM_INT8 },
+    { CL_INTENSITY, CL_UNORM_INT16 },
+    { CL_INTENSITY, CL_SNORM_INT8 },
+    { CL_INTENSITY, CL_SNORM_INT16 },
+    { CL_INTENSITY, CL_FLOAT }
+};
+
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+
 cl_int
 clGetSupportedImageFormats(cl_context           context,
                            cl_mem_flags         flags,
@@ -197,7 +316,26 @@ clGetSupportedImageFormats(cl_context           context,
                            cl_image_format *    image_formats,
                            cl_uint *            num_image_formats)
 {
-    return 0;
+    if (!context)
+        return CL_INVALID_CONTEXT;
+
+    (void) flags;
+    (void) image_type;
+
+    if (!num_entries && image_formats)
+        return CL_INVALID_VALUE;
+
+    if (image_formats)
+    {
+        std::memcpy(image_formats, supported_formats,
+                    MIN(num_entries * sizeof(cl_image_format),
+                        sizeof(supported_formats)));
+    }
+
+    if (num_image_formats)
+        *num_image_formats = sizeof(supported_formats) / sizeof(cl_image_format);
+
+    return CL_SUCCESS;
 }
 
 cl_int
