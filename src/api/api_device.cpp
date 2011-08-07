@@ -44,8 +44,7 @@ clGetDeviceInfo(cl_device_id    device,
                 void *          param_value,
                 size_t *        param_value_size_ret)
 {
-    if (device == 0)
-        // NOTE: Check that device is really a pointer to a DeviceInterface ?
+    if (!device->isA(Coal::Object::T_Device))
         return CL_INVALID_DEVICE;
 
     Coal::DeviceInterface *iface = (Coal::DeviceInterface *)device;

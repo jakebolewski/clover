@@ -9,7 +9,7 @@ clGetEventProfilingInfo(cl_event            event,
                         void *              param_value,
                         size_t *            param_value_size_ret)
 {
-    if (!event)
+    if (!event->isA(Coal::Object::T_Event))
         return CL_INVALID_EVENT;
 
     return event->profilingInfo(param_name, param_value_size, param_value,

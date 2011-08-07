@@ -2,6 +2,7 @@
 
 #include <core/commandqueue.h>
 #include <core/events.h>
+#include <core/context.h>
 
 // Event Object APIs
 cl_int
@@ -16,19 +17,13 @@ clWaitForEvents(cl_uint             num_events,
 
     for (int i=0; i<num_events; ++i)
     {
-        if (!event_list[i])
+        if (!event_list[i]->isA(Coal::Object::T_Event))
             return CL_INVALID_EVENT;
 
         if (event_list[i]->status() < 0)
             return CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST;
 
-        cl_context evt_ctx = 0;
-        cl_int rs;
-
-        rs = event_list[i]->info(CL_EVENT_CONTEXT, sizeof(cl_context), &evt_ctx,
-                                 0);
-
-        if (rs != CL_SUCCESS) return rs;
+        cl_context evt_ctx = (cl_context)event_list[i]->parent()->parent();
 
         if (global_ctx == 0)
             global_ctx = evt_ctx;
@@ -52,7 +47,7 @@ clGetEventInfo(cl_event         event,
                void *           param_value,
                size_t *         param_value_size_ret)
 {
-    if (!event)
+    if (!event->isA(Coal::Object::T_Event))
         return CL_INVALID_EVENT;
 
     return event->info(param_name, param_value_size, param_value,
@@ -67,7 +62,7 @@ clSetEventCallback(cl_event     event,
                                                                 void *user_data),
                    void *user_data)
 {
-    if (!event)
+    if (!event->isA(Coal::Object::T_Event))
         return CL_INVALID_EVENT;
 
     if (!pfn_event_notify || command_exec_callback_type != CL_COMPLETE)
@@ -81,7 +76,7 @@ clSetEventCallback(cl_event     event,
 cl_int
 clRetainEvent(cl_event event)
 {
-    if (!event)
+    if (!event->isA(Coal::Object::T_Event))
         return CL_INVALID_EVENT;
 
     event->reference();
@@ -92,7 +87,7 @@ clRetainEvent(cl_event event)
 cl_int
 clReleaseEvent(cl_event event)
 {
-    if (!event)
+    if (!event->isA(Coal::Object::T_Event))
         return CL_INVALID_EVENT;
 
     if (event->dereference())
@@ -110,7 +105,7 @@ clCreateUserEvent(cl_context    context,
     if (!errcode_ret)
         errcode_ret = &dummy_errcode;
 
-    if (!context)
+    if (!context->isA(Coal::Object::T_Context))
     {
         *errcode_ret = CL_INVALID_CONTEXT;
         return 0;
@@ -137,7 +132,8 @@ clSetUserEventStatus(cl_event   event,
 {
     Coal::Event *command = (Coal::Event *)event;
 
-    if (!command || command->type() != Coal::Event::User)
+    if (!command->isA(Coal::Object::T_Event) ||
+        command->type() != Coal::Event::User)
         return CL_INVALID_EVENT;
 
     if (execution_status != CL_COMPLETE)

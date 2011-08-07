@@ -1,4 +1,6 @@
 #include <core/commandqueue.h>
+#include <core/deviceinterface.h>
+#include <core/context.h>
 
 #include <CL/cl.h>
 
@@ -15,13 +17,13 @@ clCreateCommandQueue(cl_context                     context,
     if (!errcode_ret)
         errcode_ret = &default_errcode_ret;
 
-    if (!device)
+    if (!device->isA(Coal::Object::T_Device))
     {
         *errcode_ret = CL_INVALID_DEVICE;
         return 0;
     }
 
-    if (!context)
+    if (!context->isA(Coal::Object::T_Context))
     {
         *errcode_ret = CL_INVALID_CONTEXT;
         return 0;
@@ -47,7 +49,7 @@ clCreateCommandQueue(cl_context                     context,
 cl_int
 clRetainCommandQueue(cl_command_queue command_queue)
 {
-    if (!command_queue)
+    if (!command_queue->isA(Coal::Object::T_CommandQueue))
         return CL_INVALID_COMMAND_QUEUE;
 
     command_queue->reference();
@@ -58,7 +60,7 @@ clRetainCommandQueue(cl_command_queue command_queue)
 cl_int
 clReleaseCommandQueue(cl_command_queue command_queue)
 {
-    if (!command_queue)
+    if (!command_queue->isA(Coal::Object::T_CommandQueue))
         return CL_INVALID_COMMAND_QUEUE;
 
     // TODO: Flush command queue
@@ -76,7 +78,7 @@ clGetCommandQueueInfo(cl_command_queue      command_queue,
                       void *                param_value,
                       size_t *              param_value_size_ret)
 {
-    if (!command_queue)
+    if (!command_queue->isA(Coal::Object::T_CommandQueue))
         return CL_INVALID_COMMAND_QUEUE;
 
     return command_queue->info(param_name, param_value_size, param_value,
@@ -89,7 +91,7 @@ clSetCommandQueueProperty(cl_command_queue              command_queue,
                           cl_bool                       enable,
                           cl_command_queue_properties * old_properties)
 {
-    if (!command_queue)
+    if (!command_queue->isA(Coal::Object::T_CommandQueue))
         return CL_INVALID_COMMAND_QUEUE;
 
     return command_queue->setProperty(properties, enable, old_properties);

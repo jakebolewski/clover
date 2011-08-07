@@ -2,6 +2,7 @@
 #define __DEVICEINTERFACE_H__
 
 #include <CL/cl.h>
+#include "object.h"
 
 namespace llvm
 {
@@ -22,10 +23,10 @@ class Event;
 class Program;
 class Kernel;
 
-class DeviceInterface
+class DeviceInterface : public Object
 {
     public:
-        DeviceInterface() {}
+        DeviceInterface() : Object(Object::T_Device, 0) {}
         virtual ~DeviceInterface() {}
 
         virtual cl_int info(cl_device_info param_name,

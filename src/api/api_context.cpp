@@ -60,7 +60,7 @@ clCreateContextFromType(const cl_context_properties   *properties,
 cl_int
 clRetainContext(cl_context context)
 {
-    if (!context)
+    if (!context->isA(Coal::Object::T_Context))
         return CL_INVALID_CONTEXT;
 
     context->reference();
@@ -71,7 +71,7 @@ clRetainContext(cl_context context)
 cl_int
 clReleaseContext(cl_context context)
 {
-    if (!context)
+    if (!context->isA(Coal::Object::T_Context))
         return CL_INVALID_CONTEXT;
 
     if (context->dereference())
@@ -87,7 +87,7 @@ clGetContextInfo(cl_context         context,
                  void *             param_value,
                  size_t *           param_value_size_ret)
 {
-    if (!context)
+    if (!context->isA(Coal::Object::T_Context))
         return CL_INVALID_CONTEXT;
 
     return context->info(param_name, param_value_size, param_value,

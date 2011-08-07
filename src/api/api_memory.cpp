@@ -17,7 +17,7 @@ clCreateBuffer(cl_context   context,
     if (!errcode_ret)
         errcode_ret = &dummy_errcode;
 
-    if (!context)
+    if (!context->isA(Coal::Object::T_Context))
     {
         *errcode_ret = CL_INVALID_CONTEXT;
         return 0;
@@ -49,7 +49,7 @@ clCreateSubBuffer(cl_mem                buffer,
     if (!errcode_ret)
         errcode_ret = &dummy_errcode;
 
-    if (!buffer)
+    if (!buffer->isA(Coal::Object::T_MemObject))
     {
         *errcode_ret = CL_INVALID_MEM_OBJECT;
         return 0;
@@ -107,7 +107,7 @@ clCreateImage2D(cl_context              context,
     if (!errcode_ret)
         errcode_ret = &dummy_errcode;
 
-    if (!context)
+    if (!context->isA(Coal::Object::T_Context))
     {
         *errcode_ret = CL_INVALID_CONTEXT;
         return 0;
@@ -145,7 +145,7 @@ clCreateImage3D(cl_context              context,
     if (!errcode_ret)
         errcode_ret = &dummy_errcode;
 
-    if (!context)
+    if (!context->isA(Coal::Object::T_Context))
     {
         *errcode_ret = CL_INVALID_CONTEXT;
         return 0;
@@ -170,7 +170,7 @@ clCreateImage3D(cl_context              context,
 cl_int
 clRetainMemObject(cl_mem memobj)
 {
-    if (!memobj)
+    if (!memobj->isA(Coal::Object::T_MemObject))
         return CL_INVALID_MEM_OBJECT;
 
     memobj->reference();
@@ -181,7 +181,7 @@ clRetainMemObject(cl_mem memobj)
 cl_int
 clReleaseMemObject(cl_mem memobj)
 {
-    if (!memobj)
+    if (!memobj->isA(Coal::Object::T_MemObject))
         return CL_INVALID_MEM_OBJECT;
 
     if (memobj->dereference())
@@ -316,7 +316,7 @@ clGetSupportedImageFormats(cl_context           context,
                            cl_image_format *    image_formats,
                            cl_uint *            num_image_formats)
 {
-    if (!context)
+    if (!context->isA(Coal::Object::T_Context))
         return CL_INVALID_CONTEXT;
 
     (void) flags;
@@ -345,7 +345,7 @@ clGetMemObjectInfo(cl_mem           memobj,
                    void *           param_value,
                    size_t *         param_value_size_ret)
 {
-    if (!memobj)
+    if (!memobj->isA(Coal::Object::T_MemObject))
         return CL_INVALID_MEM_OBJECT;
 
     return memobj->info(param_name, param_value_size, param_value,
@@ -359,8 +359,9 @@ clGetImageInfo(cl_mem           image,
                void *           param_value,
                size_t *         param_value_size_ret)
 {
-    if (!image || (image->type() != Coal::MemObject::Image2D &&
-                   image->type() != Coal::MemObject::Image3D))
+    if (!image->isA(Coal::Object::T_MemObject) ||
+            (image->type() != Coal::MemObject::Image2D &&
+             image->type() != Coal::MemObject::Image3D))
         return CL_INVALID_MEM_OBJECT;
 
     Coal::Image2D *image2d = (Coal::Image2D *)image;
@@ -375,7 +376,7 @@ clSetMemObjectDestructorCallback(cl_mem memobj,
                                                                   void *user_data),
                                  void * user_data)
 {
-    if (!memobj)
+    if (!memobj->isA(Coal::Object::T_MemObject))
         return CL_INVALID_MEM_OBJECT;
 
     memobj->setDestructorCallback(pfn_notify, user_data);

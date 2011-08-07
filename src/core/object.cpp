@@ -67,7 +67,9 @@ bool Object::isA(Object::Type type) const
     while (it != e)
     {
         if (*it == this)
-            return (*it)->type() == type;
+            return this->type() == type;
+
+        ++it;
     }
 
     return false;

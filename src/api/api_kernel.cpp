@@ -20,7 +20,7 @@ clCreateKernel(cl_program      program,
         return 0;
     }
 
-    if (!program)
+    if (!program->isA(Coal::Object::T_Program))
     {
         *errcode_ret = CL_INVALID_PROGRAM;
         return 0;
@@ -51,7 +51,7 @@ clCreateKernelsInProgram(cl_program     program,
 {
     cl_int rs = CL_SUCCESS;
 
-    if (!program)
+    if (!program->isA(Coal::Object::T_Program))
         return CL_INVALID_PROGRAM;
 
     if (program->state() != Coal::Program::Built)
@@ -109,7 +109,7 @@ clCreateKernelsInProgram(cl_program     program,
 cl_int
 clRetainKernel(cl_kernel    kernel)
 {
-    if (!kernel)
+    if (!kernel->isA(Coal::Object::T_Kernel))
         return CL_INVALID_KERNEL;
 
     kernel->reference();
@@ -120,7 +120,7 @@ clRetainKernel(cl_kernel    kernel)
 cl_int
 clReleaseKernel(cl_kernel   kernel)
 {
-    if (!kernel)
+    if (!kernel->isA(Coal::Object::T_Kernel))
         return CL_INVALID_KERNEL;
 
     if (kernel->dereference())
@@ -135,7 +135,7 @@ clSetKernelArg(cl_kernel    kernel,
                size_t       arg_size,
                const void * arg_value)
 {
-    if (!kernel)
+    if (!kernel->isA(Coal::Object::T_Kernel))
         return CL_INVALID_KERNEL;
 
     return kernel->setArg(arg_indx, arg_size, arg_value);
@@ -148,7 +148,7 @@ clGetKernelInfo(cl_kernel       kernel,
                 void *          param_value,
                 size_t *        param_value_size_ret)
 {
-    if (!kernel)
+    if (!kernel->isA(Coal::Object::T_Kernel))
         return CL_INVALID_KERNEL;
 
     return kernel->info(param_name, param_value_size, param_value,
@@ -163,7 +163,7 @@ clGetKernelWorkGroupInfo(cl_kernel                  kernel,
                          void *                     param_value,
                          size_t *                   param_value_size_ret)
 {
-    if (!kernel)
+    if (!kernel->isA(Coal::Object::T_Kernel))
         return CL_INVALID_KERNEL;
 
     return kernel->workGroupInfo((Coal::DeviceInterface *)device, param_name,

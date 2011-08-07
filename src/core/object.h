@@ -11,6 +11,7 @@ class Object
     public:
         enum Type
         {
+            T_Device,
             T_CommandQueue,
             T_Event,
             T_Context,

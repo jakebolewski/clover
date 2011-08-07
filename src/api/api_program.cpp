@@ -17,7 +17,7 @@ clCreateProgramWithSource(cl_context        context,
     if (!errcode_ret)
         errcode_ret = &dummy_errcode;
 
-    if (!context)
+    if (!context->isA(Coal::Object::T_Context))
     {
         *errcode_ret = CL_INVALID_CONTEXT;
         return 0;
@@ -57,7 +57,7 @@ clCreateProgramWithBinary(cl_context            context,
     if (!errcode_ret)
         errcode_ret = &dummy_errcode;
 
-    if (!context)
+    if (!context->isA(Coal::Object::T_Context))
     {
         *errcode_ret = CL_INVALID_CONTEXT;
         return 0;
@@ -139,7 +139,7 @@ clCreateProgramWithBinary(cl_context            context,
 cl_int
 clRetainProgram(cl_program program)
 {
-    if (!program)
+    if (!program->isA(Coal::Object::T_Program))
         return CL_INVALID_PROGRAM;
 
     program->reference();
@@ -150,7 +150,7 @@ clRetainProgram(cl_program program)
 cl_int
 clReleaseProgram(cl_program program)
 {
-    if (!program)
+    if (!program->isA(Coal::Object::T_Program))
         return CL_INVALID_PROGRAM;
 
     if (program->dereference())
@@ -167,7 +167,7 @@ clBuildProgram(cl_program           program,
                void (*pfn_notify)(cl_program program, void * user_data),
                void *               user_data)
 {
-    if (!program)
+    if (!program->isA(Coal::Object::T_Program))
         return CL_INVALID_PROGRAM;
 
     if (!device_list && num_devices > 0)
@@ -243,7 +243,7 @@ clGetProgramInfo(cl_program         program,
                  void *             param_value,
                  size_t *           param_value_size_ret)
 {
-    if (!program)
+    if (!program->isA(Coal::Object::T_Program))
         return CL_INVALID_PROGRAM;
 
     return program->info(param_name, param_value_size, param_value,
@@ -258,7 +258,7 @@ clGetProgramBuildInfo(cl_program            program,
                       void *                param_value,
                       size_t *              param_value_size_ret)
 {
-    if (!program)
+    if (!program->isA(Coal::Object::T_Program))
         return CL_INVALID_PROGRAM;
 
     return program->buildInfo((Coal::DeviceInterface *)device, param_name,
