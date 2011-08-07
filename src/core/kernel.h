@@ -58,6 +58,7 @@ class Kernel : public Object
                 void alloc();
                 void loadData(const void *data);
                 void setAllocAtKernelRuntime(size_t size);
+                void refineKind(Kind kind);
 
                 bool operator !=(const Arg &b);
 

@@ -215,6 +215,7 @@ llvm::Function *CPUKernel::callFunction(std::vector<void *> &freeLocal)
                     break;
 
                 case Kernel::Arg::Int32:
+                case Kernel::Arg::Sampler:
                     C = llvm::ConstantInt::get(stub->getContext(),
                                                llvm::APInt(32, *(uint32_t *)value));
                     break;

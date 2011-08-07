@@ -2,6 +2,7 @@
 #include "propertylist.h"
 #include "program.h"
 #include "memobject.h"
+#include "sampler.h"
 #include "deviceinterface.h"
 
 #include <string>
@@ -158,6 +159,7 @@ cl_int Kernel::addFunction(DeviceInterface *device, llvm::Function *function,
                 }
                 else if (i_type->getBitWidth() == 32)
                 {
+                    // NOTE: May also be a sampler, check done in setArg
                     kind = Arg::Int32;
                 }
                 else if (i_type->getBitWidth() == 64)
@@ -220,6 +222,19 @@ cl_int Kernel::setArg(cl_uint index, size_t size, const void *value)
     // Check that size corresponds to the arg type
     size_t arg_size = arg.valueSize();
 
+    // Special case for samplers (pointers in C++, uint32 in OpenCL).
+    if (size == sizeof(cl_sampler) && arg_size == 4 &&
+        (*(Object **)value)->isA(T_Sampler))
+    {
+        unsigned int bitfield = (*(Sampler **)value)->bitfield();
+
+        arg.refineKind(Arg::Sampler);
+        arg.alloc();
+        arg.loadData(&bitfield);
+
+        return CL_SUCCESS;
+    }
+
     if (size != arg_size)
         return CL_INVALID_ARG_SIZE;
 
@@ -236,7 +251,6 @@ cl_int Kernel::setArg(cl_uint index, size_t size, const void *value)
                 // Special case buffers : value can be 0 (or point to 0)
                 value = &null_mem;
 
-            // TODO samplers
             default:
                 return CL_INVALID_ARG_VALUE;
         }
@@ -428,6 +442,11 @@ void Kernel::Arg::setAllocAtKernelRuntime(size_t size)
     p_defined = true;
 }
 
+void Kernel::Arg::refineKind (Kernel::Arg::Kind kind)
+{
+    p_kind = kind;
+}
+
 bool Kernel::Arg::operator!=(const Arg &b)
 {
     bool same = (p_vec_dim == b.p_vec_dim) &&
@@ -448,6 +467,7 @@ size_t Kernel::Arg::valueSize() const
         case Int16:
             return 2;
         case Int32:
+        case Sampler:
             return 4;
         case Int64:
             return 8;
