@@ -5,6 +5,7 @@
 #include "test_mem.h"
 #include "test_kernel.h"
 #include "test_program.h"
+#include "test_builtins.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -32,17 +33,18 @@ int main(int argc, char **argv)
     TESTSUITE(mem, "mem");
     TESTSUITE(kernel, "kernel");
     TESTSUITE(program, "program");
+    TESTSUITE(builtins, "builtins");
 
     if (s == NULL) {
-        printf("test case %s does not exist", argv[1]);
+        printf("test case %s does not exist\n", argv[1]);
         return EXIT_FAILURE;
     }
 
     SRunner *sr = srunner_create(s);
-    
+
     if (argc == 3 && !strcmp("nofork", argv[2]))
         srunner_set_fork_status (sr, CK_NOFORK);
-    
+
     srunner_run_all(sr, CK_NORMAL);
 
     n_failed_tests = srunner_ntests_failed(sr);

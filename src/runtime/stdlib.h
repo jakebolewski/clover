@@ -7,13 +7,13 @@ typedef unsigned long ulong;
 typedef int *intptr_t;
 typedef uint *uintptr_t;
 
+typedef unsigned int sampler_t;
+
 /* Standard types from Clang's stddef, Copyright (C) 2008 Eli Friedman */
 typedef __typeof__(((int*)0)-((int*)0)) ptrdiff_t;
 typedef __typeof__(sizeof(int)) size_t;
 
 /* Vectors */
-
-//typedef float float4 __attribute__((ext_vector_type(4)));
 #define COAL_VECTOR(type, len)                                  \
    typedef type type##len __attribute__((ext_vector_type(len)))
 #define COAL_VECTOR_SET(type) \
@@ -54,6 +54,17 @@ COAL_VECTOR_SET(float);
 
 #define write_only __write_only
 #define read_only __read_only
+
+/* Defines */
+#define CLK_NORMALIZED_COORDS_FALSE 0x00000000
+#define CLK_NORMALIZED_COORDS_TRUE  0x00000001
+#define CLK_ADDRESS_NONE            0x00000000
+#define CLK_ADDRESS_MIRRORED_REPEAT 0x00000010
+#define CLK_ADDRESS_REPEAT          0x00000020
+#define CLK_ADDRESS_CLAMP_TO_EDGE   0x00000030
+#define CLK_ADDRESS_CLAMP           0x00000040
+#define CLK_FILTER_NEAREST          0x00000000
+#define CLK_FILTER_LINEAR           0x00000100
 
 /* Management functions */
 uint get_work_dim();

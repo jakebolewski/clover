@@ -13,7 +13,7 @@ Sampler::Sampler(Context *ctx,
                  cl_addressing_mode addressing_mode,
                  cl_filter_mode filter_mode,
                  cl_int *errcode_ret)
-: Object(Object::T_Sampler), p_bitfield(0)
+: Object(Object::T_Sampler, ctx), p_bitfield(0)
 {
     if (normalized_coords)
         p_bitfield |= CLK_NORMALIZED_COORDS_TRUE;

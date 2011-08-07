@@ -91,7 +91,10 @@ clReleaseEvent(cl_event event)
         return CL_INVALID_EVENT;
 
     if (event->dereference())
+    {
+        event->freeDeviceData();
         delete event;
+    }
 
     return CL_SUCCESS;
 }

@@ -112,6 +112,7 @@ class Event : public Object
               const Event **event_wait_list,
               cl_int *errcode_ret);
 
+        void freeDeviceData();
         virtual ~Event();
 
         virtual Type type() const = 0;

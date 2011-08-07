@@ -10,6 +10,7 @@ set(OPENCL_TESTS_SOURCE
     test_mem.cpp
     test_kernel.cpp
     test_program.cpp
+    test_builtins.cpp
     )
 
 add_executable(tests ${OPENCL_TESTS_SOURCE})
@@ -26,3 +27,4 @@ OPENCL_TEST(tests commandqueue)
 OPENCL_TEST(tests mem)
 OPENCL_TEST(tests kernel)
 OPENCL_TEST(tests program)
+OPENCL_TEST(tests builtins)

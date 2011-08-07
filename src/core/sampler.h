@@ -4,6 +4,8 @@
 #include <CL/cl.h>
 #include "object.h"
 
+// WARNING: Keep in sync with stdlib.h
+
 #define CLK_NORMALIZED_COORDS_FALSE 0x00000000
 #define CLK_NORMALIZED_COORDS_TRUE  0x00000001
 #define CLK_ADDRESS_NONE            0x00000000

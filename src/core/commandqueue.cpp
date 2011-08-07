@@ -403,7 +403,7 @@ Event::Event(CommandQueue *parent,
     }
 }
 
-Event::~Event()
+void Event::freeDeviceData()
 {
     if (parent() && p_device_data)
     {
@@ -412,7 +412,10 @@ Event::~Event()
 
         device->freeEventDeviceData(this);
     }
+}
 
+Event::~Event()
+{
     for (int i=0; i<p_num_events_in_wait_list; ++i)
         clReleaseEvent((cl_event)p_event_wait_list[i]);
 
