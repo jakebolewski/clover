@@ -1,7 +1,7 @@
 #ifndef __PROGRAM_H__
 #define __PROGRAM_H__
 
-#include "refcounted.h"
+#include "object.h"
 
 #include <CL/cl.h>
 #include <string>
@@ -23,7 +23,7 @@ class DeviceInterface;
 class DeviceProgram;
 class Kernel;
 
-class Program : public RefCounted
+class Program : public Object
 {
     public:
         Program(Context *ctx);
@@ -57,7 +57,6 @@ class Program : public RefCounted
 
         Type type() const;
         State state() const;
-        Context *context() const;
 
         Kernel *createKernel(const std::string &name, cl_int *errcode_ret);
         std::vector<Kernel *> createKernels(cl_int *errcode_ret);
@@ -74,7 +73,6 @@ class Program : public RefCounted
                          size_t *param_value_size_ret) const;
 
     private:
-        Context *p_ctx;
         Type p_type;
         State p_state;
         std::string p_source;

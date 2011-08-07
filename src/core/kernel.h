@@ -1,7 +1,7 @@
 #ifndef __KERNEL_H__
 #define __KERNEL_H__
 
-#include "refcounted.h"
+#include "object.h"
 
 #include <CL/cl.h>
 
@@ -21,7 +21,7 @@ class Program;
 class DeviceInterface;
 class DeviceKernel;
 
-class Kernel : public RefCounted
+class Kernel : public Object
 {
     public:
         Kernel(Program *program);
@@ -48,8 +48,8 @@ class Kernel : public RefCounted
                     Double,
                     Buffer,
                     Image2D,
-                    Image3D
-                    // TODO: Sampler
+                    Image3D,
+                    Sampler
                 };
 
                 Arg(unsigned short vec_dim, File file, Kind kind);
@@ -85,7 +85,6 @@ class Kernel : public RefCounted
         unsigned int numArgs() const;
         const Arg &arg(unsigned int index) const;
 
-        Program *program() const;
         DeviceKernel *deviceDependentKernel(DeviceInterface *device) const;
 
         bool argsSpecified() const;
@@ -102,7 +101,6 @@ class Kernel : public RefCounted
                              size_t *param_value_size_ret) const;
 
     private:
-        Program *p_program;
         std::string p_name;
         bool p_local_args;
 

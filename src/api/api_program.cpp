@@ -184,7 +184,7 @@ clBuildProgram(cl_program           program,
     {
         cl_uint context_num_devices = 0;
         cl_device_id *context_devices;
-        Coal::Context *context = program->context();
+        Coal::Context *context = (Coal::Context *)program->parent();
         cl_int result;
 
         result = context->info(CL_CONTEXT_NUM_DEVICES, sizeof(cl_uint),

@@ -1,7 +1,7 @@
 #ifndef __MEMOBJECT_H__
 #define __MEMOBJECT_H__
 
-#include "refcounted.h"
+#include "object.h"
 
 #include <CL/cl.h>
 
@@ -12,7 +12,7 @@ class DeviceBuffer;
 class Context;
 class DeviceInterface;
 
-class MemObject : public RefCounted
+class MemObject : public Object
 {
     public:
         enum Type
@@ -37,7 +37,6 @@ class MemObject : public RefCounted
         virtual size_t size() const = 0; /*!< @warning this is a device-independent size */
         virtual Type type() const = 0;
 
-        Context *context() const;
         cl_mem_flags flags() const;
         void *host_ptr() const;
         DeviceBuffer *deviceBuffer(DeviceInterface *device) const;
@@ -53,7 +52,6 @@ class MemObject : public RefCounted
                     size_t *param_value_size_ret) const;
 
     private:
-        Context *p_ctx;
         unsigned int p_num_devices, p_devices_to_allocate;
         cl_mem_flags p_flags;
         void *p_host_ptr;

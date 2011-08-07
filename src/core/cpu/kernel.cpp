@@ -447,9 +447,8 @@ bool CPUKernelWorkGroup::run()
     if (!kernel_func)
         return false;
 
-    CPUProgram *prog =
-        (CPUProgram *)(p_kernel->kernel()->program()
-            ->deviceDependentProgram(p_kernel->device()));
+    Program *p = (Program *)p_kernel->kernel()->parent();
+    CPUProgram *prog = (CPUProgram *)(p->deviceDependentProgram(p_kernel->device()));
 
     void (*kernel_func_addr)() = (void(*)())prog->jit()->getPointerToFunction(kernel_func);
 

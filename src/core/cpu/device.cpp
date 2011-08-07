@@ -157,8 +157,8 @@ cl_int CPUDevice::initEventDeviceData(Event *event)
         {
             // Instantiate the JIT for the CPU program
             KernelEvent *e = (KernelEvent *)event;
-            CPUProgram *prog =
-                (CPUProgram *)e->kernel()->program()->deviceDependentProgram(this);
+            Program *p = (Program *)e->kernel()->parent();
+            CPUProgram *prog = (CPUProgram *)p->deviceDependentProgram(this);
 
             if (!prog->initJIT())
                 return CL_INVALID_PROGRAM_EXECUTABLE;

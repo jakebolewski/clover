@@ -1,7 +1,7 @@
 #ifndef __COMMANDQUEUE_H__
 #define __COMMANDQUEUE_H__
 
-#include "refcounted.h"
+#include "object.h"
 
 #include <CL/cl.h>
 #include <pthread.h>
@@ -16,7 +16,7 @@ class Context;
 class DeviceInterface;
 class Event;
 
-class CommandQueue : public RefCounted
+class CommandQueue : public Object
 {
     public:
         CommandQueue(Context *ctx,
@@ -43,7 +43,6 @@ class CommandQueue : public RefCounted
         Event **events(unsigned int &count); /*!< @note Retains all the events */
 
     private:
-        Context *p_ctx;
         DeviceInterface *p_device;
         cl_command_queue_properties p_properties;
 
@@ -51,7 +50,7 @@ class CommandQueue : public RefCounted
         pthread_mutex_t p_event_list_mutex;
 };
 
-class Event : public RefCounted
+class Event : public Object
 {
     public:
         enum Type
@@ -113,7 +112,6 @@ class Event : public RefCounted
               const Event **event_wait_list,
               cl_int *errcode_ret);
 
-        void setReleaseParent(bool release);
         virtual ~Event();
 
         virtual Type type() const = 0;
@@ -141,13 +139,11 @@ class Event : public RefCounted
                              void *param_value,
                              size_t *param_value_size_ret) const;
     private:
-        CommandQueue *p_parent;
         cl_uint p_num_events_in_wait_list;
         const Event **p_event_wait_list;
 
         pthread_cond_t p_state_change_cond;
         pthread_mutex_t p_state_mutex;
-        bool p_release_parent;
 
         Status p_status;
         void *p_device_data;

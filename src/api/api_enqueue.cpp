@@ -682,6 +682,11 @@ clEnqueueMarker(cl_command_queue    command_queue,
     }
 
     // Free events, they were memcpyed by Coal::Event
+    for (unsigned int i=0; i<count; ++i)
+    {
+        events[i]->dereference();
+    }
+
     std::free(events);
 
     return queueEvent(command_queue, command, event, false);

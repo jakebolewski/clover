@@ -21,8 +21,9 @@ Context::Context(const cl_context_properties *properties,
                                                 size_t, void *),
                  void *user_data,
                  cl_int *errcode_ret)
-: RefCounted(), p_properties(0), p_pfn_notify(pfn_notify), p_props_len(0),
-  p_user_data(user_data), p_platform(0), p_devices(0), p_num_devices(0)
+: Object(Object::T_Context, 0), p_properties(0), p_pfn_notify(pfn_notify),
+  p_props_len(0), p_user_data(user_data), p_platform(0), p_devices(0),
+  p_num_devices(0)
 {
     if (!p_pfn_notify)
         p_pfn_notify = &default_pfn_notify;

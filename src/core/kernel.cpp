@@ -16,9 +16,9 @@
 
 using namespace Coal;
 Kernel::Kernel(Program *program)
-: RefCounted(), p_program(program), p_local_args(false)
+: Object(Object::T_Kernel, program), p_local_args(false)
 {
-    clRetainProgram((cl_program)program); // TODO: Say a kernel is attached to the program (that becomes unalterable)
+    // TODO: Say a kernel is attached to the program (that becomes unalterable)
 
     null_dep.device = 0;
     null_dep.kernel = 0;
@@ -36,8 +36,6 @@ Kernel::~Kernel()
 
         p_device_dependent.pop_back();
     }
-
-    clReleaseProgram((cl_program)p_program);
 }
 
 const Kernel::DeviceDependent &Kernel::deviceDependent(DeviceInterface *device) const
@@ -116,7 +114,6 @@ cl_int Kernel::addFunction(DeviceInterface *device, llvm::Function *function,
 
                 if (struct_name == "imade2d")
                 {
-                    // TODO: Address space qualifiers for image types, and read_only
                     kind = Arg::Image2D;
                     file = Arg::Global;
                 }
@@ -124,10 +121,6 @@ cl_int Kernel::addFunction(DeviceInterface *device, llvm::Function *function,
                 {
                     kind = Arg::Image3D;
                     file = Arg::Global;
-                }
-                else if (struct_name == "sampler")
-                {
-                    // TODO: Sampler
                 }
             }
         }
@@ -266,11 +259,6 @@ const Kernel::Arg &Kernel::arg(unsigned int index) const
     return p_args.at(index);
 }
 
-Program *Kernel::program() const
-{
-    return p_program;
-}
-
 bool Kernel::argsSpecified() const
 {
     for (int i=0; i<p_args.size(); ++i)
@@ -323,11 +311,11 @@ cl_int Kernel::info(cl_kernel_info param_name,
             break;
 
         case CL_KERNEL_CONTEXT:
-            SIMPLE_ASSIGN(cl_context, p_program->context());
+            SIMPLE_ASSIGN(cl_context, parent()->parent());
             break;
 
         case CL_KERNEL_PROGRAM:
-            SIMPLE_ASSIGN(cl_program, p_program);
+            SIMPLE_ASSIGN(cl_program, parent());
             break;
 
         default:

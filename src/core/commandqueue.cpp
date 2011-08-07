@@ -18,13 +18,9 @@ CommandQueue::CommandQueue(Context *ctx,
                            DeviceInterface *device,
                            cl_command_queue_properties properties,
                            cl_int *errcode_ret)
-: RefCounted(), p_ctx(ctx), p_device(device), p_properties(properties)
+: Object(Object::T_CommandQueue, ctx), p_device(device),
+  p_properties(properties)
 {
-    // Increment the reference count of the context
-    // We begin by doing this to be able to unconditionnally release the context
-    // in the destructor, being certain that the context was actually retained.
-    clRetainContext((cl_context)ctx);
-
     // Initialize the locking machinery
     pthread_mutex_init(&p_event_list_mutex, 0);
 
@@ -42,9 +38,6 @@ CommandQueue::~CommandQueue()
 {
     // Free the mutex
     pthread_mutex_destroy(&p_event_list_mutex);
-
-    // Release the parent context
-    clReleaseContext((cl_context)p_ctx);
 }
 
 cl_int CommandQueue::info(cl_command_queue_info param_name,
@@ -65,7 +58,7 @@ cl_int CommandQueue::info(cl_command_queue_info param_name,
     switch (param_name)
     {
         case CL_QUEUE_CONTEXT:
-            SIMPLE_ASSIGN(cl_context, p_ctx);
+            SIMPLE_ASSIGN(cl_context, parent());
             break;
 
         case CL_QUEUE_DEVICE:
@@ -347,14 +340,10 @@ Event::Event(CommandQueue *parent,
              cl_uint num_events_in_wait_list,
              const Event **event_wait_list,
              cl_int *errcode_ret)
-: RefCounted(), p_parent(parent),
+: Object(Object::T_Event, parent),
   p_num_events_in_wait_list(num_events_in_wait_list), p_event_wait_list(0),
-  p_device_data(0), p_status(status), p_release_parent(true)
+  p_device_data(0), p_status(status)
 {
-    // Retain our parent
-    if (parent)
-        clRetainCommandQueue((cl_command_queue)p_parent);
-
     // Initialize the locking machinery
     pthread_cond_init(&p_state_change_cond, 0);
     pthread_mutex_init(&p_state_mutex, 0);
@@ -416,10 +405,10 @@ Event::Event(CommandQueue *parent,
 
 Event::~Event()
 {
-    if (p_parent && p_device_data)
+    if (parent() && p_device_data)
     {
         DeviceInterface *device = 0;
-        p_parent->info(CL_QUEUE_DEVICE, sizeof(DeviceInterface *), &device, 0);
+        ((CommandQueue *)parent())->info(CL_QUEUE_DEVICE, sizeof(DeviceInterface *), &device, 0);
 
         device->freeEventDeviceData(this);
     }
@@ -432,19 +421,6 @@ Event::~Event()
 
     pthread_mutex_destroy(&p_state_mutex);
     pthread_cond_destroy(&p_state_change_cond);
-
-    if (p_parent)
-    {
-        if (p_release_parent)
-            clReleaseCommandQueue((cl_command_queue)p_parent);
-        else
-            p_parent->dereference();  // Dereference but don't delete
-    }
-}
-
-void Event::setReleaseParent(bool release)
-{
-    p_release_parent = release;
 }
 
 bool Event::isDummy() const
@@ -489,8 +465,8 @@ void Event::setStatus(Status status)
 
     // If the event is completed, inform our parent so it can push other events
     // to the device.
-    if (p_parent && status == Complete)
-        p_parent->pushEventsOnDevice();
+    if (parent() && status == Complete)
+        ((CommandQueue *)parent())->pushEventsOnDevice();
     else if (type() == Event::User)
         ((UserEvent *)this)->flushQueues();
 }
@@ -602,15 +578,13 @@ cl_int Event::info(cl_event_info param_name,
     switch (param_name)
     {
         case CL_EVENT_COMMAND_QUEUE:
-            SIMPLE_ASSIGN(cl_command_queue, p_parent);
+            SIMPLE_ASSIGN(cl_command_queue, parent());
             break;
 
         case CL_EVENT_CONTEXT:
-            if (p_parent)
+            if (parent())
             {
-                // Tail call to CommandQueue
-                return p_parent->info(CL_QUEUE_CONTEXT, param_value_size,
-                                    param_value, param_value_size_ret);
+                SIMPLE_ASSIGN(cl_context, parent()->parent());
             }
             else
             {
@@ -660,8 +634,9 @@ cl_int Event::profilingInfo(cl_profiling_info param_name,
     cl_command_queue_properties queue_props;
     cl_int rs;
 
-    rs = p_parent->info(CL_QUEUE_PROPERTIES, sizeof(cl_command_queue_properties),
-                        &queue_props, 0);
+    rs = ((CommandQueue *)parent())->info(CL_QUEUE_PROPERTIES,
+                                          sizeof(cl_command_queue_properties),
+                                          &queue_props, 0);
 
     if (rs != CL_SUCCESS)
         return rs;

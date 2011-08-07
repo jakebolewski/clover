@@ -35,16 +35,12 @@
 using namespace Coal;
 
 Program::Program(Context *ctx)
-: RefCounted(), p_ctx(ctx), p_type(Invalid), p_state(Empty)
+: Object(Object::T_Program, ctx), p_type(Invalid), p_state(Empty)
 {
-    // Retain parent context
-    clRetainContext((cl_context)ctx);
 }
 
 Program::~Program()
 {
-    clReleaseContext((cl_context)p_ctx);
-
     while (p_device_dependent.size())
     {
         DeviceDependent &dep = p_device_dependent.back();
@@ -422,11 +418,6 @@ Program::State Program::state() const
     return p_state;
 }
 
-Context *Program::context() const
-{
-    return p_ctx;
-}
-
 cl_int Program::info(cl_program_info param_name,
                      size_t param_value_size,
                      void *param_value,
@@ -465,7 +456,7 @@ cl_int Program::info(cl_program_info param_name,
             break;
 
         case CL_PROGRAM_CONTEXT:
-            SIMPLE_ASSIGN(cl_context, p_ctx);
+            SIMPLE_ASSIGN(cl_context, parent());
             break;
 
         case CL_PROGRAM_SOURCE:

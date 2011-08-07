@@ -1,7 +1,7 @@
 #ifndef __CONTEXT_H__
 #define __CONTEXT_H__
 
-#include "refcounted.h"
+#include "object.h"
 
 #include <CL/cl.h>
 
@@ -10,7 +10,7 @@ namespace Coal
 
 class DeviceInterface;
 
-class Context : public RefCounted
+class Context : public Object
 {
     public:
         Context(const cl_context_properties *properties,

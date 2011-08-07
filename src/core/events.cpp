@@ -37,7 +37,7 @@ BufferEvent::BufferEvent(CommandQueue *parent,
 
     if (*errcode_ret != CL_SUCCESS) return;
 
-    if (buffer->context() != ctx)
+    if ((Context *)buffer->parent() != ctx)
     {
         *errcode_ret = CL_INVALID_CONTEXT;
         return;

@@ -15,11 +15,9 @@ using namespace Coal;
 
 MemObject::MemObject(Context *ctx, cl_mem_flags flags, void *host_ptr,
                      cl_int *errcode_ret)
-: RefCounted(), p_ctx(ctx), p_flags(flags), p_host_ptr(host_ptr),
+: Object(Object::T_MemObject, ctx), p_flags(flags), p_host_ptr(host_ptr),
   p_dtor_callback(0), p_devicebuffers(0), p_num_devices(0)
 {
-    clRetainContext((cl_context)ctx);
-
     // Check the flags value
     const cl_mem_flags all_flags = CL_MEM_READ_WRITE | CL_MEM_WRITE_ONLY |
                                    CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR |
@@ -59,7 +57,6 @@ MemObject::MemObject(Context *ctx, cl_mem_flags flags, void *host_ptr,
 
 MemObject::~MemObject()
 {
-    clReleaseContext((cl_context)p_ctx);
     if (p_dtor_callback)
         p_dtor_callback((cl_mem)this, p_dtor_userdata);
 
@@ -79,7 +76,9 @@ cl_int MemObject::init()
     DeviceInterface **devices = 0;
     cl_int rs;
 
-    rs = context()->info(CL_CONTEXT_NUM_DEVICES, sizeof(unsigned int), &p_num_devices, 0);
+    rs = ((Context *)parent())->info(CL_CONTEXT_NUM_DEVICES,
+                                     sizeof(unsigned int),
+                                     &p_num_devices, 0);
 
     if (rs != CL_SUCCESS)
         return rs;
@@ -91,8 +90,9 @@ cl_int MemObject::init()
     if (!devices)
         return CL_OUT_OF_HOST_MEMORY;
 
-    rs = context()->info(CL_CONTEXT_DEVICES,
-                         p_num_devices * sizeof(DeviceInterface *), devices, 0);
+    rs = ((Context *)parent())->info(CL_CONTEXT_DEVICES,
+                                     p_num_devices * sizeof(DeviceInterface *),
+                                     devices, 0);
 
     if (rs != CL_SUCCESS)
     {
@@ -177,11 +177,6 @@ bool MemObject::allocate(DeviceInterface *device)
     }
 
     return true;
-}
-
-Context *MemObject::context() const
-{
-    return p_ctx;
 }
 
 cl_mem_flags MemObject::flags() const
@@ -309,7 +304,7 @@ cl_int MemObject::info(cl_mem_info param_name,
             break;
 
         case CL_MEM_CONTEXT:
-            SIMPLE_ASSIGN(cl_context, p_ctx);
+            SIMPLE_ASSIGN(cl_context, parent());
             break;
 
         case CL_MEM_ASSOCIATED_MEMOBJECT:
@@ -373,7 +368,7 @@ MemObject::Type Buffer::type() const
 
 SubBuffer::SubBuffer(class Buffer *parent, size_t offset, size_t size,
                      cl_mem_flags flags, cl_int *errcode_ret)
-: MemObject(parent->context(), flags, 0, errcode_ret), p_size(size),
+: MemObject((Context *)parent->parent(), flags, 0, errcode_ret), p_size(size),
   p_offset(offset), p_parent(parent)
 {
     if (size == 0)
