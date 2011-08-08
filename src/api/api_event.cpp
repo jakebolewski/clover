@@ -24,6 +24,10 @@ clWaitForEvents(cl_uint             num_events,
             return CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST;
 
         cl_context evt_ctx = (cl_context)event_list[i]->parent()->parent();
+        cl_command_queue evt_queue = (cl_command_queue)event_list[i]->parent();
+
+        // Flush the queue
+        evt_queue->flush();
 
         if (global_ctx == 0)
             global_ctx = evt_ctx;

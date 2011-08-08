@@ -63,7 +63,7 @@ clReleaseCommandQueue(cl_command_queue command_queue)
     if (!command_queue->isA(Coal::Object::T_CommandQueue))
         return CL_INVALID_COMMAND_QUEUE;
 
-    // TODO: Flush command queue
+    command_queue->flush();
 
     if (command_queue->dereference())
         delete command_queue;

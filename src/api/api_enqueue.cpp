@@ -432,10 +432,10 @@ clEnqueueMapBuffer(cl_command_queue command_queue,
                    cl_event *       event,
                    cl_int *         errcode_ret)
 {
-    cl_int rs;
+    cl_int dummy_errcode;
 
     if (!errcode_ret)
-        errcode_ret = &rs;
+        errcode_ret = &dummy_errcode;
 
     *errcode_ret = CL_SUCCESS;
 
@@ -458,12 +458,24 @@ clEnqueueMapBuffer(cl_command_queue command_queue,
         return 0;
     }
 
+    // We need command to be valid after queueEvent, so don't let the command
+    // queue handle it like a fire-and-forget event. Fixes a crash when event
+    // is NULL : the event gets deleted by clReleaseEvent called from
+    // CPUDevice's worker() and we then try to read it in command->ptr();
+    command->reference();
+
     *errcode_ret = queueEvent(command_queue, command, event, blocking_map);
 
     if (*errcode_ret != CL_SUCCESS)
         return 0;
     else
-        return command->ptr();
+    {
+        void *rs = command->ptr();
+
+        clReleaseEvent((cl_event)command);
+
+        return rs;
+    }
 }
 
 void *
@@ -514,10 +526,12 @@ clEnqueueMapImage(cl_command_queue  command_queue,
         return 0;
     }
 
+    command->reference(); // See clEnqueueMapImage for explanation.
     *errcode_ret = queueEvent(command_queue, command, event, blocking_map);
 
     if (*errcode_ret != CL_SUCCESS)
     {
+        delete command;
         return 0;
     }
     else
@@ -527,7 +541,11 @@ clEnqueueMapImage(cl_command_queue  command_queue,
         if (image_slice_pitch)
             *image_slice_pitch = command->slice_pitch();
 
-        return command->ptr();
+        void *rs = command->ptr();
+
+        clReleaseEvent((cl_event)command);
+
+        return rs;
     }
 }
 
