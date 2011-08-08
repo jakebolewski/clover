@@ -7,6 +7,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <ctime>
+#include <iostream>
 
 using namespace Coal;
 
@@ -146,6 +147,10 @@ void CommandQueue::flush()
 
 void CommandQueue::finish()
 {
+    // As pushEventsOnDevice doesn't remove SUCCESS events, we may need
+    // to do that here in order not to be stuck.
+    cleanEvents();
+
     // All the queued events must have completed. When they are, they get
     // deleted from the command queue, so simply wait for it to become empty.
     pthread_mutex_lock(&p_event_list_mutex);
@@ -231,7 +236,7 @@ void CommandQueue::pushEventsOnDevice()
     // - If we are in-order, only the first event in Event::Queued state can
     //   be pushed
 
-    std::list<Event *>::iterator it = p_events.begin(), oldit;
+    std::list<Event *>::iterator it = p_events.begin();
     bool first = true;
 
     // We assume that we will flush the command queue (submit all the events)
@@ -258,24 +263,12 @@ void CommandQueue::pushEventsOnDevice()
             break;
         }
 
-        // If we encounter a barrier, check if it's the first in the list
-        if (event->type() == Event::Barrier)
+        // Stop if we encounter a barrier that isn't the first event in the list.
+        if (event->type() == Event::Barrier && !first)
         {
-            if (first)
-            {
-                // Remove the barrier, we don't need it anymore
-                oldit = it;
-                ++it;
-
-                p_events.erase(oldit);
-                continue;
-            }
-            else
-            {
-                // We have events to wait, stop
-                p_flushed = false;
-                break;
-            }
+            // We have events to wait, stop
+            p_flushed = false;
+            break;
         }
 
         // Completed events and first barriers are out, it remains real events
@@ -490,6 +483,7 @@ bool Event::isDummy() const
 
 void Event::setStatus(Status status)
 {
+    // TODO: If status < 0, terminate all the events depending on us.
     pthread_mutex_lock(&p_state_mutex);
     p_status = status;
 

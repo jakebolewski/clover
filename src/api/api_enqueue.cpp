@@ -685,6 +685,9 @@ clEnqueueMarker(cl_command_queue    command_queue,
     if (!command_queue->isA(Coal::Object::T_CommandQueue))
         return CL_INVALID_COMMAND_QUEUE;
 
+    if (!event)
+        return CL_INVALID_VALUE;
+
     // Get the events in command_queue
     unsigned int count;
     Coal::Event **events = command_queue->events(count);

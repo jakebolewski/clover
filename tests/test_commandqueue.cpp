@@ -809,6 +809,149 @@ START_TEST (test_copy_image_buffer)
 }
 END_TEST
 
+START_TEST (test_misc_events)
+{
+    cl_platform_id platform = 0;
+    cl_device_id device;
+    cl_context ctx;
+    cl_command_queue queue;
+    cl_int result;
+    cl_event uevent1, uevent2, marker1, marker2;
+
+    result = clGetDeviceIDs(platform, CL_DEVICE_TYPE_DEFAULT, 1, &device, 0);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to get the default device"
+    );
+
+    ctx = clCreateContext(0, 1, &device, 0, 0, &result);
+    fail_if(
+        result != CL_SUCCESS || ctx == 0,
+        "unable to create a valid context"
+    );
+
+    queue = clCreateCommandQueue(ctx, device, 0, &result);
+    fail_if(
+        result != CL_SUCCESS || queue == 0,
+        "cannot create a command queue"
+    );
+
+    /*
+     * This test will build a command queue blocked by an user event. The events
+     * will be in this order :
+     *
+     * -: UserEvent1
+     * 0: WaitForEvents1 (wait=UserEvent1)
+     * 1: Marker1
+     * -: UserEvent2
+     * 2: WaitForEvents2 (wait=UserEvent2)
+     * 3: Barrier
+     * 4: Marker2 (to check the barrier worked)
+     *
+     * When the command queue is built, we :
+     *  - Check that Marker1 is Queued (WaitForEvents waits)
+     *  - Set UserEvent1 to Complete
+     *  - Check that Marker1 is Complete (WaitForEvents stopped to wait)
+     *  - Check that Marker2 is Queued (Barrier is there)
+     *  - Set UserEvent2 to Complete
+     *  - Check that Marker2 is Complete (no more barrier)
+     */
+    uevent1 = clCreateUserEvent(ctx, &result);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to create UserEvent1"
+    );
+
+    uevent2 = clCreateUserEvent(ctx, &result);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to create UserEvent2"
+    );
+
+    result = clEnqueueWaitForEvents(queue, 1, &uevent1);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to enqueue WaitForEvents(UserEvent1)"
+    );
+
+    result = clEnqueueMarker(queue, &marker1);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to enqueue Marker1"
+    );
+
+    result = clEnqueueWaitForEvents(queue, 1, &uevent2);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to enqueue WaitForEvents(UserEvent2)"
+    );
+
+    result = clEnqueueBarrier(queue);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to enqueue Barrier"
+    );
+
+    result = clEnqueueMarker(queue, &marker2);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to enqueue Marker2"
+    );
+
+    // Now the checks
+    cl_int status;
+
+    result = clGetEventInfo(marker1, CL_EVENT_COMMAND_EXECUTION_STATUS,
+                            sizeof(cl_int), &status, 0);
+    fail_if(
+        result != CL_SUCCESS || status != CL_QUEUED,
+        "Marker1 must be Queued"
+    );
+
+    result = clSetUserEventStatus(uevent1, CL_COMPLETE);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to set UserEvent1 to Complete"
+    );
+
+    result = clGetEventInfo(marker1, CL_EVENT_COMMAND_EXECUTION_STATUS,
+                            sizeof(cl_int), &status, 0);
+    fail_if(
+        result != CL_SUCCESS || status != CL_COMPLETE,
+        "Marker1 must be Complete"
+    );
+
+    result = clGetEventInfo(marker2, CL_EVENT_COMMAND_EXECUTION_STATUS,
+                            sizeof(cl_int), &status, 0);
+    fail_if(
+        result != CL_SUCCESS || status != CL_QUEUED,
+        "Marker2 must be Queued"
+    );
+
+    result = clSetUserEventStatus(uevent2, CL_COMPLETE);
+    fail_if(
+        result != CL_SUCCESS,
+        "unable to set UserEvent2 to Complete"
+    );
+
+    result = clGetEventInfo(marker2, CL_EVENT_COMMAND_EXECUTION_STATUS,
+                            sizeof(cl_int), &status, 0);
+    fail_if(
+        result != CL_SUCCESS || status != CL_COMPLETE,
+        "Marker2 must be Complete"
+    );
+
+    clFinish(queue);
+
+    clReleaseEvent(uevent1);
+    clReleaseEvent(uevent2);
+    clReleaseEvent(marker1);
+    clReleaseEvent(marker2);
+    clReleaseCommandQueue(queue);
+    clReleaseContext(ctx);
+}
+END_TEST
+
 TCase *cl_commandqueue_tcase_create(void)
 {
     TCase *tc = NULL;
@@ -821,5 +964,6 @@ TCase *cl_commandqueue_tcase_create(void)
     tcase_add_test(tc, test_copy_buffer);
     tcase_add_test(tc, test_read_write_image);
     tcase_add_test(tc, test_copy_image_buffer);
+    tcase_add_test(tc, test_misc_events);
     return tc;
 }
