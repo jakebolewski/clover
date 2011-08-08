@@ -19,10 +19,11 @@ CommandQueue::CommandQueue(Context *ctx,
                            cl_command_queue_properties properties,
                            cl_int *errcode_ret)
 : Object(Object::T_CommandQueue, ctx), p_device(device),
-  p_properties(properties)
+  p_properties(properties), p_flushed(true)
 {
     // Initialize the locking machinery
     pthread_mutex_init(&p_event_list_mutex, 0);
+    pthread_cond_init(&p_event_list_cond, 0);
 
     // Check that the device belongs to the context
     if (!ctx->hasDevice(device))
@@ -38,6 +39,7 @@ CommandQueue::~CommandQueue()
 {
     // Free the mutex
     pthread_mutex_destroy(&p_event_list_mutex);
+    pthread_cond_destroy(&p_event_list_cond);
 }
 
 cl_int CommandQueue::info(cl_command_queue_info param_name,
@@ -131,6 +133,29 @@ cl_int CommandQueue::checkProperties() const
     return CL_SUCCESS;
 }
 
+void CommandQueue::flush()
+{
+    // Wait for the command queue to be in state "flushed".
+    pthread_mutex_lock(&p_event_list_mutex);
+
+    while (!p_flushed)
+        pthread_cond_wait(&p_event_list_cond, &p_event_list_mutex);
+
+    pthread_mutex_unlock(&p_event_list_mutex);
+}
+
+void CommandQueue::finish()
+{
+    // All the queued events must have completed. When they are, they get
+    // deleted from the command queue, so simply wait for it to become empty.
+    pthread_mutex_lock(&p_event_list_mutex);
+
+    while (p_events.size() != 0)
+        pthread_cond_wait(&p_event_list_cond, &p_event_list_mutex);
+
+    pthread_mutex_unlock(&p_event_list_mutex);
+}
+
 cl_int CommandQueue::queueEvent(Event *event)
 {
     // Let the device initialize the event (for instance, a pointer at which
@@ -144,6 +169,7 @@ cl_int CommandQueue::queueEvent(Event *event)
     pthread_mutex_lock(&p_event_list_mutex);
 
     p_events.push_back(event);
+    p_flushed = false;
 
     pthread_mutex_unlock(&p_event_list_mutex);
 
@@ -183,6 +209,10 @@ void CommandQueue::cleanEvents()
         }
     }
 
+    // We have cleared the list, so wake up the sleeping threads
+    if (p_events.size() == 0)
+        pthread_cond_broadcast(&p_event_list_cond);
+
     pthread_mutex_unlock(&p_event_list_mutex);
 
     // Check now if we have to be deleted
@@ -204,6 +234,11 @@ void CommandQueue::pushEventsOnDevice()
     std::list<Event *>::iterator it = p_events.begin(), oldit;
     bool first = true;
 
+    // We assume that we will flush the command queue (submit all the events)
+    // This will be changed in the while() when we know that not all events
+    // are submitted.
+    p_flushed = true;
+
     while (it != p_events.end())
     {
         Event *event = *it;
@@ -218,7 +253,10 @@ void CommandQueue::pushEventsOnDevice()
         // We cannot do out-of-order, so we can only push the first event.
         if ((p_properties & CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE) == 0 &&
             !first)
+        {
+            p_flushed = false; // There are remaining events.
             break;
+        }
 
         // If we encounter a barrier, check if it's the first in the list
         if (event->type() == Event::Barrier)
@@ -235,6 +273,7 @@ void CommandQueue::pushEventsOnDevice()
             else
             {
                 // We have events to wait, stop
+                p_flushed = false;
                 break;
             }
         }
@@ -244,6 +283,7 @@ void CommandQueue::pushEventsOnDevice()
         first = false;
 
         // If the event is not "pushable" (in Event::Queued state), skip it
+        // It is either Submitted or Running.
         if (event->status() != Event::Queued)
         {
             ++it;
@@ -262,6 +302,7 @@ void CommandQueue::pushEventsOnDevice()
             if (event_wait_list[i]->status() != Event::Complete)
             {
                 skip_event = true;
+                p_flushed = false;
                 break;
             }
         }
@@ -297,6 +338,9 @@ void CommandQueue::pushEventsOnDevice()
             return;
         }
     }
+
+    if (p_flushed)
+        pthread_cond_broadcast(&p_event_list_cond);
 
     pthread_mutex_unlock(&p_event_list_mutex);
 }

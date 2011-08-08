@@ -40,6 +40,9 @@ class CommandQueue : public Object
         void pushEventsOnDevice();
         void cleanEvents();
 
+        void flush();
+        void finish();
+
         Event **events(unsigned int &count); /*!< @note Retains all the events */
 
     private:
@@ -48,6 +51,8 @@ class CommandQueue : public Object
 
         std::list<Event *> p_events;
         pthread_mutex_t p_event_list_mutex;
+        pthread_cond_t p_event_list_cond;
+        bool p_flushed;
 };
 
 class Event : public Object
