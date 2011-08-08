@@ -41,7 +41,7 @@ Kernel::~Kernel()
 
 const Kernel::DeviceDependent &Kernel::deviceDependent(DeviceInterface *device) const
 {
-    for (int i=0; i<p_device_dependent.size(); ++i)
+    for (size_t i=0; i<p_device_dependent.size(); ++i)
     {
         const DeviceDependent &rs = p_device_dependent[i];
 
@@ -54,7 +54,7 @@ const Kernel::DeviceDependent &Kernel::deviceDependent(DeviceInterface *device) 
 
 Kernel::DeviceDependent &Kernel::deviceDependent(DeviceInterface *device)
 {
-    for (int i=0; i<p_device_dependent.size(); ++i)
+    for (size_t i=0; i<p_device_dependent.size(); ++i)
     {
         DeviceDependent &rs = p_device_dependent[i];
 
@@ -85,7 +85,7 @@ cl_int Kernel::addFunction(DeviceInterface *device, llvm::Function *function,
     if (!append && p_args.size() != f->getNumParams())
         return CL_INVALID_KERNEL_DEFINITION;
 
-    for (int i=0; i<f->getNumParams(); ++i)
+    for (unsigned int i=0; i<f->getNumParams(); ++i)
     {
         llvm::Type *arg_type = f->getParamType(i);
         Arg::Kind kind = Arg::Invalid;
@@ -113,7 +113,7 @@ cl_int Kernel::addFunction(DeviceInterface *device, llvm::Function *function,
                     llvm::cast<llvm::StructType>(arg_type);
                 llvm::StringRef struct_name = struct_type->getName();
 
-                if (struct_name == "imade2d")
+                if (struct_name == "image2d")
                 {
                     kind = Arg::Image2D;
                     file = Arg::Global;
@@ -275,7 +275,7 @@ const Kernel::Arg &Kernel::arg(unsigned int index) const
 
 bool Kernel::argsSpecified() const
 {
-    for (int i=0; i<p_args.size(); ++i)
+    for (size_t i=0; i<p_args.size(); ++i)
     {
         if (!p_args[i].defined())
             return false;
@@ -412,8 +412,8 @@ cl_int Kernel::workGroupInfo(DeviceInterface *device,
  * Kernel::Arg
  */
 Kernel::Arg::Arg(unsigned short vec_dim, File file, Kind kind)
-: p_vec_dim(vec_dim), p_file(file), p_kind(kind), p_defined(false),
-  p_runtime_alloc(0), p_data(0)
+: p_vec_dim(vec_dim), p_file(file), p_kind(kind), p_data(0), p_defined(false),
+  p_runtime_alloc(0)
 {
 
 }
@@ -480,6 +480,8 @@ size_t Kernel::Arg::valueSize() const
         case Image3D:
             return sizeof(cl_mem);
     }
+
+    return 0;
 }
 
 unsigned short Kernel::Arg::vecDim() const

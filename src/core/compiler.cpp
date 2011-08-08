@@ -17,8 +17,8 @@
 using namespace Coal;
 
 Compiler::Compiler(DeviceInterface *device)
-: p_log_stream(p_log), p_log_printer(0), p_device(device), p_module(0),
-  p_optimize(true)
+: p_device(device), p_module(0), p_optimize(true), p_log_stream(p_log),
+  p_log_printer(0)
 {
 
 }

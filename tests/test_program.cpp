@@ -152,7 +152,6 @@ START_TEST (test_program_build_info)
     cl_int result;
 
     const char *src = program_source;
-    size_t program_len = sizeof(program_source);
 
     result = clGetDeviceIDs(platform, CL_DEVICE_TYPE_DEFAULT, 1, &device, 0);
     fail_if(

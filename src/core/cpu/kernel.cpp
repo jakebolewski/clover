@@ -188,7 +188,7 @@ llvm::Function *CPUKernel::callFunction(std::vector<void *> &freeLocal)
     llvm::SmallVector<llvm::Value *, 8> args;
 
     // Add each kernel arg to args
-    for (int i=0; i<p_kernel->numArgs(); ++i)
+    for (unsigned int i=0; i<p_kernel->numArgs(); ++i)
     {
         const Kernel::Arg &a = p_kernel->arg(i);
         llvm::Constant *arg_constant = 0;
@@ -358,8 +358,6 @@ CPUKernelEvent::~CPUKernelEvent()
 
 bool CPUKernelEvent::reserve()
 {
-    int rs;
-
     // Lock, this will be unlocked in takeInstance()
     pthread_mutex_lock(&p_mutex);
 
@@ -412,7 +410,7 @@ CPUKernelWorkGroup *CPUKernelEvent::takeInstance()
 CPUKernelWorkGroup::CPUKernelWorkGroup(CPUKernel *kernel, KernelEvent *event,
                                        CPUKernelEvent *cpu_event,
                                        const size_t *work_group_index)
-: p_kernel(kernel), p_event(event), p_cpu_event(cpu_event),
+: p_kernel(kernel), p_cpu_event(cpu_event), p_event(event),
   p_work_dim(event->work_dim())
 {
 
@@ -465,7 +463,7 @@ bool CPUKernelWorkGroup::run()
     // We may have some cleanup to do
     if (free_after)
     {
-        for (int i=0; i<local_to_free.size(); ++i)
+        for (size_t i=0; i<local_to_free.size(); ++i)
         {
             std::free(local_to_free[i]);
         }

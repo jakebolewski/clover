@@ -15,7 +15,7 @@ clWaitForEvents(cl_uint             num_events,
     // Check the events in the list
     cl_context global_ctx = 0;
 
-    for (int i=0; i<num_events; ++i)
+    for (cl_uint i=0; i<num_events; ++i)
     {
         if (!event_list[i]->isA(Coal::Object::T_Event))
             return CL_INVALID_EVENT;
@@ -32,7 +32,7 @@ clWaitForEvents(cl_uint             num_events,
     }
 
     // Wait for the events
-    for (int i=0; i<num_events; ++i)
+    for (cl_uint i=0; i<num_events; ++i)
     {
         event_list[i]->waitForStatus(Coal::Event::Complete);
     }

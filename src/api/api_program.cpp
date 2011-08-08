@@ -89,7 +89,7 @@ clCreateProgramWithBinary(cl_context            context,
     if (*errcode_ret != CL_SUCCESS)
         return 0;
 
-    for (int i=0; i<num_devices; ++i)
+    for (cl_uint i=0; i<num_devices; ++i)
     {
         bool found = false;
 
@@ -102,7 +102,7 @@ clCreateProgramWithBinary(cl_context            context,
             return 0;
         }
 
-        for (int j=0; j<context_num_devices; ++j)
+        for (cl_uint j=0; j<context_num_devices; ++j)
         {
             if (device_list[i] == context_devices[j])
             {
@@ -203,11 +203,11 @@ clBuildProgram(cl_program           program,
         if (result != CL_SUCCESS)
             return result;
 
-        for (int i=0; i<num_devices; ++i)
+        for (cl_uint i=0; i<num_devices; ++i)
         {
             bool found = false;
 
-            for (int j=0; j<context_num_devices; ++j)
+            for (cl_uint j=0; j<context_num_devices; ++j)
             {
                 if (device_list[i] == context_devices[j])
                 {

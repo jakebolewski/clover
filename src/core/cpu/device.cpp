@@ -23,8 +23,8 @@
 using namespace Coal;
 
 CPUDevice::CPUDevice()
-: DeviceInterface(), p_cores(0), p_workers(0), p_stop(false),
-  p_num_events(0), p_initialized(false)
+: DeviceInterface(), p_cores(0), p_num_events(0), p_workers(0), p_stop(false),
+  p_initialized(false)
 {
 
 }
@@ -65,7 +65,7 @@ void CPUDevice::init()
     // Create worker threads
     p_workers = (pthread_t *)std::malloc(numCPUs() * sizeof(pthread_t));
 
-    for (int i=0; i<numCPUs(); ++i)
+    for (unsigned int i=0; i<numCPUs(); ++i)
     {
         pthread_create(&p_workers[i], 0, &worker, this);
     }
@@ -86,7 +86,7 @@ CPUDevice::~CPUDevice()
     pthread_cond_broadcast(&p_events_cond);
     pthread_mutex_unlock(&p_events_mutex);
 
-    for (int i=0; i<numCPUs(); ++i)
+    for (unsigned int i=0; i<numCPUs(); ++i)
     {
         pthread_join(p_workers[i], 0);
     }
@@ -188,6 +188,8 @@ void CPUDevice::freeEventDeviceData(Event *event)
             if (cpu_e)
                 delete cpu_e;
         }
+        default:
+            break;
     }
 }
 

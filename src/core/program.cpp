@@ -37,6 +37,10 @@ using namespace Coal;
 Program::Program(Context *ctx)
 : Object(Object::T_Program, ctx), p_type(Invalid), p_state(Empty)
 {
+    p_null_device_dependent.compiler = 0;
+    p_null_device_dependent.device = 0;
+    p_null_device_dependent.linked_module = 0;
+    p_null_device_dependent.program = 0;
 }
 
 Program::~Program()
@@ -57,7 +61,7 @@ void Program::setDevices(cl_uint num_devices, DeviceInterface * const*devices)
 {
     p_device_dependent.resize(num_devices);
 
-    for (int i=0; i<num_devices; ++i)
+    for (cl_uint i=0; i<num_devices; ++i)
     {
         DeviceDependent &dep = p_device_dependent[i];
 
@@ -70,24 +74,28 @@ void Program::setDevices(cl_uint num_devices, DeviceInterface * const*devices)
 
 Program::DeviceDependent &Program::deviceDependent(DeviceInterface *device)
 {
-    for (int i=0; i<p_device_dependent.size(); ++i)
+    for (size_t i=0; i<p_device_dependent.size(); ++i)
     {
         DeviceDependent &rs = p_device_dependent[i];
 
         if (rs.device == device || (!device && p_device_dependent.size() == 1))
             return rs;
     }
+
+    return p_null_device_dependent;
 }
 
 const Program::DeviceDependent &Program::deviceDependent(DeviceInterface *device) const
 {
-    for (int i=0; i<p_device_dependent.size(); ++i)
+    for (size_t i=0; i<p_device_dependent.size(); ++i)
     {
         const DeviceDependent &rs = p_device_dependent[i];
 
         if (rs.device == device || (!device && p_device_dependent.size() == 1))
             return rs;
     }
+
+    return p_null_device_dependent;
 }
 
 DeviceProgram *Program::deviceDependentProgram(DeviceInterface *device) const
@@ -128,14 +136,14 @@ Kernel *Program::createKernel(const std::string &name, cl_int *errcode_ret)
     Kernel *rs = new Kernel(this);
 
     // Add a function definition for each device
-    for (int i=0; i<p_device_dependent.size(); ++i)
+    for (size_t i=0; i<p_device_dependent.size(); ++i)
     {
         bool found = false;
         DeviceDependent &dep = p_device_dependent[i];
         const std::vector<llvm::Function *> &kernels = kernelFunctions(dep);
 
         // Find the one with the good name
-        for (int j=0; j<kernels.size(); ++j)
+        for (size_t j=0; j<kernels.size(); ++j)
         {
             llvm::Function *func = kernels[j];
 
@@ -177,7 +185,7 @@ std::vector<Kernel *> Program::createKernels(cl_int *errcode_ret)
     // Create the kernel for each function name
     // It returns an error if the signature is not the same for every device
     // or if the kernel isn't found on all the devices.
-    for (int i=0; i<kernels.size(); ++i)
+    for (size_t i=0; i<kernels.size(); ++i)
     {
         cl_int result = CL_SUCCESS;
         Kernel *kernel = createKernel(kernels[i]->getNameStr(), &result);
@@ -201,7 +209,7 @@ cl_int Program::loadSources(cl_uint count, const char **strings,
     p_source = std::string(embed_stdlib_h);
 
     // Merge all strings into one big one
-    for (int i=0; i<count; ++i)
+    for (cl_uint i=0; i<count; ++i)
     {
         size_t len = 0;
         const char *data = strings[i];
@@ -239,7 +247,7 @@ cl_int Program::loadBinaries(const unsigned char **data, const size_t *lengths,
     setDevices(num_devices, device_list);
 
     // Load the data
-    for (int i=0; i<num_devices; ++i)
+    for (cl_uint i=0; i<num_devices; ++i)
     {
         DeviceDependent &dep = deviceDependent(device_list[i]);
 
@@ -288,7 +296,7 @@ cl_int Program::build(const char *options,
         setDevices(num_devices, device_list);
     }
 
-    for (int i=0; i<num_devices; ++i)
+    for (cl_uint i=0; i<num_devices; ++i)
     {
         DeviceDependent &dep = deviceDependent(device_list[i]);
 
@@ -362,7 +370,7 @@ cl_int Program::build(const char *options,
         std::vector<std::string> api_s;     // Needed to keep valid data in api
         const std::vector<llvm::Function *> &kernels = kernelFunctions(dep);
 
-        for (int j=0; j<kernels.size(); ++j)
+        for (size_t j=0; j<kernels.size(); ++j)
         {
             std::string s = kernels[j]->getNameStr();
 
@@ -444,7 +452,7 @@ cl_int Program::info(cl_program_info param_name,
             break;
 
         case CL_PROGRAM_DEVICES:
-            for (int i=0; i<p_device_dependent.size(); ++i)
+            for (size_t i=0; i<p_device_dependent.size(); ++i)
             {
                 const DeviceDependent &dep = p_device_dependent[i];
 
@@ -464,7 +472,7 @@ cl_int Program::info(cl_program_info param_name,
             break;
 
         case CL_PROGRAM_BINARY_SIZES:
-            for (int i=0; i<p_device_dependent.size(); ++i)
+            for (size_t i=0; i<p_device_dependent.size(); ++i)
             {
                 const DeviceDependent &dep = p_device_dependent[i];
 
@@ -487,7 +495,7 @@ cl_int Program::info(cl_program_info param_name,
             if (!param_value || param_value_size < value_length)
                 return CL_INVALID_VALUE;
 
-            for (int i=0; i<p_device_dependent.size(); ++i)
+            for (size_t i=0; i<p_device_dependent.size(); ++i)
             {
                 const DeviceDependent &dep = p_device_dependent[i];
                 unsigned char *dest = binaries[i];

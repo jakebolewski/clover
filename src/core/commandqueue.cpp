@@ -257,7 +257,7 @@ void CommandQueue::pushEventsOnDevice()
 
         event_wait_list = event->waitEvents(count);
 
-        for (int i=0; i<count; ++i)
+        for (cl_uint i=0; i<count; ++i)
         {
             if (event_wait_list[i]->status() != Event::Complete)
             {
@@ -342,7 +342,7 @@ Event::Event(CommandQueue *parent,
              cl_int *errcode_ret)
 : Object(Object::T_Event, parent),
   p_num_events_in_wait_list(num_events_in_wait_list), p_event_wait_list(0),
-  p_device_data(0), p_status(status)
+  p_status(status), p_device_data(0)
 {
     // Initialize the locking machinery
     pthread_cond_init(&p_state_change_cond, 0);
@@ -364,7 +364,7 @@ Event::Event(CommandQueue *parent,
     }
 
     // Check that none of the events in event_wait_list is in an error state
-    for (int i=0; i<num_events_in_wait_list; ++i)
+    for (cl_uint i=0; i<num_events_in_wait_list; ++i)
     {
         if (event_wait_list[i] == 0)
         {
@@ -394,7 +394,7 @@ Event::Event(CommandQueue *parent,
     }
 
     // Explore the events we are waiting on and reference them
-    for (int i=0; i<num_events_in_wait_list; ++i)
+    for (cl_uint i=0; i<num_events_in_wait_list; ++i)
     {
         clRetainEvent((cl_event)event_wait_list[i]);
 
@@ -416,7 +416,7 @@ void Event::freeDeviceData()
 
 Event::~Event()
 {
-    for (int i=0; i<p_num_events_in_wait_list; ++i)
+    for (cl_uint i=0; i<p_num_events_in_wait_list; ++i)
         clReleaseEvent((cl_event)p_event_wait_list[i]);
 
     if (p_event_wait_list)

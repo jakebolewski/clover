@@ -118,7 +118,7 @@ cl_int Sampler::checkImageAvailability() const
 
         if (!image_support)
         {
-            std:free((void *)devices);
+            std::free((void *)devices);
             return CL_INVALID_OPERATION;
         }
     }

@@ -14,7 +14,7 @@ static const char source[] =
     "    a[i] = simple_function(f) * b[i];\n"
     "}\n"
     "\n"
-    "__kernel void kernel2(__global int *buf) {\n"
+    "__kernel void kernel2(__global unsigned int *buf) {\n"
     "    size_t i = get_global_id(0);\n"
     "\n"
     "    buf[i % 256] = 2 * (i % 256);\n"
@@ -29,10 +29,9 @@ static void native_kernel(void *args)
     };
 
     struct ags *data = (struct ags *)args;
-    int i;
 
     // Not
-    for (int i=0; i<data->buffer_size; ++i)
+    for (size_t i=0; i<data->buffer_size; ++i)
     {
         data->buffer[i] = ~data->buffer[i];
     }
@@ -53,7 +52,7 @@ START_TEST (test_compiled_kernel)
     const char *src = source;
     size_t program_len = sizeof(source);
 
-    int buffer[256];
+    unsigned int buffer[256];
 
     result = clGetDeviceIDs(platform, CL_DEVICE_TYPE_DEFAULT, 1, &device, 0);
     fail_if(
@@ -143,7 +142,7 @@ START_TEST (test_compiled_kernel)
     );
 
     ok = true;
-    for (int i=0; i<local_size; ++i)
+    for (size_t i=0; i<local_size; ++i)
     {
         if (buffer[i] !=  2 * i)
         {

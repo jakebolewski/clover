@@ -87,6 +87,7 @@ class Program : public Object
         };
 
         std::vector<DeviceDependent> p_device_dependent;
+        DeviceDependent p_null_device_dependent;
 
         void setDevices(cl_uint num_devices, DeviceInterface * const*devices);
         DeviceDependent &deviceDependent(DeviceInterface *device);

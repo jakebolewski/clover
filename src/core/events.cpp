@@ -87,7 +87,7 @@ bool BufferEvent::isSubBufferAligned(const MemObject *buffer,
 
     size_t mask = 0;
 
-    for (int i=0; i<align; ++i)
+    for (cl_uint i=0; i<align; ++i)
         mask = 1 | (mask << 1);
 
     if (((SubBuffer *)buffer)->offset() & mask)
@@ -545,7 +545,7 @@ NativeKernelEvent::NativeKernelEvent(CommandQueue *parent,
         std::memcpy((void *)p_args, (void *)args, cb_args);
 
         // Replace memory objects with global pointers
-        for (int i=0; i<num_mem_objects; ++i)
+        for (cl_uint i=0; i<num_mem_objects; ++i)
         {
             const MemObject *buffer = mem_list[i];
             const char *loc = (const char *)args_mem_loc[i];
@@ -599,7 +599,7 @@ KernelEvent::KernelEvent(CommandQueue *parent,
                          const Event **event_wait_list,
                          cl_int *errcode_ret)
 : Event(parent, Queued, num_events_in_wait_list, event_wait_list, errcode_ret),
-  p_kernel(kernel), p_work_dim(work_dim)
+  p_work_dim(work_dim), p_kernel(kernel)
 {
     if (*errcode_ret != CL_SUCCESS) return;
 
@@ -668,7 +668,7 @@ KernelEvent::KernelEvent(CommandQueue *parent,
     // Populate work_offset, work_size and local_work_size
     size_t work_group_size = 1;
 
-    for (int i=0; i<work_dim; ++i)
+    for (cl_uint i=0; i<work_dim; ++i)
     {
         if (global_work_offset)
         {
@@ -726,7 +726,7 @@ KernelEvent::KernelEvent(CommandQueue *parent,
     }
 
     // Check arguments (buffer alignment, image size, ...)
-    for (int i=0; i<kernel->numArgs(); ++i)
+    for (unsigned int i=0; i<kernel->numArgs(); ++i)
     {
         const Kernel::Arg &a = kernel->arg(i);
 

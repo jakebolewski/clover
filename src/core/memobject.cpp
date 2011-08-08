@@ -15,8 +15,8 @@ using namespace Coal;
 
 MemObject::MemObject(Context *ctx, cl_mem_flags flags, void *host_ptr,
                      cl_int *errcode_ret)
-: Object(Object::T_MemObject, ctx), p_flags(flags), p_host_ptr(host_ptr),
-  p_dtor_callback(0), p_devicebuffers(0), p_num_devices(0)
+: Object(Object::T_MemObject, ctx), p_num_devices(0), p_flags(flags),
+  p_host_ptr(host_ptr), p_devicebuffers(0), p_dtor_callback(0)
 {
     // Check the flags value
     const cl_mem_flags all_flags = CL_MEM_READ_WRITE | CL_MEM_WRITE_ONLY |
@@ -63,7 +63,7 @@ MemObject::~MemObject()
     if (p_devicebuffers)
     {
         // Also delete our children in the device
-        for (int i=0; i<p_num_devices; ++i)
+        for (unsigned int i=0; i<p_num_devices; ++i)
             delete p_devicebuffers[i];
 
         std::free((void *)p_devicebuffers);
@@ -133,7 +133,7 @@ cl_int MemObject::init()
     // Create a DeviceBuffer for each device
     unsigned int failed_devices = 0;
 
-    for (int i=0; i<p_num_devices; ++i)
+    for (unsigned int i=0; i<p_num_devices; ++i)
     {
         DeviceInterface *device = devices[i];
 
@@ -203,7 +203,7 @@ void *MemObject::host_ptr() const
 
 DeviceBuffer *MemObject::deviceBuffer(DeviceInterface *device) const
 {
-    for (int i=0; i<p_num_devices; ++i)
+    for (unsigned int i=0; i<p_num_devices; ++i)
     {
         if (p_devicebuffers[i]->device() == device)
             return p_devicebuffers[i];
@@ -248,7 +248,7 @@ cl_int MemObject::info(cl_mem_info param_name,
                        size_t *param_value_size_ret) const
 {
     void *value = 0;
-    int value_length = 0;
+    size_t value_length = 0;
     class SubBuffer *subbuf = (class SubBuffer *)this;
 
     union {
@@ -368,8 +368,8 @@ MemObject::Type Buffer::type() const
 
 SubBuffer::SubBuffer(class Buffer *parent, size_t offset, size_t size,
                      cl_mem_flags flags, cl_int *errcode_ret)
-: MemObject((Context *)parent->parent(), flags, 0, errcode_ret), p_size(size),
-  p_offset(offset), p_parent(parent)
+: MemObject((Context *)parent->parent(), flags, 0, errcode_ret), p_offset(offset),
+  p_size(size), p_parent(parent)
 {
     if (size == 0)
     {
@@ -590,7 +590,7 @@ cl_int Image2D::imageInfo(cl_image_info param_name,
                          size_t *param_value_size_ret) const
 {
     void *value = 0;
-    int value_length = 0;
+    size_t value_length = 0;
     class Image3D *image3D = (class Image3D *)this;
 
     union {

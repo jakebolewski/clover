@@ -334,7 +334,9 @@ START_TEST (test_events)
         "unable to get timing information about a profiling-enabled event"
     );
     fail_if(
-        !(timing_queued <= timing_submit <= timing_start <= timing_end),
+        !(timing_queued <= timing_submit &&
+          timing_submit <= timing_start &&
+          timing_start <= timing_end),
         "something went wrong with the timings : they are unordered"
     );
 

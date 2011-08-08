@@ -22,8 +22,8 @@ Context::Context(const cl_context_properties *properties,
                  void *user_data,
                  cl_int *errcode_ret)
 : Object(Object::T_Context, 0), p_properties(0), p_pfn_notify(pfn_notify),
-  p_props_len(0), p_user_data(user_data), p_platform(0), p_devices(0),
-  p_num_devices(0)
+  p_user_data(user_data), p_devices(0), p_num_devices(0), p_props_len(0),
+  p_platform(0)
 {
     if (!p_pfn_notify)
         p_pfn_notify = &default_pfn_notify;
@@ -94,7 +94,7 @@ Context::Context(const cl_context_properties *properties,
         return;
     }
 
-    for (int i=0; i<num_devices; ++i)
+    for (cl_uint i=0; i<num_devices; ++i)
     {
         cl_device_id device = devices[i];
 
@@ -183,7 +183,7 @@ cl_int Context::info(cl_context_info param_name,
 
 bool Context::hasDevice(DeviceInterface *device) const
 {
-    for (int i=0; i<p_num_devices; ++i)
+    for (unsigned int i=0; i<p_num_devices; ++i)
         if (p_devices[i] == device)
             return true;
 

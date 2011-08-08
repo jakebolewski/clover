@@ -16,7 +16,7 @@ using namespace Coal;
 void *worker(void *data)
 {
     CPUDevice *device = (CPUDevice *)data;
-    bool stop = false, last_run;
+    bool stop = false;
     cl_int errcode;
     Event *event;
 
