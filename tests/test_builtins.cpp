@@ -18,7 +18,7 @@ const char sampler_source[] =
 const char barrier_source[] =
     "__kernel void test_case(__global uint *rs) {\n"
     "   *rs = 0;\n"
-    "   barrier(0);\n"
+    "   int i; for (i=0; i<3; i++) barrier(0);\n"
     "   *rs += 1;\n"
     "}\n";
 
