@@ -2,6 +2,7 @@
 #include "device.h"
 #include "buffer.h"
 #include "program.h"
+#include "builtins.h"
 
 #include "../kernel.h"
 #include "../memobject.h"
@@ -21,32 +22,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <sys/mman.h>
 
 using namespace Coal;
-
-template<typename T>
-bool incVec(cl_ulong dims, T *vec, T *maxs)
-{
-    bool overflow = false;
-
-    for (cl_ulong i=0; i<dims; ++i)
-    {
-        vec[i] += 1;
-
-        if (vec[i] > maxs[i])
-        {
-            vec[i] = 0;
-            overflow = true;
-        }
-        else
-        {
-            overflow = false;
-            break;
-        }
-    }
-
-    return overflow;
-}
 
 static llvm::Constant *getPointerConstant(llvm::LLVMContext &C,
                                           llvm::Type *type,
@@ -411,19 +389,23 @@ CPUKernelWorkGroup::CPUKernelWorkGroup(CPUKernel *kernel, KernelEvent *event,
                                        CPUKernelEvent *cpu_event,
                                        const size_t *work_group_index)
 : p_kernel(kernel), p_cpu_event(cpu_event), p_event(event),
-  p_work_dim(event->work_dim())
+  p_work_dim(event->work_dim()), p_contexts(0), p_stack_size(8192 /* TODO */),
+  p_had_barrier(false)
 {
 
     // Set index
     std::memcpy(p_index, work_group_index, p_work_dim * sizeof(size_t));
 
     // Set maxs and global id
+    p_num_work_items = 1;
+
     for (unsigned int i=0; i<p_work_dim; ++i)
     {
-        p_maxs[i] = event->local_work_size(i) - 1; // 0..n-1, not 1..n
+        p_max_local_id[i] = event->local_work_size(i) - 1; // 0..n-1, not 1..n
+        p_num_work_items *= event->local_work_size(i);
 
         // Set global id
-        p_global_id[i] = (p_index[i] * event->local_work_size(i))
+        p_global_id_start_offset[i] = (p_index[i] * event->local_work_size(i))
                          + event->global_work_offset(i);
     }
 }
@@ -435,9 +417,6 @@ CPUKernelWorkGroup::~CPUKernelWorkGroup()
 
 bool CPUKernelWorkGroup::run()
 {
-    // Set current pos to 0
-    std::memset(p_current, 0, p_work_dim * sizeof(size_t));
-
     // Get the kernel function to call
     bool free_after = p_kernel->kernel()->needsLocalAllocation();
     std::vector<void *> local_to_free;
@@ -449,16 +428,41 @@ bool CPUKernelWorkGroup::run()
     Program *p = (Program *)p_kernel->kernel()->parent();
     CPUProgram *prog = (CPUProgram *)(p->deviceDependentProgram(p_kernel->device()));
 
-    void (*kernel_func_addr)() = (void(*)())prog->jit()->getPointerToFunction(kernel_func);
+    p_kernel_func_addr = (void(*)())prog->jit()->getPointerToFunction(kernel_func);
 
-    // Tell the builtins this thread will run a kernel
+    // Tell the builtins this thread will run a kernel work group
     setThreadLocalWorkGroup(this);
+
+    // Initialize the dummy context used by the builtins before a call to barrier()
+    p_current_work_item = 0;
+    p_current_context = &p_dummy_context;
+
+    std::memset(p_dummy_context.local_id, 0, p_work_dim * sizeof(size_t));
 
     do
     {
         // Simply call the "call function", it and the builtins will do the rest
-        kernel_func_addr();
-    } while (!incVec(p_work_dim, p_current, p_maxs));
+        p_kernel_func_addr();
+    } while (!p_had_barrier &&
+             !incVec(p_work_dim, p_dummy_context.local_id, p_max_local_id));
+
+    // If no barrier() call was made, all is fine. If not, only the first
+    // work-item has currently finished. We must let the others run.
+    if (p_had_barrier)
+    {
+        Context *main_context = p_current_context; // After the first swapcontext,
+                                                   // we will not be able to trust
+                                                   // p_current_context anymore.
+
+        // We'll call swapcontext for each remaining work-item. They will
+        // finish, and when they'll do so, this main context will be resumed, so
+        // it's easy (i starts from 1 because the main context already finished)
+        for (unsigned int i=1; i<p_num_work_items; ++i)
+        {
+            Context *ctx = getContextAddr(i);
+            swapcontext(&main_context->context, &ctx->context);
+        }
+    }
 
     // We may have some cleanup to do
     if (free_after)
@@ -475,71 +479,14 @@ bool CPUKernelWorkGroup::run()
     return true;
 }
 
-cl_uint CPUKernelWorkGroup::getWorkDim() const
+CPUKernelWorkGroup::Context *CPUKernelWorkGroup::getContextAddr(unsigned int index)
 {
-    return p_work_dim;
-}
+    size_t size;
+    char *data = (char *)p_contexts;
 
-size_t CPUKernelWorkGroup::getGlobalId(cl_uint dimindx) const
-{
-    if (dimindx > p_work_dim)
-        return 0;
+    // Each Context in data is an element of size p_stack_size + sizeof(Context)
+    size = p_stack_size + sizeof(Context);
+    size *= index;  // To get an offset
 
-    return p_global_id[dimindx] + p_current[dimindx];
-}
-
-size_t CPUKernelWorkGroup::getGlobalSize(cl_uint dimindx) const
-{
-    if (dimindx >p_work_dim)
-        return 1;
-
-    return p_event->global_work_size(dimindx);
-}
-
-size_t CPUKernelWorkGroup::getLocalSize(cl_uint dimindx) const
-{
-    if (dimindx > p_work_dim)
-        return 1;
-
-    return p_event->local_work_size(dimindx);
-}
-
-size_t CPUKernelWorkGroup::getLocalID(cl_uint dimindx) const
-{
-    if (dimindx > p_work_dim)
-        return 0;
-
-    return p_current[dimindx];
-}
-
-size_t CPUKernelWorkGroup::getNumGroups(cl_uint dimindx) const
-{
-    if (dimindx > p_work_dim)
-        return 1;
-
-    return (p_event->global_work_size(dimindx) /
-            p_event->local_work_size(dimindx));
-}
-
-size_t CPUKernelWorkGroup::getGroupID(cl_uint dimindx) const
-{
-    if (dimindx > p_work_dim)
-        return 0;
-
-    return p_index[dimindx];
-}
-
-size_t CPUKernelWorkGroup::getGlobalOffset(cl_uint dimindx) const
-{
-    if (dimindx > p_work_dim)
-        return 0;
-
-    return p_event->global_work_offset(dimindx);
-}
-
-void CPUKernelWorkGroup::builtinNotFound(const std::string &name) const
-{
-    std::cout << "OpenCL: Non-existant builtin function " << name
-              << " found in kernel " << p_kernel->function()->getNameStr()
-              << '.' << std::endl;
+    return (Context *)(data + size); // Pointer to the context
 }

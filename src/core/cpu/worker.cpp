@@ -2,11 +2,14 @@
 #include "device.h"
 #include "buffer.h"
 #include "kernel.h"
+#include "builtins.h"
 
 #include "../commandqueue.h"
 #include "../events.h"
 #include "../memobject.h"
 #include "../kernel.h"
+
+#include <sys/mman.h>
 
 #include <cstring>
 #include <iostream>
@@ -19,6 +22,9 @@ void *worker(void *data)
     bool stop = false;
     cl_int errcode;
     Event *event;
+
+    // Initialize TLS
+    setWorkItemsData(0, 0);
 
     while (true)
     {
@@ -228,6 +234,13 @@ void *worker(void *data)
                     event->updateTiming(Event::End);
         }
     }
+
+    // Free mmapped() data if needed
+    size_t mapped_size;
+    void *mapped_data = getWorkItemsData(mapped_size);
+
+    if (mapped_data)
+        munmap(mapped_data, mapped_size);
 
     return 0;
 }

@@ -12,13 +12,21 @@ const char sampler_source[] =
     "                            CLK_ADDRESS_MIRRORED_REPEAT |\n"
     "                            CLK_FILTER_NEAREST;\n"
     "\n"
-    "   if (sampler != good_sampler) *rs = 1;"
+    "   if (sampler != good_sampler) *rs = 1;\n"
+    "}\n";
+
+const char barrier_source[] =
+    "__kernel void test_case(__global uint *rs) {\n"
+    "   *rs = 0;\n"
+    "   barrier(0);\n"
+    "   *rs += 1;\n"
     "}\n";
 
 enum TestCaseKind
 {
     NormalKind,
-    SamplerKind
+    SamplerKind,
+    BarrierKind
 };
 
 /*
@@ -96,10 +104,25 @@ static uint32_t run_kernel(const char *source, TestCaseKind kind)
             result = clSetKernelArg(kernel, 1, sizeof(cl_sampler), &sampler);
             if (result != CL_SUCCESS) return 65547;
             break;
+
+        default:
+            break;
     }
 
-    result = clEnqueueTask(queue, kernel, 0, 0, &event);
-    if (result != CL_SUCCESS) return 65544;
+    if (kind == BarrierKind)
+    {
+        size_t local_size = 64;
+        size_t global_size = 64;
+
+        result = clEnqueueNDRangeKernel(queue, kernel, 1, 0, &global_size,
+                                        &local_size, 0, 0, &event);
+        if (result != CL_SUCCESS) return 65544;
+    }
+    else
+    {
+        result = clEnqueueTask(queue, kernel, 0, 0, &event);
+        if (result != CL_SUCCESS) return 65544;
+    }
 
     result = clWaitForEvents(1, &event);
     if (result != CL_SUCCESS) return 65545;
@@ -138,7 +161,7 @@ static const char *default_error(uint32_t errcode)
         case 65543:
             return "Cannot set kernel argument";
         case 65544:
-            return "Cannot enqueue a task kernel";
+            return "Cannot enqueue the kernel";
         case 65545:
             return "Cannot wait for the event";
         case 65546:
@@ -172,10 +195,22 @@ START_TEST (test_sampler)
 }
 END_TEST
 
+START_TEST (test_barrier)
+{
+    uint32_t rs = run_kernel(barrier_source, BarrierKind);
+
+    fail_if(
+        rs != 0x40,
+        default_error(rs)
+    );
+}
+END_TEST
+
 TCase *cl_builtins_tcase_create(void)
 {
     TCase *tc = NULL;
     tc = tcase_create("builtins");
     tcase_add_test(tc, test_sampler);
+    tcase_add_test(tc, test_barrier);
     return tc;
 }

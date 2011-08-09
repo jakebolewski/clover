@@ -7,6 +7,8 @@
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include <vector>
 #include <string>
+
+#include <ucontext.h>
 #include <pthread.h>
 
 namespace llvm
@@ -68,6 +70,7 @@ class CPUKernelWorkGroup
         size_t getNumGroups(cl_uint dimindx) const;
         size_t getGroupID(cl_uint dimindx) const;
         size_t getGlobalOffset(cl_uint dimindx) const;
+        void barrier(unsigned int flags);
 
         void builtinNotFound(const std::string &name) const;
 
@@ -77,9 +80,27 @@ class CPUKernelWorkGroup
         KernelEvent *p_event;
         cl_uint p_work_dim;
         size_t p_index[MAX_WORK_DIMS],
-               p_current[MAX_WORK_DIMS],
-               p_maxs[MAX_WORK_DIMS],
-               p_global_id[MAX_WORK_DIMS];
+               p_max_local_id[MAX_WORK_DIMS],
+               p_global_id_start_offset[MAX_WORK_DIMS];
+
+        void (*p_kernel_func_addr)();
+
+        // Machinery to have barrier() working
+        struct Context
+        {
+            size_t local_id[MAX_WORK_DIMS];
+            ucontext_t context;
+            unsigned int initialized;
+        };
+
+        Context *getContextAddr(unsigned int index);
+
+        Context *p_current_context;
+        Context p_dummy_context;
+        void *p_contexts;
+        size_t p_stack_size;
+        unsigned int p_num_work_items, p_current_work_item;
+        bool p_had_barrier;
 };
 
 class CPUKernelEvent
@@ -104,8 +125,5 @@ class CPUKernelEvent
 };
 
 }
-
-void setThreadLocalWorkGroup(Coal::CPUKernelWorkGroup *current);
-void *getBuiltin(const std::string &name);
 
 #endif

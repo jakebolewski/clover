@@ -66,6 +66,12 @@ COAL_VECTOR_SET(float);
 #define CLK_FILTER_NEAREST          0x00000000
 #define CLK_FILTER_LINEAR           0x00000100
 
+#define CLK_LOCAL_MEM_FENCE         0x00000001
+#define CLK_GLOBAL_MEM_FENCE        0x00000002
+
+/* Typedefs */
+typedef unsigned int cl_mem_fence_flags;
+
 /* Management functions */
 uint get_work_dim();
 size_t get_global_size(uint dimindx);
@@ -75,3 +81,5 @@ size_t get_local_id(uint dimindx);
 size_t get_num_groups(uint dimindx);
 size_t get_group_id(uint dimindx);
 size_t get_global_offset(uint dimindx);
+
+void barrier(cl_mem_fence_flags flags);
