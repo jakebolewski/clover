@@ -22,6 +22,7 @@ namespace Coal
 class CPUDevice;
 class Kernel;
 class KernelEvent;
+class Image2D;
 
 class CPUKernel : public DeviceKernel
 {
@@ -71,6 +72,7 @@ class CPUKernelWorkGroup
         size_t getGroupID(cl_uint dimindx) const;
         size_t getGlobalOffset(cl_uint dimindx) const;
         void barrier(unsigned int flags);
+        void *getImageData(Image2D *image, int x, int y, int z) const;
 
         void builtinNotFound(const std::string &name) const;
 

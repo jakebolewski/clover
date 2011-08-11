@@ -36,4 +36,8 @@ bool incVec(unsigned long dims, T *vec, T *maxs)
     return overflow;
 }
 
+unsigned char *imageData(unsigned char *base, size_t x, size_t y, size_t z,
+                         size_t row_pitch, size_t slice_pitch,
+                         unsigned int bytes_per_pixel);
+
 #endif

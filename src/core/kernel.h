@@ -123,7 +123,7 @@ class Kernel : public Object
 
 }
 
-class _cl_kernel : public Coal::Kernel
+struct _cl_kernel : public Coal::Kernel
 {};
 
 #endif

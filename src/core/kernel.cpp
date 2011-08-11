@@ -111,14 +111,14 @@ cl_int Kernel::addFunction(DeviceInterface *device, llvm::Function *function,
             {
                 llvm::StructType *struct_type =
                     llvm::cast<llvm::StructType>(arg_type);
-                llvm::StringRef struct_name = struct_type->getName();
+                std::string struct_name = struct_type->getName().str();
 
-                if (struct_name == "image2d")
+                if (struct_name.compare(0, 14, "struct.image2d") == 0)
                 {
                     kind = Arg::Image2D;
                     file = Arg::Global;
                 }
-                else if (struct_name == "image3d")
+                else if (struct_name.compare(0, 14, "struct.image3d") == 0)
                 {
                     kind = Arg::Image3D;
                     file = Arg::Global;

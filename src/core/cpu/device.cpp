@@ -3,6 +3,7 @@
 #include "kernel.h"
 #include "program.h"
 #include "worker.h"
+#include "builtins.h"
 
 #include "config.h"
 #include "../propertylist.h"

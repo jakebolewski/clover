@@ -1,7 +1,9 @@
 #include "builtins.h"
 #include "kernel.h"
+#include "buffer.h"
 
 #include "../events.h"
+#include "../memobject.h"
 
 #include <sys/mman.h>
 #include <signal.h>
@@ -10,7 +12,22 @@
 #include <iostream>
 #include <cstring>
 
+#include <stdio.h>
+
 using namespace Coal;
+
+unsigned char *imageData(unsigned char *base, size_t x, size_t y, size_t z,
+                         size_t row_pitch, size_t slice_pitch,
+                         unsigned int bytes_per_pixel)
+{
+    unsigned char *result = base;
+
+    result += (z * slice_pitch) +
+              (y * row_pitch) +
+              (x * bytes_per_pixel);
+
+    return result;
+}
 
 /*
  * TLS-related functions
@@ -190,6 +207,18 @@ void CPUKernelWorkGroup::barrier(unsigned int flags)
     // a barrier and that we returned to this one. We can continue.
 }
 
+void *CPUKernelWorkGroup::getImageData(Image2D *image, int x, int y, int z) const
+{
+    CPUBuffer *buffer =
+        (CPUBuffer *)image->deviceBuffer((DeviceInterface *)p_kernel->device());
+
+    return imageData((unsigned char *)buffer->data(),
+                     x, y, z,
+                     image->row_pitch(),
+                     image->slice_pitch(),
+                     image->pixel_size());
+}
+
 void CPUKernelWorkGroup::builtinNotFound(const std::string &name) const
 {
     std::cout << "OpenCL: Non-existant builtin function " << name
@@ -246,6 +275,41 @@ static void barrier(unsigned int flags)
     g_work_group->barrier(flags);
 }
 
+// Images
+
+int get_image_width(Image2D *image)
+{
+    return image->width();
+}
+
+int get_image_height(Image2D *image)
+{
+    return image->height();
+}
+
+int get_image_depth(Image3D *image)
+{
+    return image->depth();
+}
+
+int get_image_channel_data_type(Image2D *image)
+{
+    return image->format().image_channel_data_type;
+}
+
+int get_image_channel_order(Image2D *image)
+{
+    return image->format().image_channel_order;
+}
+
+void *image_data(Image2D *image, int x, int y, int z, int *order, int *type)
+{
+    *order = image->format().image_channel_order;
+    *type = image->format().image_channel_data_type;
+
+    return g_work_group->getImageData(image, x, y, z);
+}
+
 /*
  * Bridge between LLVM and us
  */
@@ -273,6 +337,22 @@ void *getBuiltin(const std::string &name)
         return (void *)&get_global_offset;
     else if (name == "barrier")
         return (void *)&barrier;
+
+    else if (name == "__cpu_get_image_width")
+        return (void *)&get_image_width;
+    else if (name == "__cpu_get_image_height")
+        return (void *)&get_image_height;
+    else if (name == "__cpu_get_image_depth")
+        return (void *)&get_image_depth;
+    else if (name == "__cpu_get_image_channel_data_type")
+        return (void *)&get_image_channel_data_type;
+    else if (name == "__cpu_get_image_channel_order")
+        return (void *)&get_image_channel_order;
+    else if (name == "__cpu_image_data")
+        return (void *)&image_data;
+
+    else if (name == "debug")
+        return (void *)&printf;
 
     // Function not found
     g_work_group->builtinNotFound(name);

@@ -22,11 +22,43 @@ const char barrier_source[] =
     "   *rs += 1;\n"
     "}\n";
 
+const char image_source[] =
+    "__kernel void test_case(__global uint *rs, __write_only image2d_t image1,\n"
+    "                                           __write_only image2d_t image2) {\n"
+    "   float4 fcolor;\n"
+    "   int4 scolor;\n"
+    "   int2 coord;\n"
+    "\n"
+    "   if (get_image_width(image1) != 4) *rs = 1;\n"
+    "   if (get_image_height(image1) != 4) *rs = 2;\n"
+    "   if (get_image_channel_data_type(image2) != CLK_SIGNED_INT16) *rs = 3;\n"
+    "   if (get_image_channel_order(image2) != CLK_RGBA) *rs = 4;\n"
+    "\n"
+    "   if (*rs != 0) return;\n"
+    "\n"
+    "   fcolor.x = 1.0f;\n"
+    "   fcolor.y = 0.5f;\n"
+    "   fcolor.z = 0.0f;\n"
+    "   fcolor.w = 1.0f;\n"
+    "\n"
+    "   scolor.x = -3057;\n"
+    "   scolor.y = 65;\n"
+    "   scolor.z = 0;\n"
+    "   scolor.w = 32767;\n"
+    "\n"
+    "   coord.x = 3;\n"
+    "   coord.y = 1;\n"
+    "\n"
+    "   write_imagef(image1, coord, fcolor);\n"
+    "   write_imagei(image2, coord, scolor);\n"
+    "}\n";
+
 enum TestCaseKind
 {
     NormalKind,
     SamplerKind,
-    BarrierKind
+    BarrierKind,
+    ImageKind
 };
 
 /*
@@ -48,6 +80,8 @@ static uint32_t run_kernel(const char *source, TestCaseKind kind)
     cl_mem rs_buf;
 
     cl_sampler sampler;
+    cl_mem mem1, mem2;
+    cl_image_format fmt;
 
     uint32_t rs = 0;
 
@@ -105,6 +139,25 @@ static uint32_t run_kernel(const char *source, TestCaseKind kind)
             if (result != CL_SUCCESS) return 65547;
             break;
 
+        case ImageKind:
+            fmt.image_channel_data_type = CL_SNORM_INT8;
+            fmt.image_channel_order = CL_RGBA;
+
+            mem1 = clCreateImage2D(ctx, CL_MEM_WRITE_ONLY, &fmt, 4, 4, 0, 0, &result);
+            if (result != CL_SUCCESS) return 65548;
+
+            fmt.image_channel_data_type = CL_SIGNED_INT16;
+
+            mem2 = clCreateImage2D(ctx, CL_MEM_WRITE_ONLY, &fmt, 4, 4, 0, 0, &result);
+            if (result != CL_SUCCESS) return 65548;
+
+            result = clSetKernelArg(kernel, 1, sizeof(cl_mem), &mem1);
+            if (result != CL_SUCCESS) return 65549;
+
+            result = clSetKernelArg(kernel, 2, sizeof(cl_mem), &mem2);
+            if (result != CL_SUCCESS) return 65549;
+            break;
+
         default:
             break;
     }
@@ -128,6 +181,7 @@ static uint32_t run_kernel(const char *source, TestCaseKind kind)
     if (result != CL_SUCCESS) return 65545;
 
     if (kind == SamplerKind) clReleaseSampler(sampler);
+    if (kind == ImageKind) clReleaseMemObject(mem1), clReleaseMemObject(mem2);
     clReleaseEvent(event);
     clReleaseMemObject(rs_buf);
     clReleaseKernel(kernel);
@@ -168,6 +222,10 @@ static const char *default_error(uint32_t errcode)
             return "Cannot create a sampler";
         case 65547:
             return "Cannot set a sampler kernel argument";
+        case 65548:
+            return "Cannot create an Image2D object";
+        case 65549:
+            return "Cannot set image kernel argument";
 
         default:
             return "Unknown error code";
@@ -206,11 +264,42 @@ START_TEST (test_barrier)
 }
 END_TEST
 
+START_TEST (test_image)
+{
+    uint32_t rs = run_kernel(image_source, ImageKind);
+    const char *errstr = 0;
+
+    switch (rs)
+    {
+        case 1:
+            errstr = "Image1 must have width of 4";
+            break;
+        case 2:
+            errstr = "Image1 must have width of 4";
+            break;
+        case 3:
+            errstr = "Image2 must have type SIGNED_FLOAT16";
+            break;
+        case 4:
+            errstr = "Image2 must have channel order RGBA";
+            break;
+        default:
+            errstr = default_error(rs);
+    }
+
+    fail_if(
+        errstr != 0,
+        errstr
+    );
+}
+END_TEST
+
 TCase *cl_builtins_tcase_create(void)
 {
     TCase *tc = NULL;
     tc = tcase_create("builtins");
     tcase_add_test(tc, test_sampler);
     tcase_add_test(tc, test_barrier);
+    tcase_add_test(tc, test_image);
     return tc;
 }

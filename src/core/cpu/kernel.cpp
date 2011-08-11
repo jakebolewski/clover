@@ -28,14 +28,14 @@ using namespace Coal;
 
 static llvm::Constant *getPointerConstant(llvm::LLVMContext &C,
                                           llvm::Type *type,
-                                          void *const *value)
+                                          void *value)
 {
     llvm::Constant *rs = 0;
 
     if (sizeof(void *) == 4)
-        rs = llvm::ConstantInt::get(llvm::Type::getInt32Ty(C), *(uint32_t *)value);
+        rs = llvm::ConstantInt::get(llvm::Type::getInt32Ty(C), (uint64_t)value);
     else
-        rs = llvm::ConstantInt::get(llvm::Type::getInt64Ty(C), *(uint64_t *)value);
+        rs = llvm::ConstantInt::get(llvm::Type::getInt64Ty(C), (uint64_t)value);
 
     // Cast to kernel's pointer type
     rs = llvm::ConstantExpr::getIntToPtr(rs, type);
@@ -223,7 +223,7 @@ llvm::Function *CPUKernel::callFunction(std::vector<void *> &freeLocal)
                         void *local_buffer = std::malloc(a.allocAtKernelRuntime());
                         C = getPointerConstant(stub->getContext(),
                                                k_func_type->getParamType(i),
-                                               &local_buffer);
+                                               local_buffer);
 
                         freeLocal.push_back(local_buffer);
                     }
@@ -243,14 +243,13 @@ llvm::Function *CPUKernel::callFunction(std::vector<void *> &freeLocal)
                                 (CPUBuffer *)buffer->deviceBuffer(p_device);
                             void *buf_ptr = 0;
 
-                            if (!cpubuf->allocated())
-                                cpubuf->allocate();
+                            buffer->allocate(p_device);
 
                             buf_ptr = cpubuf->data();
 
                             C = getPointerConstant(stub->getContext(),
                                                    k_func_type->getParamType(i),
-                                                   &buf_ptr);
+                                                   buf_ptr);
                         }
                     }
 
@@ -259,12 +258,17 @@ llvm::Function *CPUKernel::callFunction(std::vector<void *> &freeLocal)
 
                 case Kernel::Arg::Image2D:
                 case Kernel::Arg::Image3D:
+                {
+                    Image2D *image = *(Image2D **)value;
+                    image->allocate(p_device);
+
                     // Assign a pointer to the image object, the intrinsic functions
                     // will handle them
                     C = getPointerConstant(stub->getContext(),
                                            k_func_type->getParamType(i),
-                                           (void **)value);
+                                           (void *)image);
                     break;
+                }
 
                 default:
                     break;
