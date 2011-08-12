@@ -472,6 +472,10 @@ uint4 OVERLOAD read_imageui(image3d_t image, sampler_t sampler, float4 coord)
     
 }
 
+#undef UNSWIZZLE_8
+#undef UNSWIZZLE_16
+#undef UNSWIZZLE_32
+
 void OVERLOAD write_imagef(image2d_t image, int2 coord, float4 color)
 {
     int4 c;
