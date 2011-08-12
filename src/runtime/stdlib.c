@@ -159,10 +159,10 @@ void OVERLOAD write_imagef(image3d_t image, int4 coord, float4 color)
             short4 data;
 
             // Denormalize
-            data.x = (color.x * 127.0f);
-            data.y = (color.y * 127.0f);
-            data.z = (color.z * 127.0f);
-            data.w = (color.w * 127.0f);
+            data.x = (color.x * 32767.0f);
+            data.y = (color.y * 32767.0f);
+            data.z = (color.z * 32767.0f);
+            data.w = (color.w * 32767.0f);
 
             SWIZZLE(order, target, data)
             break;
@@ -172,10 +172,10 @@ void OVERLOAD write_imagef(image3d_t image, int4 coord, float4 color)
             ushort4 *target = v_target;
             ushort4 data;
 
-            data.x = (color.x * 255.0f);
-            data.y = (color.y * 255.0f);
-            data.z = (color.z * 255.0f);
-            data.w = (color.w * 255.0f);
+            data.x = (color.x * 65535.0f);
+            data.y = (color.y * 65535.0f);
+            data.z = (color.z * 65535.0f);
+            data.w = (color.w * 65535.0f);
 
             SWIZZLE(order, target, data)
             break;
