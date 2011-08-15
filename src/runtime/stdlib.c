@@ -222,231 +222,236 @@ float4 f2f_floor(float4 value)
     return __builtin_ia32_cvtdq2ps(f2i_floor(value));
 }
 
-#define LINEAR_3D(a, b, c, V0, V1, one)                 \
-    (one - a) * (one - b) - (one - c) *                 \
-    read_imagef(image, sampler,                         \
+#define LINEAR_3D(t_max, suf)                           \
+    (t_max - a) * (t_max - b) - (t_max - c) *           \
+    read_image##suf(image, sampler,                     \
         __builtin_shufflevector(V0, V1, 0, 1, 2, 3)) +  \
-    a * (one - b) * (one - c) *                         \
-    read_imagef(image, sampler,                         \
+    a * (t_max - b) * (t_max - c) *                     \
+    read_image##suf(image, sampler,                     \
         __builtin_shufflevector(V0, V1, 4, 1, 2, 3)) +  \
-    (one - a) * b * (one - c) *                         \
-    read_imagef(image, sampler,                         \
+    (t_max - a) * b * (t_max - c) *                     \
+    read_image##suf(image, sampler,                     \
         __builtin_shufflevector(V0, V1, 0, 5, 2, 3)) +  \
-    a * b * (one - c) *                                 \
-    read_imagef(image, sampler,                         \
+    a * b * (t_max - c) *                               \
+    read_image##suf(image, sampler,                     \
         __builtin_shufflevector(V0, V1, 4, 5, 2, 3)) +  \
-    (one - a) * (one - b) * c *                         \
-    read_imagef(image, sampler,                         \
+    (t_max - a) * (t_max - b) * c *                     \
+    read_image##suf(image, sampler,                     \
         __builtin_shufflevector(V0, V1, 0, 1, 6, 3)) +  \
-    a * (one - b) * c *                                 \
-    read_imagef(image, sampler,                         \
+    a * (t_max - b) * c *                               \
+    read_image##suf(image, sampler,                     \
         __builtin_shufflevector(V0, V1, 4, 1, 6, 3)) +  \
-    (one - a) * b * c *                                 \
-    read_imagef(image, sampler,                         \
+    (t_max - a) * b * c *                               \
+    read_image##suf(image, sampler,                     \
         __builtin_shufflevector(V0, V1, 0, 5, 6, 3)) +  \
     a * b * c *                                         \
-    read_imagef(image, sampler,                         \
+    read_image##suf(image, sampler,                     \
         __builtin_shufflevector(V0, V1, 4, 5, 6, 3))
 
-#define LINEAR_2D(a, b, V0, V1, one)                    \
-    (one - a) * (one - b) *                             \
-    read_imagef(image, sampler,                         \
+#define LINEAR_2D(t_max, suf)                           \
+    (t_max - a) * (t_max - b) *                         \
+    read_image##suf(image, sampler,                     \
         __builtin_shufflevector(V0, V1, 0, 1, 2, 2)) +  \
-    a * (one - b) *                                     \
-    read_imagef(image, sampler,                         \
+    a * (t_max - b) *                                   \
+    read_image##suf(image, sampler,                     \
         __builtin_shufflevector(V0, V1, 4, 1, 2, 2)) +  \
-    (one - a) * b *                                     \
-    read_imagef(image, sampler,                         \
+    (t_max - a) * b *                                   \
+    read_image##suf(image, sampler,                     \
         __builtin_shufflevector(V0, V1, 0, 5, 2, 2)) +  \
     a * b *                                             \
-    read_imagef(image, sampler,                         \
+    read_image##suf(image, sampler,                     \
         __builtin_shufflevector(V0, V1, 4, 5, 2, 2));
+
+#define READ_IMAGE(type, suf, type_max)                                        \
+    type##4 result;                                                            \
+                                                                               \
+    switch (sampler & 0xf0)                                                    \
+    {                                                                          \
+        case CLK_ADDRESS_NONE:                                                 \
+        case CLK_ADDRESS_CLAMP:                                                \
+        case CLK_ADDRESS_CLAMP_TO_EDGE:                                        \
+            /* Denormalize coords */                                           \
+            if ((sampler & 0xf) == CLK_NORMALIZED_COORDS_TRUE)                 \
+                coord *= __builtin_ia32_cvtdq2ps(get_image_dim(image));        \
+                                                                               \
+            switch (sampler & 0xf00)                                           \
+            {                                                                  \
+                case CLK_FILTER_NEAREST:                                       \
+                {                                                              \
+                    int4 c = f2i_floor(coord);                                 \
+                                                                               \
+                    return read_image##suf(image, sampler, c);                 \
+                }                                                              \
+                case CLK_FILTER_LINEAR:                                        \
+                {                                                              \
+                    type a, b, c;                                              \
+                                                                               \
+                    coord -= 0.5f;                                             \
+                                                                               \
+                    int4 V0, V1;                                               \
+                                                                               \
+                    V0 = f2i_floor(coord);                                     \
+                    V1 = f2i_floor(coord) + 1;                                 \
+                                                                               \
+                    coord -= f2f_floor(coord);                                 \
+                                                                               \
+                    a = (type)(coord.x * type_max);                            \
+                    b = (type)(coord.y * type_max);                            \
+                    c = (type)(coord.z * type_max);                            \
+                                                                               \
+                    if (__cpu_is_image_3d(image))                              \
+                    {                                                          \
+                        result = LINEAR_3D(type_max, suf);                     \
+                    }                                                          \
+                    else                                                       \
+                    {                                                          \
+                        result = LINEAR_2D(type_max, suf);                     \
+                    }                                                          \
+                }                                                              \
+            }                                                                  \
+            break;                                                             \
+        case CLK_ADDRESS_REPEAT:                                               \
+            switch (sampler & 0xf00)                                           \
+            {                                                                  \
+                case CLK_FILTER_NEAREST:                                       \
+                {                                                              \
+                    int4 dim = get_image_dim(image);                           \
+                    coord = (coord - f2f_floor(coord)) *                       \
+                                __builtin_ia32_cvtdq2ps(dim);                  \
+                                                                               \
+                    int4 c = f2i_floor(coord);                                 \
+                                                                               \
+                    /* if (c > dim - 1) c = c - dim */                         \
+                    int4 mask = __builtin_ia32_pcmpgtd128(c, dim - 1);         \
+                    int4 repl = c - dim;                                       \
+                    c = (repl & mask) | (c & ~mask);                           \
+                                                                               \
+                    return read_image##suf(image, sampler, c);                 \
+                }                                                              \
+                case CLK_FILTER_LINEAR:                                        \
+                {                                                              \
+                    type a, b, c;                                              \
+                                                                               \
+                    int4 dim = get_image_dim(image);                           \
+                    coord = (coord - f2f_floor(coord)) *                       \
+                                __builtin_ia32_cvtdq2ps(dim);                  \
+                                                                               \
+                    float4 tmp = coord;                                        \
+                    tmp -= 0.5f;                                               \
+                    tmp -= f2f_floor(tmp);                                     \
+                                                                               \
+                    a = (type)(tmp.x * type_max);                              \
+                    b = (type)(tmp.y * type_max);                              \
+                    c = (type)(tmp.z * type_max);                              \
+                                                                               \
+                    int4 V0, V1;                                               \
+                                                                               \
+                    V0 = f2i_floor(coord - 0.5f);                              \
+                    V1 = V0 + 1;                                               \
+                                                                               \
+                    /* if (0 > V0) V0 = dim + V0 */                            \
+                    int4 zero = 0;                                             \
+                    int4 mask = __builtin_ia32_pcmpgtd128(zero, V0);           \
+                    int4 repl = dim + V0;                                      \
+                    V0 = (repl & mask) | (V0 & ~mask);                         \
+                                                                               \
+                    /* if (V1 > dim - 1) V1 = V1 - dim */                      \
+                    mask = __builtin_ia32_pcmpgtd128(V1, dim);                 \
+                    repl = V1 - dim;                                           \
+                    V1 = (repl & mask) | (V0 & ~mask);                         \
+                                                                               \
+                    if (__cpu_is_image_3d(image))                              \
+                    {                                                          \
+                        result = LINEAR_3D(type_max, suf);                     \
+                    }                                                          \
+                    else                                                       \
+                    {                                                          \
+                        result = LINEAR_2D(type_max, suf);                     \
+                    }                                                          \
+                }                                                              \
+            }                                                                  \
+            break;                                                             \
+        case CLK_ADDRESS_MIRRORED_REPEAT:                                      \
+            switch (sampler & 0xf00)                                           \
+            {                                                                  \
+                case CLK_FILTER_NEAREST:                                       \
+                {                                                              \
+                    int4 dim = get_image_dim(image);                           \
+                    float4 two = 2.0f;                                         \
+                    float4 prim = two * __builtin_ia32_cvtdq2ps(               \
+                        __builtin_ia32_cvtps2dq(0.5f * coord));                \
+                    prim -= coord;                                             \
+                                                                               \
+                    /* abs(x) = x & ~{-0, -0, -0, -0} */                       \
+                    float4 nzeroes = -0.0f;                                    \
+                    prim = (float4)((int4)prim & ~(int4)nzeroes);              \
+                                                                               \
+                    coord = prim * __builtin_ia32_cvtdq2ps(dim);               \
+                    int4 c = f2i_floor(coord);                                 \
+                                                                               \
+                    /* if (c > dim - 1) c = dim - 1 */                         \
+                    int4 repl = dim - 1;                                       \
+                    int4 mask = __builtin_ia32_pcmpgtd128(c, repl);            \
+                    c = (repl & mask) | (c & ~mask);                           \
+                                                                               \
+                    return read_image##suf(image, sampler, c);                 \
+                }                                                              \
+                case CLK_FILTER_LINEAR:                                        \
+                {                                                              \
+                    type a, b, c;                                              \
+                                                                               \
+                    int4 dim = get_image_dim(image);                           \
+                    float4 two = 2.0f;                                         \
+                    float4 prim = two * __builtin_ia32_cvtdq2ps(               \
+                        __builtin_ia32_cvtps2dq(0.5f * coord));                \
+                    prim -= coord;                                             \
+                                                                               \
+                    /* abs(x) = x & ~{-0, -0, -0, -0} */                       \
+                    float4 nzeroes = -0.0f;                                    \
+                    prim = (float4)((int4)prim & ~(int4)nzeroes);              \
+                                                                               \
+                    coord = prim * __builtin_ia32_cvtdq2ps(dim);               \
+                                                                               \
+                    float4 tmp = coord;                                        \
+                    tmp -= 0.5f;                                               \
+                    tmp -= f2f_floor(tmp);                                     \
+                                                                               \
+                    a = (type)(tmp.x * type_max);                              \
+                    b = (type)(tmp.y * type_max);                              \
+                    c = (type)(tmp.z * type_max);                              \
+                                                                               \
+                    int4 V0, V1, zero = 0;                                     \
+                                                                               \
+                    V0 = f2i_floor(coord - 0.5f);                              \
+                    V1 = V0 + 1;                                               \
+                                                                               \
+                    /* if (0 > V0) V0 = 0 */                                   \
+                    int4 mask = __builtin_ia32_pcmpgtd128(V0, zero);           \
+                    V0 &= ~mask;                                               \
+                                                                               \
+                    /* if (V1 > dim - 1) V1 = dim - 1 */                       \
+                    int4 repl = dim - 1;                                       \
+                    mask = __builtin_ia32_pcmpgtd128(V1, repl);                \
+                    V1 = (repl & mask) | (V1 & ~mask);                         \
+                                                                               \
+                    if (__cpu_is_image_3d(image))                              \
+                    {                                                          \
+                        result = LINEAR_3D(type_max, suf);                     \
+                    }                                                          \
+                    else                                                       \
+                    {                                                          \
+                        result = LINEAR_2D(type_max, suf);                     \
+                    }                                                          \
+                }                                                              \
+            }                                                                  \
+            break;                                                             \
+    }                                                                          \
+                                                                               \
+    return result;
 
 float4 OVERLOAD read_imagef(image3d_t image, sampler_t sampler, float4 coord)
 {
-    float4 result;
-
-    switch (sampler & 0xf0)
-    {
-        case CLK_ADDRESS_NONE:
-        case CLK_ADDRESS_CLAMP:
-        case CLK_ADDRESS_CLAMP_TO_EDGE:
-            // Denormalize coords
-            if ((sampler & 0xf) == CLK_NORMALIZED_COORDS_TRUE)
-                coord *= __builtin_ia32_cvtdq2ps(get_image_dim(image));
-
-            switch (sampler & 0xf00)
-            {
-                case CLK_FILTER_NEAREST:
-                {
-                    int4 c = f2i_floor(coord);
-
-                    return read_imagef(image, sampler, c);
-                }
-                case CLK_FILTER_LINEAR:
-                {
-                    float a, b, c;
-
-                    coord -= 0.5f;
-
-                    int4 V0, V1;
-
-                    V0 = f2i_floor(coord);
-                    V1 = f2i_floor(coord) + 1;
-
-                    coord -= f2f_floor(coord);
-
-                    a = coord.x;
-                    b = coord.y;
-                    c = coord.z;
-
-                    if (__cpu_is_image_3d(image))
-                    {
-                        result = LINEAR_3D(a, b, c, V0, V1, 1.0f);
-                    }
-                    else
-                    {
-                        result = LINEAR_2D(a, b, V0, V1, 1.0f);
-                    }
-                }
-            }
-            break;
-        case CLK_ADDRESS_REPEAT:
-            switch (sampler & 0xf00)
-            {
-                case CLK_FILTER_NEAREST:
-                {
-                    int4 dim = get_image_dim(image);
-                    coord = (coord - f2f_floor(coord)) *
-                                __builtin_ia32_cvtdq2ps(dim);
-
-                    int4 c = f2i_floor(coord);
-
-                    // if (c > dim - 1) c = c - dim
-                    int4 mask = __builtin_ia32_pcmpgtd128(c, dim - 1);
-                    int4 repl = c - dim;
-                    c = (repl & mask) | (c & ~mask);
-
-                    return read_imagef(image, sampler, c);
-                }
-                case CLK_FILTER_LINEAR:
-                {
-                    float a, b, c;
-
-                    int4 dim = get_image_dim(image);
-                    coord = (coord - f2f_floor(coord)) *
-                                __builtin_ia32_cvtdq2ps(dim);
-
-                    float4 tmp = coord;
-                    tmp -= 0.5f;
-                    tmp -= f2f_floor(tmp);
-
-                    a = tmp.x;
-                    b = tmp.y;
-                    c = tmp.z;
-
-                    int4 V0, V1;
-
-                    V0 = f2i_floor(coord - 0.5f);
-                    V1 = V0 + 1;
-
-                    // if (0 > V0) V0 = dim + V0
-                    int4 zero = 0;
-                    int4 mask = __builtin_ia32_pcmpgtd128(zero, V0);
-                    int4 repl = dim + V0;
-                    V0 = (repl & mask) | (V0 & ~mask);
-
-                    // if (V1 > dim - 1) V1 = V1 - dim
-                    mask = __builtin_ia32_pcmpgtd128(V1, dim);
-                    repl = V1 - dim;
-                    V1 = (repl & mask) | (V0 & ~mask);
-
-                    if (__cpu_is_image_3d(image))
-                    {
-                        result = LINEAR_3D(a, b, c, V0, V1, 1.0f);
-                    }
-                    else
-                    {
-                        result = LINEAR_2D(a, b, V0, V1, 1.0f);
-                    }
-                }
-            }
-            break;
-        case CLK_ADDRESS_MIRRORED_REPEAT:
-            switch (sampler & 0xf00)
-            {
-                case CLK_FILTER_NEAREST:
-                {
-                    int4 dim = get_image_dim(image);
-                    float4 two = 2.0f;
-                    float4 prim = two * __builtin_ia32_cvtdq2ps(
-                        __builtin_ia32_cvtps2dq(0.5f * coord));
-                    prim -= coord;
-
-                    // abs(x) = x & ~{-0, -0, -0, -0}
-                    float4 nzeroes = -0.0f;
-                    prim = (float4)((int4)prim & ~(int4)nzeroes);
-
-                    coord = prim * __builtin_ia32_cvtdq2ps(dim);
-                    int4 c = f2i_floor(coord);
-
-                    // if (c > dim - 1) c = dim - 1
-                    int4 repl = dim - 1;
-                    int4 mask = __builtin_ia32_pcmpgtd128(c, repl);
-                    c = (repl & mask) | (c & ~mask);
-
-                    return read_imagef(image, sampler, c);
-                }
-                case CLK_FILTER_LINEAR:
-                {
-                    float a, b, c;
-
-                    int4 dim = get_image_dim(image);
-                    float4 two = 2.0f;
-                    float4 prim = two * __builtin_ia32_cvtdq2ps(
-                        __builtin_ia32_cvtps2dq(0.5f * coord));
-                    prim -= coord;
-
-                    // abs(x) = x & ~{-0, -0, -0, -0}
-                    float4 nzeroes = -0.0f;
-                    prim = (float4)((int4)prim & ~(int4)nzeroes);
-
-                    coord = prim * __builtin_ia32_cvtdq2ps(dim);
-
-                    float4 tmp = coord;
-                    tmp -= 0.5f;
-                    tmp -= f2f_floor(tmp);
-
-                    a = tmp.x;
-                    b = tmp.y;
-                    c = tmp.z;
-
-                    int4 V0, V1, zero = 0;
-
-                    V0 = f2i_floor(coord - 0.5f);
-                    V1 = V0 + 1;
-
-                    // if (0 > V0) V0 = 0
-                    int4 mask = __builtin_ia32_pcmpgtd128(V0, zero);
-                    V0 &= ~mask;
-
-                    // if (V1 > dim - 1) V1 = dim - 1
-                    int4 repl = dim - 1;
-                    mask = __builtin_ia32_pcmpgtd128(V1, repl);
-                    V1 = (repl & mask) | (V1 & ~mask);
-
-                    if (__cpu_is_image_3d(image))
-                    {
-                        result = LINEAR_3D(a, b, c, V0, V1, 1.0f);
-                    }
-                    else
-                    {
-                        result = LINEAR_2D(a, b, V0, V1, 1.0f);
-                    }
-                }
-            }
-            break;
-    }
+    READ_IMAGE(float, f, 1.0f)
 }
 
 #define UNSWIZZLE_8(source, data, m)    \
@@ -595,7 +600,7 @@ int4 OVERLOAD read_imagei(image2d_t image, sampler_t sampler, float2 coord)
 
 int4 OVERLOAD read_imagei(image3d_t image, sampler_t sampler, float4 coord)
 {
-    
+    READ_IMAGE(int, i, 0x7fffffff)
 }
 
 uint4 OVERLOAD read_imageui(image2d_t image, sampler_t sampler, int2 coord)
@@ -702,7 +707,7 @@ uint4 OVERLOAD read_imageui(image2d_t image, sampler_t sampler, float2 coord)
 
 uint4 OVERLOAD read_imageui(image3d_t image, sampler_t sampler, float4 coord)
 {
-    
+    READ_IMAGE(uint, ui, 0xffffffff)
 }
 
 #undef UNSWIZZLE_8
