@@ -24,10 +24,14 @@ const char barrier_source[] =
 
 const char image_source[] =
     "__kernel void test_case(__global uint *rs, __write_only image2d_t image1,\n"
-    "                                           __write_only image2d_t image2) {\n"
+    "                                           __write_only image2d_t image2,\n"
+    "                                           __read_only image2d_t image3) {\n"
     "   float4 fcolor;\n"
     "   int4 scolor;\n"
     "   int2 coord;\n"
+    "   sampler_t sampler = CLK_NORMALIZED_COORDS_TRUE |\n"
+    "                       CLK_ADDRESS_MIRRORED_REPEAT |\n"
+    "                       CLK_FILTER_NEAREST;\n"
     "\n"
     "   if (get_image_width(image1) != 4) *rs = 1;\n"
     "   if (get_image_height(image1) != 4) *rs = 2;\n"
@@ -51,6 +55,17 @@ const char image_source[] =
     "\n"
     "   write_imagef(image1, coord, fcolor);\n"
     "   write_imagei(image2, coord, scolor);\n"
+    "\n"
+    "   coord.x = 1;\n"
+    "   coord.y = 1;\n"
+    "   fcolor = read_imagef(image3, 0, coord);\n"
+    "   if (fcolor.x < 0.99f || fcolor.y < 0.99f || fcolor.z > 0.01f ||\n"
+    "       fcolor.w > 0.01f) { *rs = 5; return; }\n"
+    "\n"
+    "   float2 fcoords;\n"
+    "   fcoords.x = 0.31f;\n"
+    "   fcoords.y = 3.1415f;\n"
+    "   fcolor = read_imagef(image3, sampler, fcoords);\n"
     "}\n";
 
 enum TestCaseKind
@@ -80,8 +95,14 @@ static uint32_t run_kernel(const char *source, TestCaseKind kind)
     cl_mem rs_buf;
 
     cl_sampler sampler;
-    cl_mem mem1, mem2;
+    cl_mem mem1, mem2, mem3;
     cl_image_format fmt;
+
+    unsigned char image2d_data[3*3*4] = {
+        255, 0, 0, 0,       0, 255, 0, 0,       128, 128, 128, 0,
+        0, 0, 255, 0,       255, 255, 0, 0,     0, 128, 0, 0,
+        255, 128, 0, 0,     128, 0, 255, 0,     0, 0, 0, 0
+    };
 
     uint32_t rs = 0;
 
@@ -140,10 +161,14 @@ static uint32_t run_kernel(const char *source, TestCaseKind kind)
             break;
 
         case ImageKind:
-            fmt.image_channel_data_type = CL_SNORM_INT8;
+            fmt.image_channel_data_type = CL_UNORM_INT8;
             fmt.image_channel_order = CL_RGBA;
 
             mem1 = clCreateImage2D(ctx, CL_MEM_WRITE_ONLY, &fmt, 4, 4, 0, 0, &result);
+            if (result != CL_SUCCESS) return 65548;
+
+            mem3 = clCreateImage2D(ctx, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+                                   &fmt, 3, 3, 0, image2d_data, &result);
             if (result != CL_SUCCESS) return 65548;
 
             fmt.image_channel_data_type = CL_SIGNED_INT16;
@@ -155,6 +180,9 @@ static uint32_t run_kernel(const char *source, TestCaseKind kind)
             if (result != CL_SUCCESS) return 65549;
 
             result = clSetKernelArg(kernel, 2, sizeof(cl_mem), &mem2);
+            if (result != CL_SUCCESS) return 65549;
+
+            result = clSetKernelArg(kernel, 3, sizeof(cl_mem), &mem3);
             if (result != CL_SUCCESS) return 65549;
             break;
 
@@ -181,7 +209,12 @@ static uint32_t run_kernel(const char *source, TestCaseKind kind)
     if (result != CL_SUCCESS) return 65545;
 
     if (kind == SamplerKind) clReleaseSampler(sampler);
-    if (kind == ImageKind) clReleaseMemObject(mem1), clReleaseMemObject(mem2);
+    if (kind == ImageKind)
+    {
+        clReleaseMemObject(mem1);
+        clReleaseMemObject(mem2);
+        clReleaseMemObject(mem3);
+    }
     clReleaseEvent(event);
     clReleaseMemObject(rs_buf);
     clReleaseKernel(kernel);
@@ -282,6 +315,9 @@ START_TEST (test_image)
             break;
         case 4:
             errstr = "Image2 must have channel order RGBA";
+            break;
+        case 5:
+            errstr = "The value read from the image is not good";
             break;
         default:
             errstr = default_error(rs);

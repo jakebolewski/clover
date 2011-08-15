@@ -290,7 +290,7 @@ int get_image_height(Image2D *image)
 int get_image_depth(Image3D *image)
 {
     if (image->type() != MemObject::Image3D)
-        return 0;
+        return 1;
 
     return image->depth();
 }
