@@ -20,19 +20,17 @@ int __cpu_get_image_height(void *image);
 int __cpu_get_image_depth(void *image);
 int __cpu_get_image_channel_data_type(void *image);
 int __cpu_get_image_channel_order(void *image);
+int __cpu_is_image_3d(void *image);
 void *__cpu_image_data(void *image, int x, int y, int z, int *order, int *type);
 
 int4 handle_address_mode(image3d_t image, int4 coord, sampler_t sampler)
 {
-    if ((sampler & 0xf0) == CLK_ADDRESS_NONE)
-        return coord;
+    coord.w = 0;
 
     int w = get_image_width(image),
         h = get_image_height(image),
         d = get_image_depth(image);
-    coord.w = 0;
 
-    // Handle address mode
     if ((sampler & 0xf0) ==  CLK_ADDRESS_CLAMP_TO_EDGE)
     {
         coord.x = clamp(coord.x, 0, w - 1);
@@ -44,13 +42,13 @@ int4 handle_address_mode(image3d_t image, int4 coord, sampler_t sampler)
         coord.x = clamp(coord.x, 0, w);
         coord.y = clamp(coord.y, 0, h);
         coord.z = clamp(coord.z, 0, d);
+    }
 
-        if (coord.x == w ||
-            coord.y == h ||
-            coord.z == d)
-        {
-            coord.w = 1;
-        }
+    if (coord.x == w ||
+        coord.y == h ||
+        coord.z == d)
+    {
+        coord.w = 1;
     }
 
     return coord;
@@ -211,9 +209,244 @@ float4 OVERLOAD read_imagef(image2d_t image, sampler_t sampler, float2 coord)
     return read_imagef((image3d_t)image, sampler, c);
 }
 
+int4 f2i_floor(float4 value)
+{
+    int4 result = __builtin_ia32_cvtps2dq(value);
+    value = __builtin_ia32_psrldi128((int4)value, 31);
+    result -= (int4)value;
+    return result;
+}
+
+float4 f2f_floor(float4 value)
+{
+    return __builtin_ia32_cvtdq2ps(f2i_floor(value));
+}
+
+#define LINEAR_3D(a, b, c, V0, V1, one)                 \
+    (one - a) * (one - b) - (one - c) *                 \
+    read_imagef(image, sampler,                         \
+        __builtin_shufflevector(V0, V1, 0, 1, 2, 3)) +  \
+    a * (one - b) * (one - c) *                         \
+    read_imagef(image, sampler,                         \
+        __builtin_shufflevector(V0, V1, 4, 1, 2, 3)) +  \
+    (one - a) * b * (one - c) *                         \
+    read_imagef(image, sampler,                         \
+        __builtin_shufflevector(V0, V1, 0, 5, 2, 3)) +  \
+    a * b * (one - c) *                                 \
+    read_imagef(image, sampler,                         \
+        __builtin_shufflevector(V0, V1, 4, 5, 2, 3)) +  \
+    (one - a) * (one - b) * c *                         \
+    read_imagef(image, sampler,                         \
+        __builtin_shufflevector(V0, V1, 0, 1, 6, 3)) +  \
+    a * (one - b) * c *                                 \
+    read_imagef(image, sampler,                         \
+        __builtin_shufflevector(V0, V1, 4, 1, 6, 3)) +  \
+    (one - a) * b * c *                                 \
+    read_imagef(image, sampler,                         \
+        __builtin_shufflevector(V0, V1, 0, 5, 6, 3)) +  \
+    a * b * c *                                         \
+    read_imagef(image, sampler,                         \
+        __builtin_shufflevector(V0, V1, 4, 5, 6, 3))
+
+#define LINEAR_2D(a, b, V0, V1, one)                    \
+    (one - a) * (one - b) *                             \
+    read_imagef(image, sampler,                         \
+        __builtin_shufflevector(V0, V1, 0, 1, 2, 2)) +  \
+    a * (one - b) *                                     \
+    read_imagef(image, sampler,                         \
+        __builtin_shufflevector(V0, V1, 4, 1, 2, 2)) +  \
+    (one - a) * b *                                     \
+    read_imagef(image, sampler,                         \
+        __builtin_shufflevector(V0, V1, 0, 5, 2, 2)) +  \
+    a * b *                                             \
+    read_imagef(image, sampler,                         \
+        __builtin_shufflevector(V0, V1, 4, 5, 2, 2));
+
 float4 OVERLOAD read_imagef(image3d_t image, sampler_t sampler, float4 coord)
 {
-    
+    float4 result;
+
+    switch (sampler & 0xf0)
+    {
+        case CLK_ADDRESS_NONE:
+        case CLK_ADDRESS_CLAMP:
+        case CLK_ADDRESS_CLAMP_TO_EDGE:
+            // Denormalize coords
+            if ((sampler & 0xf) == CLK_NORMALIZED_COORDS_TRUE)
+                coord *= __builtin_ia32_cvtdq2ps(get_image_dim(image));
+
+            switch (sampler & 0xf00)
+            {
+                case CLK_FILTER_NEAREST:
+                {
+                    int4 c = f2i_floor(coord);
+
+                    return read_imagef(image, sampler, c);
+                }
+                case CLK_FILTER_LINEAR:
+                {
+                    float a, b, c;
+
+                    coord -= 0.5f;
+
+                    int4 V0, V1;
+
+                    V0 = f2i_floor(coord);
+                    V1 = f2i_floor(coord) + 1;
+
+                    coord -= f2f_floor(coord);
+
+                    a = coord.x;
+                    b = coord.y;
+                    c = coord.z;
+
+                    if (__cpu_is_image_3d(image))
+                    {
+                        result = LINEAR_3D(a, b, c, V0, V1, 1.0f);
+                    }
+                    else
+                    {
+                        result = LINEAR_2D(a, b, V0, V1, 1.0f);
+                    }
+                }
+            }
+            break;
+        case CLK_ADDRESS_REPEAT:
+            switch (sampler & 0xf00)
+            {
+                case CLK_FILTER_NEAREST:
+                {
+                    int4 dim = get_image_dim(image);
+                    coord = (coord - f2f_floor(coord)) *
+                                __builtin_ia32_cvtdq2ps(dim);
+
+                    int4 c = f2i_floor(coord);
+
+                    // if (c > dim - 1) c = c - dim
+                    int4 mask = __builtin_ia32_pcmpgtd128(c, dim - 1);
+                    int4 repl = c - dim;
+                    c = (repl & mask) | (c & ~mask);
+
+                    return read_imagef(image, sampler, c);
+                }
+                case CLK_FILTER_LINEAR:
+                {
+                    float a, b, c;
+
+                    int4 dim = get_image_dim(image);
+                    coord = (coord - f2f_floor(coord)) *
+                                __builtin_ia32_cvtdq2ps(dim);
+
+                    float4 tmp = coord;
+                    tmp -= 0.5f;
+                    tmp -= f2f_floor(tmp);
+
+                    a = tmp.x;
+                    b = tmp.y;
+                    c = tmp.z;
+
+                    int4 V0, V1;
+
+                    V0 = f2i_floor(coord - 0.5f);
+                    V1 = V0 + 1;
+
+                    // if (0 > V0) V0 = dim + V0
+                    int4 zero = 0;
+                    int4 mask = __builtin_ia32_pcmpgtd128(zero, V0);
+                    int4 repl = dim + V0;
+                    V0 = (repl & mask) | (V0 & ~mask);
+
+                    // if (V1 > dim - 1) V1 = V1 - dim
+                    mask = __builtin_ia32_pcmpgtd128(V1, dim);
+                    repl = V1 - dim;
+                    V1 = (repl & mask) | (V0 & ~mask);
+
+                    if (__cpu_is_image_3d(image))
+                    {
+                        result = LINEAR_3D(a, b, c, V0, V1, 1.0f);
+                    }
+                    else
+                    {
+                        result = LINEAR_2D(a, b, V0, V1, 1.0f);
+                    }
+                }
+            }
+            break;
+        case CLK_ADDRESS_MIRRORED_REPEAT:
+            switch (sampler & 0xf00)
+            {
+                case CLK_FILTER_NEAREST:
+                {
+                    int4 dim = get_image_dim(image);
+                    float4 two = 2.0f;
+                    float4 prim = two * __builtin_ia32_cvtdq2ps(
+                        __builtin_ia32_cvtps2dq(0.5f * coord));
+                    prim -= coord;
+
+                    // abs(x) = x & ~{-0, -0, -0, -0}
+                    float4 nzeroes = -0.0f;
+                    prim = (float4)((int4)prim & ~(int4)nzeroes);
+
+                    coord = prim * __builtin_ia32_cvtdq2ps(dim);
+                    int4 c = f2i_floor(coord);
+
+                    // if (c > dim - 1) c = dim - 1
+                    int4 repl = dim - 1;
+                    int4 mask = __builtin_ia32_pcmpgtd128(c, repl);
+                    c = (repl & mask) | (c & ~mask);
+
+                    return read_imagef(image, sampler, c);
+                }
+                case CLK_FILTER_LINEAR:
+                {
+                    float a, b, c;
+
+                    int4 dim = get_image_dim(image);
+                    float4 two = 2.0f;
+                    float4 prim = two * __builtin_ia32_cvtdq2ps(
+                        __builtin_ia32_cvtps2dq(0.5f * coord));
+                    prim -= coord;
+
+                    // abs(x) = x & ~{-0, -0, -0, -0}
+                    float4 nzeroes = -0.0f;
+                    prim = (float4)((int4)prim & ~(int4)nzeroes);
+
+                    coord = prim * __builtin_ia32_cvtdq2ps(dim);
+
+                    float4 tmp = coord;
+                    tmp -= 0.5f;
+                    tmp -= f2f_floor(tmp);
+
+                    a = tmp.x;
+                    b = tmp.y;
+                    c = tmp.z;
+
+                    int4 V0, V1, zero = 0;
+
+                    V0 = f2i_floor(coord - 0.5f);
+                    V1 = V0 + 1;
+
+                    // if (0 > V0) V0 = 0
+                    int4 mask = __builtin_ia32_pcmpgtd128(V0, zero);
+                    V0 &= ~mask;
+
+                    // if (V1 > dim - 1) V1 = dim - 1
+                    int4 repl = dim - 1;
+                    mask = __builtin_ia32_pcmpgtd128(V1, repl);
+                    V1 = (repl & mask) | (V1 & ~mask);
+
+                    if (__cpu_is_image_3d(image))
+                    {
+                        result = LINEAR_3D(a, b, c, V0, V1, 1.0f);
+                    }
+                    else
+                    {
+                        result = LINEAR_2D(a, b, V0, V1, 1.0f);
+                    }
+                }
+            }
+            break;
+    }
 }
 
 #define UNSWIZZLE_8(source, data, m)    \
@@ -773,6 +1006,7 @@ int4 OVERLOAD get_image_dim(image3d_t image)
     result.x = get_image_width(image);
     result.y = get_image_height(image);
     result.z = get_image_depth(image);
+    result.w = 0;
 
     return result;
 }

@@ -313,6 +313,11 @@ void *image_data(Image2D *image, int x, int y, int z, int *order, int *type)
     return g_work_group->getImageData(image, x, y, z);
 }
 
+bool is_image_3d(Image3D *image)
+{
+    return (image->type() == MemObject::Image3D ? 1 : 0);
+}
+
 /*
  * Bridge between LLVM and us
  */
@@ -353,6 +358,8 @@ void *getBuiltin(const std::string &name)
         return (void *)&get_image_channel_order;
     else if (name == "__cpu_image_data")
         return (void *)&image_data;
+    else if (name == "__cpu_is_image_3d")
+        return (void *)&is_image_3d;
 
     else if (name == "debug")
         return (void *)&printf;
