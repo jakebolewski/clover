@@ -311,7 +311,7 @@ cl_int Program::build(const char *options,
                                                                         s_name);
 
             // Compile
-            if (!dep.compiler->compile(options, buffer))
+            if (!dep.compiler->compile(options ? options : std::string(), buffer))
             {
                 if (pfn_notify)
                     pfn_notify((cl_program)this, user_data);
