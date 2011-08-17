@@ -194,7 +194,7 @@ void CPUKernelWorkGroup::barrier(unsigned int flags)
         next->context.uc_stack.ss_size = p_stack_size;
 
         // Tell it to run the kernel function
-        makecontext(&next->context, p_kernel_func_addr, 0);
+        makecontext(&next->context, (void (*)())p_kernel_func_addr, 1, p_args);
     }
 
     // Switch to the next context

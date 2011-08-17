@@ -17,7 +17,7 @@
 
 using namespace Coal;
 Kernel::Kernel(Program *program)
-: Object(Object::T_Kernel, program), p_local_args(false)
+: Object(Object::T_Kernel, program), p_has_locals(false)
 {
     // TODO: Say a kernel is attached to the program (that becomes unalterable)
 
@@ -102,7 +102,7 @@ cl_int Kernel::addFunction(DeviceInterface *device, llvm::Function *function,
 
             // If it's a __local argument, we'll have to allocate memory at run time
             if (file == Arg::Local)
-                p_local_args = true;
+                p_has_locals = true;
 
             kind = Arg::Buffer;
 
@@ -284,9 +284,9 @@ bool Kernel::argsSpecified() const
     return true;
 }
 
-bool Kernel::needsLocalAllocation() const
+bool Kernel::hasLocals() const
 {
-    return p_local_args;
+    return p_has_locals;
 }
 
 DeviceKernel *Kernel::deviceDependentKernel(DeviceInterface *device) const
@@ -517,4 +517,9 @@ const void *Kernel::Arg::value(unsigned short index) const
     data += offset;
 
     return (const void *)data;
+}
+
+const void *Kernel::Arg::data() const
+{
+    return p_data;
 }

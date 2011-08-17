@@ -41,7 +41,8 @@ class CPUKernel : public DeviceKernel
         CPUDevice *device() const;
 
         llvm::Function *function() const;
-        llvm::Function *callFunction(std::vector<void *> &freeLocal);
+        llvm::Function *callFunction();
+        static size_t typeOffset(size_t &offset, size_t type_len);
 
     private:
         CPUDevice *p_device;
@@ -60,6 +61,7 @@ class CPUKernelWorkGroup
                            const size_t *work_group_index);
         ~CPUKernelWorkGroup();
 
+        void *callArgs(std::vector<void *> &locals_to_free);
         bool run();
 
         // Native functions
@@ -85,7 +87,8 @@ class CPUKernelWorkGroup
                p_max_local_id[MAX_WORK_DIMS],
                p_global_id_start_offset[MAX_WORK_DIMS];
 
-        void (*p_kernel_func_addr)();
+        void (*p_kernel_func_addr)(void *);
+        void *p_args;
 
         // Machinery to have barrier() working
         struct Context
@@ -115,6 +118,9 @@ class CPUKernelEvent
         bool finished(); /*!< All the work groups have finished */
         CPUKernelWorkGroup *takeInstance(); /*!< Must be called exactly one time after reserve(). Unlocks the event */
 
+        void *kernelArgs() const;
+        void cacheKernelArgs(void *args);
+
         void workGroupFinished();
 
     private:
@@ -124,6 +130,7 @@ class CPUKernelEvent
                p_max_work_groups[MAX_WORK_DIMS];
         size_t p_current_wg, p_finished_wg, p_num_wg;
         pthread_mutex_t p_mutex;
+        void *p_kernel_args;
 };
 
 }

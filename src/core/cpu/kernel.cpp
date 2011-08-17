@@ -11,9 +11,6 @@
 
 #include <llvm/Function.h>
 #include <llvm/Constants.h>
-#include <llvm/ADT/APInt.h>
-#include <llvm/ADT/APFloat.h>
-#include <llvm/Support/Casting.h>
 #include <llvm/Instructions.h>
 #include <llvm/LLVMContext.h>
 #include <llvm/Module.h>
@@ -25,23 +22,6 @@
 #include <sys/mman.h>
 
 using namespace Coal;
-
-static llvm::Constant *getPointerConstant(llvm::LLVMContext &C,
-                                          llvm::Type *type,
-                                          void *value)
-{
-    llvm::Constant *rs = 0;
-
-    if (sizeof(void *) == 4)
-        rs = llvm::ConstantInt::get(llvm::Type::getInt32Ty(C), (uint64_t)value);
-    else
-        rs = llvm::ConstantInt::get(llvm::Type::getInt64Ty(C), (uint64_t)value);
-
-    // Cast to kernel's pointer type
-    rs = llvm::ConstantExpr::getIntToPtr(rs, type);
-
-    return rs;
-}
 
 CPUKernel::CPUKernel(CPUDevice *device, Kernel *kernel, llvm::Function *function)
 : DeviceKernel(), p_device(device), p_kernel(kernel), p_function(function),
@@ -136,12 +116,40 @@ CPUDevice *CPUKernel::device() const
     return p_device;
 }
 
-llvm::Function *CPUKernel::callFunction(std::vector<void *> &freeLocal)
+// From Wikipedia : http://www.wikipedia.org/wiki/Power_of_two#Algorithm_to_round_up_to_power_of_two
+template <class T>
+T next_power_of_two(T k) {
+        if (k == 0)
+                return 1;
+        k--;
+        for (int i=1; i<sizeof(T)*8; i<<=1)
+                k = k | k >> i;
+        return k+1;
+}
+
+size_t CPUKernel::typeOffset(size_t &offset, size_t type_len)
+{
+    size_t rs = offset;
+
+    // Align offset to stype_len
+    type_len = next_power_of_two(type_len);
+    size_t mask = ~(type_len - 1);
+
+    while (rs & mask != rs)
+        rs++;
+
+    // Where to try to place the next value
+    offset = rs + type_len;
+
+    return rs;
+}
+
+llvm::Function *CPUKernel::callFunction()
 {
     pthread_mutex_lock(&p_call_function_mutex);
 
     // If we can reuse the same function between work groups, do it
-    if (!p_kernel->needsLocalAllocation() && p_call_function)
+    if (p_call_function)
     {
         llvm::Function *rs = p_call_function;
         pthread_mutex_unlock(&p_call_function_mutex);
@@ -149,171 +157,114 @@ llvm::Function *CPUKernel::callFunction(std::vector<void *> &freeLocal)
         return rs;
     }
 
-    // Create a LLVM function that calls the kernels with its arguments
-    // Code inspired from llvm/lib/ExecutionEngine/JIT/JIT.cpp
-    // Copyright The LLVM Compiler Infrastructure
-    llvm::FunctionType *k_func_type = p_function->getFunctionType();
-    llvm::FunctionType *f_type =
-        llvm::FunctionType::get(p_function->getReturnType(), false);
-    llvm::Function *stub = llvm::Function::Create(f_type,
-                                                  llvm::Function::InternalLinkage,
-                                                "", p_function->getParent());
+    /* Create a stub function in the form of
+     *
+     * void stub(void *args) {
+     *     kernel(*(int *)((char *)args + 0),
+     *            *(float **)((char *)args + sizeof(int)),
+     *            *(sampler_t *)((char *)args + sizeof(int) + sizeof(float *)));
+     * }
+     *
+     * In LLVM, it is exprimed in the form of :
+     *
+     * @stub(i8* args) {
+     *     kernel(
+     *         load(i32* bitcast(i8* getelementptr(i8* args, i64 0), i32*)),
+     *         load(float** bitcast(i8* getelementptr(i8* args, i64 4), float**)),
+     *         ...
+     *     );
+     * }
+     */
+    llvm::FunctionType *kernel_function_type = p_function->getFunctionType();
+    llvm::FunctionType *stub_function_type = llvm::FunctionType::get(
+        p_function->getReturnType(),
+        llvm::Type::getInt8PtrTy(
+            p_function->getContext()),
+        false);
+    llvm::Function *stub_function = llvm::Function::Create(
+        stub_function_type,
+        llvm::Function::InternalLinkage,
+        "",
+        p_function->getParent());
 
     // Insert a basic block
-    llvm::BasicBlock *block = llvm::BasicBlock::Create(p_function->getContext(),
-                                                       "", stub);
+    llvm::BasicBlock *basic_block = llvm::BasicBlock::Create(
+        p_function->getContext(),
+        "",
+        stub_function);
 
+    // Create the function arguments
+    llvm::Argument &stub_arg = stub_function->getArgumentList().front();
     llvm::SmallVector<llvm::Value *, 8> args;
+    size_t args_offset = 0;
 
-    // Add each kernel arg to args
-    for (unsigned int i=0; i<p_kernel->numArgs(); ++i)
+    for (unsigned int i=0; i<kernel_function_type->getNumParams(); ++i)
     {
-        const Kernel::Arg &a = p_kernel->arg(i);
-        llvm::Constant *arg_constant = 0;
+        llvm::Type *param_type = kernel_function_type->getParamType(i);
+        llvm::Type *param_type_ptr = param_type->getPointerTo(); // We'll use pointers to the value
+        const Kernel::Arg &arg = p_kernel->arg(i);
 
-        // To handle vectors (float4, etc)
-        llvm::SmallVector<llvm::Constant *, 4> vec_elements;
+        // Calculate the size of the arg
+        size_t arg_size = arg.valueSize() * arg.vecDim();
 
-        // Explore the vector elements
-        for (unsigned short k=0; k<a.vecDim(); ++k)
-        {
-            const void *value = a.value(k);
-            llvm::Constant *C = 0;
+        // Get where to place this argument
+        size_t arg_offset = typeOffset(args_offset, arg_size);
 
-            switch (a.kind())
-            {
-                case Kernel::Arg::Int8:
-                    C = llvm::ConstantInt::get(stub->getContext(),
-                                               llvm::APInt(8, *(uint8_t *)value));
-                    break;
+        // %1 = getelementptr(args, $arg_offset);
+        llvm::Value *getelementptr = llvm::GetElementPtrInst::CreateInBounds(
+            &stub_arg,
+            llvm::ConstantInt::get(stub_function->getContext(),
+                                   llvm::APInt(64, arg_offset)),
+            "",
+            basic_block);
 
-                case Kernel::Arg::Int16:
-                    C = llvm::ConstantInt::get(stub->getContext(),
-                                               llvm::APInt(16, *(uint16_t *)value));
-                    break;
+        // %2 = bitcast(%1, $param_type_ptr)
+        llvm::Value *bitcast = new llvm::BitCastInst(
+            getelementptr,
+            param_type_ptr,
+            "",
+            basic_block);
 
-                case Kernel::Arg::Int32:
-                case Kernel::Arg::Sampler:
-                    C = llvm::ConstantInt::get(stub->getContext(),
-                                               llvm::APInt(32, *(uint32_t *)value));
-                    break;
+        // %3 = load(%2)
+        llvm::Value *load = new llvm::LoadInst(
+            bitcast,
+            "",
+            false,
+            arg_size,   // We ensure that an argument is always aligned on its size, it enables things like fast movaps
+            basic_block);
 
-                case Kernel::Arg::Int64:
-                    C = llvm::ConstantInt::get(stub->getContext(),
-                                               llvm::APInt(64, *(uint64_t *)value));
-                    break;
-
-                case Kernel::Arg::Float:
-                    C = llvm::ConstantFP::get(stub->getContext(),
-                                              llvm::APFloat(*(float *)value));
-                    break;
-
-                case Kernel::Arg::Double:
-                    C = llvm::ConstantFP::get(stub->getContext(),
-                                              llvm::APFloat(*(double *)value));
-                    break;
-
-                case Kernel::Arg::Buffer:
-                {
-                    MemObject *buffer = *(MemObject **)value;
-
-                    if (a.file() == Kernel::Arg::Local)
-                    {
-                        // Alloc a buffer and pass it to the kernel
-                        void *local_buffer = std::malloc(a.allocAtKernelRuntime());
-                        C = getPointerConstant(stub->getContext(),
-                                               k_func_type->getParamType(i),
-                                               local_buffer);
-
-                        freeLocal.push_back(local_buffer);
-                    }
-                    else
-                    {
-                        if (!buffer)
-                        {
-                            // We can do that, just send NULL
-                            C = llvm::ConstantPointerNull::get(
-                                    llvm::cast<llvm::PointerType>(
-                                        k_func_type->getParamType(i)));
-                        }
-                        else
-                        {
-                            // Get the CPU buffer, allocate it and get its pointer
-                            CPUBuffer *cpubuf =
-                                (CPUBuffer *)buffer->deviceBuffer(p_device);
-                            void *buf_ptr = 0;
-
-                            buffer->allocate(p_device);
-
-                            buf_ptr = cpubuf->data();
-
-                            C = getPointerConstant(stub->getContext(),
-                                                   k_func_type->getParamType(i),
-                                                   buf_ptr);
-                        }
-                    }
-
-                    break;
-                }
-
-                case Kernel::Arg::Image2D:
-                case Kernel::Arg::Image3D:
-                {
-                    Image2D *image = *(Image2D **)value;
-                    image->allocate(p_device);
-
-                    // Assign a pointer to the image object, the intrinsic functions
-                    // will handle them
-                    C = getPointerConstant(stub->getContext(),
-                                           k_func_type->getParamType(i),
-                                           (void *)image);
-                    break;
-                }
-
-                default:
-                    break;
-            }
-
-            // Add the vector element
-            vec_elements.push_back(C);
-        }
-
-        // If the arg was a vector, handle it
-        if (a.vecDim() == 1)
-        {
-            arg_constant = vec_elements.front();
-        }
-        else
-        {
-            arg_constant = llvm::ConstantVector::get(vec_elements);
-        }
-
-        // Append the arg
-        args.push_back(arg_constant);
+        // We have the value, send it to the function
+        args.push_back(load);
     }
 
     // Create the call instruction
-    llvm::CallInst *call_inst = llvm::CallInst::Create(p_function, args, "", block);
+    llvm::CallInst *call_inst = llvm::CallInst::Create(
+        p_function,
+        args,
+        "",
+        basic_block);
     call_inst->setCallingConv(p_function->getCallingConv());
     call_inst->setTailCall();
 
     // Create a return instruction to end the stub
-    llvm::ReturnInst::Create(stub->getContext(), block);
+    llvm::ReturnInst::Create(
+        p_function->getContext(),
+        basic_block);
 
     // Retain the function if it can be reused
-    if (!p_kernel->needsLocalAllocation())
-        p_call_function = stub;
+    p_call_function = stub_function;
 
     pthread_mutex_unlock(&p_call_function_mutex);
 
-    return stub;
+    return stub_function;
 }
 
 /*
  * CPUKernelEvent
  */
 CPUKernelEvent::CPUKernelEvent(CPUDevice *device, KernelEvent *event)
-: p_device(device), p_event(event), p_current_wg(0), p_finished_wg(0)
+: p_device(device), p_event(event), p_current_wg(0), p_finished_wg(0),
+  p_kernel_args(0)
 {
     // Mutex
     pthread_mutex_init(&p_mutex, 0);
@@ -336,6 +287,9 @@ CPUKernelEvent::CPUKernelEvent(CPUDevice *device, KernelEvent *event)
 CPUKernelEvent::~CPUKernelEvent()
 {
     pthread_mutex_destroy(&p_mutex);
+
+    if (p_kernel_args)
+        std::free(p_kernel_args);
 }
 
 bool CPUKernelEvent::reserve()
@@ -386,6 +340,16 @@ CPUKernelWorkGroup *CPUKernelEvent::takeInstance()
     return wg;
 }
 
+void *CPUKernelEvent::kernelArgs() const
+{
+    return p_kernel_args;
+}
+
+void CPUKernelEvent::cacheKernelArgs(void *args)
+{
+    p_kernel_args = args;
+}
+
 /*
  * CPUKernelWorkGroup
  */
@@ -419,12 +383,107 @@ CPUKernelWorkGroup::~CPUKernelWorkGroup()
     p_cpu_event->workGroupFinished();
 }
 
+void *CPUKernelWorkGroup::callArgs(std::vector<void *> &locals_to_free)
+{
+    if (p_cpu_event->kernelArgs() && !p_kernel->kernel()->hasLocals())
+    {
+        // We have cached the args and can reuse them
+        return p_cpu_event->kernelArgs();
+    }
+
+    // We need to create them from scratch
+    void *rs;
+
+    size_t args_size = 0;
+
+    for (unsigned int i=0; i<p_kernel->kernel()->numArgs(); ++i)
+    {
+        const Kernel::Arg &arg = p_kernel->kernel()->arg(i);
+        CPUKernel::typeOffset(args_size, arg.valueSize() * arg.vecDim());
+    }
+
+    rs = std::malloc(args_size);
+
+    if (!rs)
+        return false;
+
+    size_t arg_offset = 0;
+
+    for (unsigned int i=0; i<p_kernel->kernel()->numArgs(); ++i)
+    {
+        const Kernel::Arg &arg = p_kernel->kernel()->arg(i);
+        size_t size = arg.valueSize() * arg.vecDim();
+        size_t offset = CPUKernel::typeOffset(arg_offset, size);
+
+        // Where to place the argument
+        unsigned char *target = (unsigned char *)rs;
+        target += offset;
+
+        // We may have to perform some changes in the values (buffers, etc)
+        switch (arg.kind())
+        {
+            case Kernel::Arg::Buffer:
+            {
+                MemObject *buffer = *(MemObject **)arg.data();
+
+                if (arg.file() == Kernel::Arg::Local)
+                {
+                    // Alloc a buffer and pass it to the kernel
+                    void *local_buffer = std::malloc(arg.allocAtKernelRuntime());
+                    locals_to_free.push_back(local_buffer);
+                    *(void **)target = local_buffer;
+                }
+                else
+                {
+                    if (!buffer)
+                    {
+                        // We can do that, just send NULL
+                        *(void **)target = NULL;
+                    }
+                    else
+                    {
+                        // Get the CPU buffer, allocate it and get its pointer
+                        CPUBuffer *cpubuf =
+                            (CPUBuffer *)buffer->deviceBuffer(p_kernel->device());
+                        void *buf_ptr = 0;
+
+                        buffer->allocate(p_kernel->device());
+                        buf_ptr = cpubuf->data();
+
+                        *(void **)target = buf_ptr;
+                    }
+                }
+
+                break;
+            }
+            case Kernel::Arg::Image2D:
+            case Kernel::Arg::Image3D:
+            {
+                // We need to ensure the image is allocated
+                Image2D *image = *(Image2D **)arg.data();
+                image->allocate(p_kernel->device());
+
+                // Fall through to the memcpy
+            }
+            default:
+                // Simply copy the arg's data into the buffer
+                std::memcpy(target, arg.data(), size);
+                break;
+        }
+    }
+
+    // Cache the arguments if we can do so
+    if (!p_kernel->kernel()->hasLocals())
+        p_cpu_event->cacheKernelArgs(rs);
+
+    return rs;
+}
+
 bool CPUKernelWorkGroup::run()
 {
     // Get the kernel function to call
-    bool free_after = p_kernel->kernel()->needsLocalAllocation();
-    std::vector<void *> local_to_free;
-    llvm::Function *kernel_func = p_kernel->callFunction(local_to_free);
+    std::vector<void *> locals_to_free;
+    llvm::Function *kernel_func = p_kernel->callFunction();
 
     if (!kernel_func)
         return false;
@@ -432,7 +491,11 @@ bool CPUKernelWorkGroup::run()
     Program *p = (Program *)p_kernel->kernel()->parent();
     CPUProgram *prog = (CPUProgram *)(p->deviceDependentProgram(p_kernel->device()));
 
-    p_kernel_func_addr = (void(*)())prog->jit()->getPointerToFunction(kernel_func);
+    p_kernel_func_addr =
+        (void(*)(void *))prog->jit()->getPointerToFunction(kernel_func);
+
+    // Get the arguments
+    p_args = callArgs(locals_to_free);
 
     // Tell the builtins this thread will run a kernel work group
     setThreadLocalWorkGroup(this);
@@ -446,7 +509,7 @@ bool CPUKernelWorkGroup::run()
     do
     {
         // Simply call the "call function", it and the builtins will do the rest
-        p_kernel_func_addr();
+        p_kernel_func_addr(p_args);
     } while (!p_had_barrier &&
              !incVec(p_work_dim, p_dummy_context.local_id, p_max_local_id));
 
@@ -468,16 +531,15 @@ bool CPUKernelWorkGroup::run()
         }
     }
 
-    // We may have some cleanup to do
-    if (free_after)
+    // Free the allocated locals
+    if (p_kernel->kernel()->hasLocals())
     {
-        for (size_t i=0; i<local_to_free.size(); ++i)
+        for (size_t i=0; i<locals_to_free.size(); ++i)
         {
-            std::free(local_to_free[i]);
+            std::free(locals_to_free[i]);
         }
 
-        // Bye function
-        kernel_func->eraseFromParent();
+        std::free(p_args);
     }
 
     return true;

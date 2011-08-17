@@ -69,6 +69,7 @@ class Kernel : public Object
                 bool defined() const;
                 size_t allocAtKernelRuntime() const;
                 const void *value(unsigned short index) const;
+                const void *data() const;
 
             private:
                 unsigned short p_vec_dim;
@@ -89,7 +90,7 @@ class Kernel : public Object
         DeviceKernel *deviceDependentKernel(DeviceInterface *device) const;
 
         bool argsSpecified() const;
-        bool needsLocalAllocation() const;  /*!< One or more arguments is __local */
+        bool hasLocals() const;
 
         cl_int info(cl_kernel_info param_name,
                     size_t param_value_size,
@@ -103,7 +104,7 @@ class Kernel : public Object
 
     private:
         std::string p_name;
-        bool p_local_args;
+        bool p_has_locals;
 
         struct DeviceDependent
         {
