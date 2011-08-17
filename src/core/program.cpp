@@ -296,7 +296,7 @@ cl_int Program::build(const char *options,
         setDevices(num_devices, device_list);
     }
 
-    for (cl_uint i=0; i<num_devices; ++i)
+    for (cl_uint i=0; i<p_device_dependent.size(); ++i)
     {
         DeviceDependent &dep = deviceDependent(device_list[i]);
 
