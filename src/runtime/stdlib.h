@@ -1,19 +1,33 @@
 /* Types */
 
-typedef unsigned char uchar;
-typedef unsigned short ushort;
-typedef unsigned int uint;
-typedef unsigned long ulong;
-typedef int *intptr_t;
-typedef uint *uintptr_t;
+/* Standard types from Clang's stddef and stdint, Copyright (C) 2008 Eli Friedman */
+typedef signed __INT64_TYPE__ int64_t;
+typedef unsigned __INT64_TYPE__ uint64_t;
+typedef signed __INT32_TYPE__ int32_t;
+typedef unsigned __INT32_TYPE__ uint32_t;
+typedef signed __INT16_TYPE__ int16_t;
+typedef unsigned __INT16_TYPE__ uint16_t;
+typedef signed __INT8_TYPE__ int8_t;
+typedef unsigned __INT8_TYPE__ uint8_t;
+
+#define __stdint_join3(a,b,c) a ## b ## c
+#define  __intn_t(n) __stdint_join3( int, n, _t)
+#define __uintn_t(n) __stdint_join3(uint, n, _t)
+
+typedef __typeof__(((int*)0)-((int*)0)) ptrdiff_t;
+typedef __typeof__(sizeof(int)) size_t;
+typedef  __intn_t(__INTPTR_WIDTH__)  intptr_t;
+typedef __uintn_t(__INTPTR_WIDTH__) uintptr_t;
+
+/* OpenCL types */
+typedef uint8_t uchar;
+typedef uint16_t ushort;
+typedef uint32_t uint;
+typedef uint64_t ulong;
 
 typedef unsigned int sampler_t;
 typedef struct image2d *image2d_t;
 typedef struct image3d *image3d_t;
-
-/* Standard types from Clang's stddef, Copyright (C) 2008 Eli Friedman */
-typedef __typeof__(((int*)0)-((int*)0)) ptrdiff_t;
-typedef __typeof__(sizeof(int)) size_t;
 
 /* Vectors */
 #define COAL_VECTOR(type, len)                                  \
