@@ -5,7 +5,7 @@
 #include "worker.h"
 #include "builtins.h"
 
-#include "config.h"
+#include <core/config.h>
 #include "../propertylist.h"
 #include "../commandqueue.h"
 #include "../events.h"

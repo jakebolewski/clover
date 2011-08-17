@@ -1,6 +1,6 @@
 #include "CL/cl.h"
 #include <cstring>
-#include <config.h>
+#include <core/config.h>
 
 static const char platform_profile[] = "FULL_PROFILE";
 static const char platform_version[] = "OpenCL 1.1 MESA " COAL_VERSION;

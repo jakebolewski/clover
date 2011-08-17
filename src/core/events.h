@@ -2,7 +2,7 @@
 #define __EVENTS_H__
 
 #include "commandqueue.h"
-#include "config.h"
+#include <core/config.h>
 
 #include <vector>
 

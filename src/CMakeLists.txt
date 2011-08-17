@@ -3,8 +3,7 @@ include_directories (${Coal_SOURCE_DIR}/include
                     ${LLVM_INCLUDE_DIR}
                     ${GALLIUM_INCLUDE_DIRS}
                     ${CLANG_INCLUDE_DIRS}
-                    ${CMAKE_CURRENT_BINARY_DIR}/core/
-                    ${CMAKE_CURRENT_BINARY_DIR}/runtime/
+                    ${CMAKE_CURRENT_BINARY_DIR}
                     )
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")

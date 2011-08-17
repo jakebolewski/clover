@@ -2,7 +2,7 @@
 #define __CPU_KERNEL_H__
 
 #include "../deviceinterface.h"
-#include "config.h"
+#include <core/config.h>
 
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include <vector>
