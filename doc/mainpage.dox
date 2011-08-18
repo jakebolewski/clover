@@ -1,5 +1,5 @@
 /**
- * \mainpage OpenCL Software Implementation
+ * \mainpage OpenCL 1.1 Software Implementation
  *
  * Clover is a project started in June 2011 as a Google Summer of Code project. Its goal is to provide an Open Source OpenCL implementation usable by everyone wanting to use or develop for OpenCL without having to use proprietary drivers or SDKs (like the Intel's one).
  *
