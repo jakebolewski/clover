@@ -31,11 +31,11 @@
  * Here is the recommended order in which to read the functions:
  *
  * - A small self-contained API is used to get information about the "Platform", in src/api/api_platform.cpp
- * - Then, the platform is used to query the devices, in src/api/api_devices.cpp . This is the first API file that uses C++ classes. The hardware abstraction layer used is Coal::DeviceInterface. Take a look at the Coal::CPUDevice class, implementing this interface, in src/core/cpu/device.cpp .
- * - The device is then used to create a Coal::Context, in src/api/api_context.cpp then src/core/context.cpp .
- * - When a context is built, one can use it to do many thing. For example, it's possible to create buffer objects. Take a look at clCreateBuffer(), and the Coal::Buffer and Coal::CPUBuffer classes.
- * - A big part of Clover is dedicated to command queues, implemented in the Coal::CommandQueue class. Its special architecture is documented in detail in the \subpage events page.
- * - There is also the Coal::Program class, that compiles OpenCL C code into LLVM IR using Coal::Compiler (a simple wrapper around Clang).
- * - A program contains one or more kernels. Take a look at Coal::Kernel for how they are handled.
- * - Coal::Program and Coal::Kernel are device-independent classes. They use device-specific classes like Coal::CPUProgram and Coal::CPUKernel. The former translates LLVM IR instructions into machine code using the LLVM's JIT, the latter is a bit more complex and described in the \subpage llvm page.
+ * - Then, the platform is used to query the devices, in src/api/api_devices.cpp . This is the first API file that uses C++ classes. The hardware abstraction layer used is \c Coal::DeviceInterface. Take a look at the \c Coal::CPUDevice class, implementing this interface, in src/core/cpu/device.cpp .
+ * - The device is then used to create a \c Coal::Context, in src/api/api_context.cpp then src/core/context.cpp .
+ * - When a context is built, one can use it to do many thing. For example, it's possible to create buffer objects. Take a look at \c clCreateBuffer(), and the \c Coal::Buffer and \c Coal::CPUBuffer classes.
+ * - A big part of Clover is dedicated to command queues, implemented in the \c Coal::CommandQueue class. Its special architecture is documented in detail in the \subpage events page.
+ * - There is also the \c Coal::Program class, that compiles OpenCL C code into LLVM IR using \c Coal::Compiler (a simple wrapper around Clang).
+ * - A program contains one or more kernels. Take a look at \c Coal::Kernel for how they are handled.
+ * - \c Coal::Program and \c Coal::Kernel are device-independent classes. They use device-specific classes like \c Coal::CPUProgram and \c Coal::CPUKernel. The former translates LLVM IR instructions into machine code using the LLVM's JIT, the latter is a bit more complex and described in the \subpage llvm page.
  */
