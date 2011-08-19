@@ -34,7 +34,12 @@
 
 using namespace Coal;
 
-std::list<Object *> known_objects;
+static std::list<Object *>& getKnownObjects()
+{
+    static std::list<Object *> known_objects;
+    return known_objects;
+}
+
 
 Object::Object(Type type, Object *parent)
 : p_references(1), p_parent(parent), p_type(type), p_release_parent(true)
@@ -43,8 +48,8 @@ Object::Object(Type type, Object *parent)
         parent->reference();
 
     // Add object in the list of known objects
-    known_objects.push_front(this);
-    p_it = known_objects.begin();
+    getKnownObjects().push_front(this);
+    p_it = getKnownObjects().begin();
 }
 
 Object::~Object()
@@ -53,7 +58,7 @@ Object::~Object()
         delete p_parent;
 
     // Remove object from the list of known objects
-    known_objects.erase(p_it);
+    getKnownObjects().erase(p_it);
 }
 
 void Object::reference()
@@ -94,8 +99,8 @@ bool Object::isA(Object::Type type) const
         return false;
 
     // Check that the value isn't garbage or freed pointer
-    std::list<Object *>::const_iterator it = known_objects.begin(),
-                                        e = known_objects.end();
+    std::list<Object *>::const_iterator it = getKnownObjects().begin(),
+                                        e = getKnownObjects().end();
     while (it != e)
     {
         if (*it == this)
