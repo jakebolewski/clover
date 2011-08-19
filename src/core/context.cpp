@@ -25,6 +25,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file context.cpp
+ * \brief Context
+ */
+
 #include "context.h"
 #include "deviceinterface.h"
 #include "propertylist.h"

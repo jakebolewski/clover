@@ -25,6 +25,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file cpu/builtins.cpp
+ * \brief Native OpenCL C built-in functions
+ */
+
 #include "builtins.h"
 #include "kernel.h"
 #include "buffer.h"

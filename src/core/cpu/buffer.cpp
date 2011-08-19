@@ -25,6 +25,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file cpu/buffer.cpp
+ * \brief CPU buffer
+ */
+
 #include "buffer.h"
 #include "device.h"
 

@@ -25,6 +25,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file api_program.cpp
+ * \brief Programs
+ */
+
 #include "CL/cl.h"
 #include <core/program.h>
 #include <core/context.h>

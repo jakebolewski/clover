@@ -25,6 +25,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file api_sampler.cpp
+ * \brief Samplers
+ */
+
 #include "CL/cl.h"
 
 #include "core/sampler.h"

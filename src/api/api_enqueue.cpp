@@ -25,6 +25,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file api_enqueue.cpp
+ * \brief Events
+ */
+
 #include <CL/cl.h>
 
 #include <core/events.h>

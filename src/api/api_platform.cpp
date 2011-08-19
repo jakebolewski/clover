@@ -25,6 +25,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file api_platform.cpp
+ * \brief Platform
+ */
+
 #include "CL/cl.h"
 #include <cstring>
 #include <core/config.h>

@@ -25,6 +25,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file core/program.cpp
+ * \brief Program
+ */
+
 #include "program.h"
 #include "context.h"
 #include "compiler.h"

@@ -25,6 +25,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file compiler.cpp
+ * \brief Compiler wrapper around Clang
+ */
+
 #include "compiler.h"
 
 #include <cstring>

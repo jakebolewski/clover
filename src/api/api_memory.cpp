@@ -25,6 +25,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file api_memory.cpp
+ * \brief Memory objects
+ */
+
 #include "CL/cl.h"
 #include <core/memobject.h>
 #include <core/context.h>

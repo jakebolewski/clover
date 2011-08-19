@@ -25,6 +25,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file events.cpp
+ * \brief Events inheriting \c Coal::Event
+ */
+
 #include "events.h"
 #include "commandqueue.h"
 #include "memobject.h"

@@ -25,6 +25,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file object.cpp
+ * \brief Reference-counted object tree
+ */
+
 #include "object.h"
 
 using namespace Coal;

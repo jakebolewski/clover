@@ -25,6 +25,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file api_profiling.cpp
+ * \brief Profiling of events
+ */
+
 #include "CL/cl.h"
 #include <core/commandqueue.h>
 

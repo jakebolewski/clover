@@ -25,6 +25,12 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file cpu/worker.cpp
+ * \brief Code running in the worker threads launched by \c Coal::CPUDevice
+ * \sa builtins.cpp
+ */
+
 #include "worker.h"
 #include "device.h"
 #include "buffer.h"

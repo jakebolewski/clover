@@ -25,6 +25,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file api_context.cpp
+ * \brief Contexts
+ */
+
 #include <CL/cl.h>
 #include <core/context.h>
 

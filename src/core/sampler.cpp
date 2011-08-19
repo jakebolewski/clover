@@ -25,6 +25,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file sampler.cpp
+ * \brief Sampler
+ */
+
 #include "sampler.h"
 #include "context.h"
 #include "deviceinterface.h"

@@ -25,6 +25,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file api_event.cpp
+ * \brief Special events and event management
+ */
+
 #include <CL/cl.h>
 
 #include <core/commandqueue.h>

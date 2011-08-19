@@ -25,6 +25,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file cpu/kernel.cpp
+ * \brief CPU kernel
+ */
+
 #include "kernel.h"
 #include "device.h"
 #include "buffer.h"

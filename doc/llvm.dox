@@ -17,7 +17,7 @@
  *
  * Once the \c Coal::Program objects holds the source, \c clBuildProgram() can be used to compile it. It does so by invoking \c Coal::Program::build().
  *
- * This big function compiles and links the program, so it will be explained later. The actual compilation job is done by \c Coal::Compiler. It does that in \c Coal::Compiler::compile, and then keeps the compilation log and options at hand for future use.
+ * This big function compiles and links the program, so it will be explained later. The actual compilation job is done by \c Coal::Compiler. It does that in \c Coal::Compiler::compile(), and then keeps the compilation log and options at hand for future use.
  *
  * When a program is compiled, the client application can retrieve it by using \c clGetProgramInfo().
  *
@@ -27,7 +27,7 @@
  *
  * The separation between the unlinked binary and the linked one is the reason for the existence of \c Coal::Program::DeviceDependent::unlinked_binary. The source is compiled to LLVM IR in a module (temporarily stored in linked_module, though it isn't linked yet), that is dumped to unlinked_binary and then linked to form a full executable program.
  *
- * So, \c Coal::Program::build() runs its code for every device for which a program must be built. These devices are either given at \c Coal::Program::loadBinaries, or as arguments to \c Coal::Program::build().
+ * So, \c Coal::Program::build() runs its code for every device for which a program must be built. These devices are either given at \c Coal::Program::loadBinaries(), or as arguments to \c Coal::Program::build().
  *
  * The first step is to see if the program was loaded with sources. If it's the case, they have to be compiled (see \ref compilation).
  *
@@ -37,7 +37,7 @@
  *
  * Then, the device is allowed to add more optimization or analysis passes. \c Coal::CPUProgram::createOptimizationPasses() adds standard link-time optimizations, but hardware-accelerated devices could add autovectorizing, lowering, or analysis passes.
  *
- * Finally, \c Coal::DeviceProgram::build is called. It's a no-op function for \c Coal::CPUDevice as it uses directly the module with a LLVM JIT, but hardware devices could use this function to actually compile the program for the target device (LLVM to TGSI transformation for example).
+ * Finally, \c Coal::DeviceProgram::build() is called. It's a no-op function for \c Coal::CPUDevice as it uses directly the module with a LLVM JIT, but hardware devices could use this function to actually compile the program for the target device (LLVM to TGSI transformation for example).
  *
  * The program is now built and ready to be usable !
  *

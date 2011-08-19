@@ -25,6 +25,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file api_device.cpp
+ * \brief Devices
+ */
+
 #include "CL/cl.h"
 #include <core/cpu/device.h>
 

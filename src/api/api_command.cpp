@@ -25,6 +25,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file api_command.cpp
+ * \brief Command queues
+ */
+
 #include <core/commandqueue.h>
 #include <core/deviceinterface.h>
 #include <core/context.h>

@@ -25,6 +25,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file memobject.cpp
+ * \brief Memory objects
+ */
+
 #include "memobject.h"
 #include "context.h"
 #include "deviceinterface.h"

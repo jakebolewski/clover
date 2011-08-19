@@ -25,6 +25,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file api_kernel.cpp
+ * \brief Kernels
+ */
+
 #include "CL/cl.h"
 
 #include <core/program.h>

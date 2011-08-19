@@ -25,6 +25,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file api_flush.cpp
+ * \brief clFlush and clFinish
+ */
+
 #include "CL/cl.h"
 #include "core/commandqueue.h"
 
