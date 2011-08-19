@@ -25,6 +25,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file sampler.h
+ * \brief Sampler object
+ */
+
 #ifndef __SAMPLER_H__
 #define __SAMPLER_H__
 
@@ -52,19 +57,45 @@ namespace Coal
 
 class Context;
 
+/**
+ * \brief Sampler
+ * 
+ * This object doesn't do anything intersting, it only converts a set of
+ * host OpenCL constants to constants that will be used by the kernels and
+ * the image reading and writing built-in functions.
+ */
 class Sampler : public Object
 {
     public:
+        /**
+         * \brief Constructor
+         * \param ctx parent \c Coal::Context
+         * \param normalized_coords true if the coords given to the built-in
+         *        image functions are normalized, false otherwise
+         * \param addressing_mode addressing mode used to read images
+         * \param filter_mode filter mode used to read images
+         * \param errcode_ret return code (\c CL_SUCCESS if all is good)
+         */
         Sampler(Context *ctx,
                 cl_bool normalized_coords,
                 cl_addressing_mode addressing_mode,
                 cl_filter_mode filter_mode,
                 cl_int *errcode_ret);
+
+        /**
+         * \brief Simpler constructor
+         * \param ctx parent \c Coal::Context
+         * \param bitfield bitfield already calculated
+         */
         Sampler(Context *ctx,
                 unsigned int bitfield);
 
-        unsigned int bitfield() const;
+        unsigned int bitfield() const; /*!< \brief Bitfield value usable by the kernels */
 
+        /**
+         * \brief Get information about the sampler
+         * \copydetails Coal::DeviceInterface::info
+         */
         cl_int info(cl_sampler_info param_name,
                     size_t param_value_size,
                     void *param_value,

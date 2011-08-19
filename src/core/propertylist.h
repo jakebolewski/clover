@@ -25,21 +25,92 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file propertylist.h
+ * \brief Helper macros for \c info() functions
+ * 
+ * The OpenCL API is full of functions like \c clGetXXXInfo(). They all take
+ * the same arguments and are handled the same way. This file contains macros
+ * easing the implementation of these info functions.
+ * 
+ * One info function, using these macros, looks like that:
+ *
+ * \code
+ * cl_int Foo::info(cl_foo_info param_name,
+ *                  size_t param_value_size,
+ *                  void *param_value,
+ *                  size_t *param_value_size_ret) const
+ * {
+ *     void *value = 0;
+ *     size_t value_length = 0;
+ * 
+ *     union {
+ *         cl_uint cl_uint_var;
+ *         cl_context cl_context_var;
+ *     };
+ * 
+ *     switch (param_name)
+ *     {
+ * 		case CL_UINT_PARAM:
+ * 		    SIMPLE_ASSIGN(cl_uint, the_value);
+ * 		    break;
+ * 		case CL_CONTEXT_PARAM:
+ * 		    SIMPLE_ASSIGN(cl_context, a_call());
+ * 		    break;
+ * 		case CL_STRING_PARAM:
+ * 		    STRING_ASSIGN("This is a string");
+ * 		    break;
+ * 		case CL_BINARY_PARAM:
+ * 		    MEM_ASSIGN(sizeof(something), something);
+ * 		    break;
+ *      default:
+ *          return CL_INVALID_VALUE;
+ *     }
+ * 
+ *     if (param_value && param_value_size < value_length)
+ *         return CL_INVALID_VALUE;
+ * 
+ *     if (param_value_size_ret)
+ *         *param_value_size_ret = value_length;
+ * 
+ *     if (param_value)
+ *         std::memcpy(param_value, value, value_length);
+ * 
+ *     return CL_SUCCESS;
+ * }
+ * \endcode
+ */
+
 #ifndef __PROPERTYLIST_H__
 #define __PROPERTYLIST_H__
 
+/**
+ * \brief Assign a value of a given type to the return value
+ * \param type type of the argument
+ * \param _value value to assign
+ */
 #define SIMPLE_ASSIGN(type, _value) do {    \
     value_length = sizeof(type);            \
     type##_var = (type)_value;              \
     value = & type##_var;                   \
 } while (0);
 
+/**
+ * \brief Assign a string to the return value
+ * \param string the string to assign, as a constant
+ */
 #define STRING_ASSIGN(string) do {          \
     static const char str[] = string;       \
     value_length = sizeof(str);             \
     value = (void *)str;                    \
 } while (0);
 
+/**
+ * \brief Assign a memory buffer to the return value
+ * \note the buffer must remain valid after the end of the \c info() call
+ * \param size size of the buffer
+ * \param buf buffer (of type <tt>void *</tt> for instance)
+ */
 #define MEM_ASSIGN(size, buf) do {          \
     value_length = size;                    \
     value = (void *)buf;                    \

@@ -25,6 +25,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file core/program.h
+ * \brief Program
+ */
+
 #ifndef __PROGRAM_H__
 #define __PROGRAM_H__
 
@@ -50,49 +55,146 @@ class DeviceInterface;
 class DeviceProgram;
 class Kernel;
 
+/**
+ * \brief Program object
+ * 
+ * This class compiles and links a source or binaries into LLVM modules for each
+ * \c Coal::DeviceInterface for which the program is built.
+ * 
+ * It then contains functions to get the list of kernels available in the
+ * program, using \c Coal::Kernel objects.
+ */
 class Program : public Object
 {
     public:
+        /**
+         * \brief Constructor
+         * \param ctx parent \c Coal::Context
+         */
         Program(Context *ctx);
         ~Program();
 
+        /**
+         * \brief Program type
+         */
         enum Type
         {
-            Invalid,
-            Source,
-            Binary
+            Invalid, /*!< Invalid or unknown, type of a program not already loaded */
+            Source,  /*!< Program made of sources that must be compiled and linked */
+            Binary   /*!< Program made of pre-built binaries that only need to be linked */
         };
 
+        /**
+         * \brief Program state
+         */
         enum State
         {
-            Empty,  /*!< Just created */
-            Loaded, /*!< Source or binary loaded */
-            Built,  /*!< Built */
-            Failed, /*!< Build failed */
+            Empty,   /*!< Just created */
+            Loaded,  /*!< Source or binary loaded */
+            Built,   /*!< Built */
+            Failed,  /*!< Build failed */
         };
 
+        /**
+         * \brief Load sources into the program
+         * 
+         * This function loads the source-code given in \p strings into the
+         * program and sets its type to \c Source.
+         * 
+         * \param count number of strings in \p strings
+         * \param strings array of pointers to strings, either null-terminated 
+         *        or of length given in \p lengths
+         * \param lengths lengths of the strings. If a field is 0, the 
+         *        corresponding string is null-terminated. If \p lengths is
+         *        0, all the strings are null-terminated
+         * \return \c CL_SUCCESS if success, an error code otherwise
+         */
         cl_int loadSources(cl_uint count, const char **strings,
                            const size_t *lengths);
+
+        /**
+         * \brief Load binaries into the program
+         * 
+         * This function allows client application to load a source, retrieve
+         * binaries using \c buildInfo(), and then re-create the same program
+         * (after a restart for example) by giving it a precompiled binary.
+         * 
+         * This function loads the binaries for each device and parse them into
+         * LLVM modules, then sets the program type to \c Binary.
+         * 
+         * \param data array of pointers to binaries, one for each device
+         * \param lengths lengths of the binaries pointed to by \p data
+         * \param binary_status array that will be filled by this function with
+         *        the status of each loaded binary (\c CL_SUCCESS if success)
+         * \param num_devices number of devices for which a binary is loaded
+         * \param device_list list of devices for which the binaries are loaded
+         * \return \c CL_SUCCESS if success, an error code otherwise
+         */
         cl_int loadBinaries(const unsigned char **data, const size_t *lengths,
                             cl_int *binary_status, cl_uint num_devices,
                             DeviceInterface * const*device_list);
+
+        /**
+         * \brief Build the program
+         * 
+         * This function compiles the sources, if any, and then link the
+         * resulting binaries if the devices for which they are compiled asks
+         * \c Coal::Program to do so, using \c Coal::DeviceProgram::linkStdLib().
+         * 
+         * \param options options to pass to the compiler, see the OpenCL 
+         *        specification.
+         * \param pfn_notify callback function called at the end of the build
+         * \param user_data user data given to \p pfn_notify
+         * \param num_devices number of devices for which binaries are being
+         *        built. If it's a source-based program, this can be 0.
+         * \param device_list list of devices for which the program will be built.
+         * \return \c CL_SUCCESS if success, an error code otherwise
+         */
         cl_int build(const char *options,
                      void (CL_CALLBACK *pfn_notify)(cl_program program,
                                                     void *user_data),
                      void *user_data, cl_uint num_devices,
                      DeviceInterface * const*device_list);
 
-        Type type() const;
-        State state() const;
+        Type type() const;   /*!< \brief Type of the program */
+        State state() const; /*!< \brief State of the program */
 
+        /**
+         * \brief Create a kernel given a \p name
+         * \param name name of the kernel to be created
+         * \param errcode_ret return code (\c CL_SUCCESS if success)
+         * \return a \c Coal::Kernel object corresponding to the given \p name
+         */
         Kernel *createKernel(const std::string &name, cl_int *errcode_ret);
+        
+        /**
+         * \brief Create all the kernels of the program
+         * \param errcode_ret return code (\c CL_SUCCESS if success)
+         * \return the list of \c Coal::Kernel objects of this program
+         */
         std::vector<Kernel *> createKernels(cl_int *errcode_ret);
+        
+        /**
+         * \brief Device-specific program
+         * \param device device for which the device-specific program is needed
+         * \return the device-specific program requested, 0 if not found
+         */
         DeviceProgram *deviceDependentProgram(DeviceInterface *device) const;
 
+        /**
+         * \brief Get information about this program
+         * \copydetails Coal::DeviceInterface::info
+         */
         cl_int info(cl_program_info param_name,
                     size_t param_value_size,
                     void *param_value,
                     size_t *param_value_size_ret) const;
+
+        /**
+         * \brief Get build info about this program (log, binaries, etc)
+         * \copydetails Coal::DeviceInterface::info
+         * \param device \c Coal::DeviceInterface for which info is needed
+         */
         cl_int buildInfo(DeviceInterface *device,
                          cl_program_build_info param_name,
                          size_t param_value_size,
