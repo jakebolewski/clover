@@ -239,18 +239,6 @@ void CPUKernelWorkGroup::barrier(unsigned int flags)
     // a barrier and that we returned to this one. We can continue.
 }
 
-void *CPUKernelWorkGroup::getImageData(Image2D *image, int x, int y, int z) const
-{
-    CPUBuffer *buffer =
-        (CPUBuffer *)image->deviceBuffer((DeviceInterface *)p_kernel->device());
-
-    return imageData((unsigned char *)buffer->data(),
-                     x, y, z,
-                     image->row_pitch(),
-                     image->slice_pitch(),
-                     image->pixel_size());
-}
-
 void CPUKernelWorkGroup::builtinNotFound(const std::string &name) const
 {
     std::cout << "OpenCL: Non-existant builtin function " << name
@@ -309,17 +297,17 @@ static void barrier(unsigned int flags)
 
 // Images
 
-int get_image_width(Image2D *image)
+static int get_image_width(Image2D *image)
 {
     return image->width();
 }
 
-int get_image_height(Image2D *image)
+static int get_image_height(Image2D *image)
 {
     return image->height();
 }
 
-int get_image_depth(Image3D *image)
+static int get_image_depth(Image3D *image)
 {
     if (image->type() != MemObject::Image3D)
         return 1;
@@ -327,17 +315,17 @@ int get_image_depth(Image3D *image)
     return image->depth();
 }
 
-int get_image_channel_data_type(Image2D *image)
+static int get_image_channel_data_type(Image2D *image)
 {
     return image->format().image_channel_data_type;
 }
 
-int get_image_channel_order(Image2D *image)
+static int get_image_channel_order(Image2D *image)
 {
     return image->format().image_channel_order;
 }
 
-void *image_data(Image2D *image, int x, int y, int z, int *order, int *type)
+static void *image_data(Image2D *image, int x, int y, int z, int *order, int *type)
 {
     *order = image->format().image_channel_order;
     *type = image->format().image_channel_data_type;
@@ -345,9 +333,24 @@ void *image_data(Image2D *image, int x, int y, int z, int *order, int *type)
     return g_work_group->getImageData(image, x, y, z);
 }
 
-bool is_image_3d(Image3D *image)
+static bool is_image_3d(Image3D *image)
 {
     return (image->type() == MemObject::Image3D ? 1 : 0);
+}
+
+static void write_imagef(Image2D *image, int x, int y, int z, float *color)
+{
+    g_work_group->writeImage(image, x, y, z, color);
+}
+
+static void write_imagei(Image2D *image, int x, int y, int z, int32_t *color)
+{
+    g_work_group->writeImage(image, x, y, z, color);
+}
+
+static void write_imageui(Image2D *image, int x, int y, int z, uint32_t *color)
+{
+    g_work_group->writeImage(image, x, y, z, color);
 }
 
 /*
@@ -392,6 +395,12 @@ void *getBuiltin(const std::string &name)
         return (void *)&image_data;
     else if (name == "__cpu_is_image_3d")
         return (void *)&is_image_3d;
+    else if (name == "__cpu_write_imagef")
+        return (void *)&write_imagef;
+    else if (name == "__cpu_write_imagei")
+        return (void *)&write_imagei;
+    else if (name == "__cpu_write_imageui")
+        return (void *)&write_imageui;
 
     else if (name == "debug")
         return (void *)&printf;

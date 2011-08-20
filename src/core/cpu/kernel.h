@@ -37,6 +37,7 @@
 
 #include <ucontext.h>
 #include <pthread.h>
+#include <stdint.h>
 
 namespace llvm
 {
@@ -100,8 +101,13 @@ class CPUKernelWorkGroup
         size_t getNumGroups(cl_uint dimindx) const;
         size_t getGroupID(cl_uint dimindx) const;
         size_t getGlobalOffset(cl_uint dimindx) const;
+
         void barrier(unsigned int flags);
+
         void *getImageData(Image2D *image, int x, int y, int z) const;
+        void writeImage(Image2D *image, int x, int y, int z, float *color) const;
+        void writeImage(Image2D *image, int x, int y, int z, int32_t *color) const;
+        void writeImage(Image2D *image, int x, int y, int z, uint32_t *color) const;
 
         void builtinNotFound(const std::string &name) const;
 

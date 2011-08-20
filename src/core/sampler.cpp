@@ -26,7 +26,7 @@
  */
 
 /**
- * \file sampler.cpp
+ * \file core/sampler.cpp
  * \brief Sampler
  */
 

@@ -50,6 +50,10 @@ int __cpu_get_image_channel_order(void *image);
 int __cpu_is_image_3d(void *image);
 void *__cpu_image_data(void *image, int x, int y, int z, int *order, int *type);
 
+void __cpu_write_imagef(void *image, int x, int y, int z, float4 *color);
+void __cpu_write_imagei(void *image, int x, int y, int z, int4 *color);
+void __cpu_write_imageui(void *image, int x, int y, int z, uint4 *color);
+
 int4 handle_address_mode(image3d_t image, int4 coord, sampler_t sampler)
 {
     coord.w = 0;
@@ -743,283 +747,33 @@ uint4 OVERLOAD read_imageui(image3d_t image, sampler_t sampler, float4 coord)
 
 void OVERLOAD write_imagef(image2d_t image, int2 coord, float4 color)
 {
-    int4 c;
-    c.xy = coord;
-    c.zw = 0;
-
-    write_imagef((image3d_t)image, c, color);
+    __cpu_write_imagef(image, coord.x, coord.y, 0, &color);
 }
 
 void OVERLOAD write_imagef(image3d_t image, int4 coord, float4 color)
 {
-    int order, type;
-    void *v_target = __cpu_image_data(image, coord.x, coord.y, coord.z, &order, &type);
-
-#define SWIZZLE(order, target, data)    \
-    switch (order)                      \
-    {                                   \
-        case CLK_R:                     \
-        case CLK_Rx:                    \
-            (*target).x = data.x;       \
-            break;                      \
-        case CLK_A:                     \
-            (*target).x = data.w;       \
-            break;                      \
-        case CLK_RG:                    \
-        case CLK_RGx:                   \
-            (*target).xy = data.xy;     \
-            break;                      \
-        case CLK_RA:                    \
-            (*target).xy = data.xw;     \
-            break;                      \
-        case CLK_RGBA:                  \
-            *target = data;             \
-            break;                      \
-        case CLK_BGRA:                  \
-            (*target).zyxw = data.xyzw; \
-            break;                      \
-        case CLK_ARGB:                  \
-            (*target).wxyz = data.xyzw; \
-            break;                      \
-        case CLK_INTENSITY:             \
-        case CLK_LUMINANCE:             \
-            (*target).x = data.x;       \
-            break;                      \
-    }
-
-    switch (type)
-    {
-        case CLK_SNORM_INT8:
-        {
-            char4 *target = v_target;
-            char4 data;
-
-            // Denormalize
-            data.x = (color.x * 127.0f);
-            data.y = (color.y * 127.0f);
-            data.z = (color.z * 127.0f);
-            data.w = (color.w * 127.0f);
-
-            SWIZZLE(order, target, data)
-            break;
-        }
-        case CLK_UNORM_INT8:
-        {
-            uchar4 *target = v_target;
-            uchar4 data;
-
-            // Denormalize
-            data.x = (color.x * 255.0f);
-            data.y = (color.y * 255.0f);
-            data.z = (color.z * 255.0f);
-            data.w = (color.w * 255.0f);
-
-            SWIZZLE(order, target, data)
-            break;
-        }
-        case CLK_SNORM_INT16:
-        {
-            short4 *target = v_target;
-            short4 data;
-
-            // Denormalize
-            data.x = (color.x * 32767.0f);
-            data.y = (color.y * 32767.0f);
-            data.z = (color.z * 32767.0f);
-            data.w = (color.w * 32767.0f);
-
-            SWIZZLE(order, target, data)
-            break;
-        }
-        case CLK_UNORM_INT16:
-        {
-            ushort4 *target = v_target;
-            ushort4 data;
-
-            data.x = (color.x * 65535.0f);
-            data.y = (color.y * 65535.0f);
-            data.z = (color.z * 65535.0f);
-            data.w = (color.w * 65535.0f);
-
-            SWIZZLE(order, target, data)
-            break;
-        }
-        case CLK_FLOAT:
-        {
-            float4 *target = v_target;
-
-            SWIZZLE(order, target, color)
-            break;
-        }
-    }
-
-#undef SWIZZLE
+    __cpu_write_imagef(image, coord.x, coord.y, coord.z, &color);
 }
-
-#define SWIZZLE_8(target, data)         \
-        case CLK_ARGB:                  \
-            (*target).wxyz = data.xyzw; \
-            break;                      \
-        case CLK_BGRA:                  \
-            (*target).zyxw = data.xyzw; \
-            break;
-
-#define SWIZZLE_16(target, data)        \
-        case CLK_LUMINANCE:             \
-        case CLK_INTENSITY:             \
-            (*target).x = data.x;       \
-            break;
-
-#define SWIZZLE_32(target, data)        \
-        case CLK_R:                     \
-        case CLK_Rx:                    \
-            (*target).x = data.x;       \
-            break;                      \
-        case CLK_A:                     \
-            (*target).x = data.w;       \
-            break;                      \
-        case CLK_RG:                    \
-        case CLK_RGx:                   \
-            (*target).xy = data.xy;     \
-            break;                      \
-        case CLK_RA:                    \
-            (*target).xy = data.xw;     \
-            break;                      \
-        case CLK_RGBA:                  \
-            *target = data;             \
-            break;
 
 void OVERLOAD write_imagei(image2d_t image, int2 coord, int4 color)
 {
-    int4 c;
-    c.xy = coord;
-    c.zw = 0;
-
-    write_imagei((image3d_t)image, c, color);
+    __cpu_write_imagei(image, coord.x, coord.y, 0, &color);
 }
 
 void OVERLOAD write_imagei(image3d_t image, int4 coord, int4 color)
 {
-    int order, type;
-    void *v_target = __cpu_image_data(image, coord.x, coord.y, coord.z, &order, &type);
-
-    switch (type)
-    {
-        case CLK_SIGNED_INT8:
-        {
-            char4 *target = v_target;
-            char4 data;
-
-            data.x = color.x;
-            data.y = color.y;
-            data.z = color.z;
-            data.w = color.w;
-
-            switch (order)
-            {
-                SWIZZLE_8(target, data)
-                SWIZZLE_16(target, data)
-                SWIZZLE_32(target, data)
-            }
-
-            break;
-        }
-        case CLK_SIGNED_INT16:
-        {
-            short4 *target = v_target;
-            short4 data;
-
-            data.x = color.x;
-            data.y = color.y;
-            data.z = color.z;
-            data.w = color.w;
-
-            switch (order)
-            {
-                SWIZZLE_16(target, data)
-                SWIZZLE_32(target, data)
-            }
-
-            break;
-        }
-        case CLK_SIGNED_INT32:
-        {
-            int4 *target = v_target;
-
-            switch (order)
-            {
-                SWIZZLE_32(target, color)
-            }
-
-            break;
-        }
-    }
+    __cpu_write_imagei(image, coord.x, coord.y, coord.z, &color);
 }
 
 void OVERLOAD write_imageui(image2d_t image, int2 coord, uint4 color)
 {
-    int4 c;
-    c.xy = coord;
-    c.zw = 0;
-
-    write_imageui((image3d_t)image, c, color);
+   __cpu_write_imageui(image, coord.x, coord.y, 0, &color);
 }
 
 void OVERLOAD write_imageui(image3d_t image, int4 coord, uint4 color)
 {
-    int order, type;
-    void *v_target = __cpu_image_data(image, coord.x, coord.y, coord.z, &order, &type);
-
-    switch (type)
-    {
-        case CLK_UNSIGNED_INT8:
-        {
-            uchar4 *target = v_target;
-            uchar4 data;
-
-            data.x = color.x;
-            data.y = color.y;
-            data.z = color.z;
-            data.w = color.w;
-
-            switch (order)
-            {
-                SWIZZLE_8(target, data)
-                SWIZZLE_16(target, data)
-                SWIZZLE_32(target, data)
-            }
-        }
-        case CLK_UNSIGNED_INT16:
-        {
-            ushort4 *target = v_target;
-            ushort4 data;
-
-            data.x = color.x;
-            data.y = color.y;
-            data.z = color.z;
-            data.w = color.w;
-
-            switch (order)
-            {
-                SWIZZLE_16(target, data)
-                SWIZZLE_32(target, data)
-            }
-        }
-        case CLK_UNSIGNED_INT32:
-        {
-            uint4 *target = v_target;
-
-            switch (order)
-            {
-                SWIZZLE_32(target, color)
-            }
-        }
-    }
+    __cpu_write_imageui(image, coord.x, coord.y, coord.z, &color);
 }
-
-#undef SWIZZLE_8
-#undef SWIZZLE_16
-#undef SWIZZLE_32
 
 int2 OVERLOAD get_image_dim(image2d_t image)
 {

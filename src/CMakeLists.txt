@@ -41,6 +41,7 @@ set(COAL_SRC_FILES
     core/cpu/program.cpp
     core/cpu/worker.cpp
     core/cpu/builtins.cpp
+    core/cpu/sampler.cpp
 
     ${CMAKE_CURRENT_BINARY_DIR}/runtime/stdlib.h.embed.h
     ${CMAKE_CURRENT_BINARY_DIR}/runtime/stdlib.c.bc.embed.h
