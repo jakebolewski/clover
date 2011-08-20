@@ -35,6 +35,7 @@
  */
 
 #include "../memobject.h"
+#include "../sampler.h"
 #include "kernel.h"
 #include "buffer.h"
 #include "builtins.h"
@@ -43,6 +44,39 @@
 #include <immintrin.h>
 
 using namespace Coal;
+
+/*
+ * Helper functions
+ */
+
+static int clamp(int a, int b, int c)
+{
+    return (a < b) ? b : ((a > c) ? c : a);
+}
+
+static bool handle_address_mode(Image2D *image, int &x, int &y, int &z,
+                                uint32_t sampler)
+{
+    bool is_3d = (image->type() == MemObject::Image3D);
+    int w = image->width(),
+        h = image->height(),
+        d = (is_3d ? ((Image3D *)image)->depth() : 1);
+
+    if ((sampler & 0xf0) ==  CLK_ADDRESS_CLAMP_TO_EDGE)
+    {
+        x = clamp(x, 0, w - 1);
+        y = clamp(y, 0, h - 1);
+        if (is_3d) z = clamp(z, 0, d - 1);
+    }
+    else if ((sampler & 0xf0) == CLK_ADDRESS_CLAMP)
+    {
+        x = clamp(x, 0, w);
+        y = clamp(y, 0, h);
+        if (is_3d) z = clamp(z, 0, d);
+    }
+
+    return (x == w || y == h || z == d);
+}
 
 /*
  * Macros or functions used to accelerate the functions
@@ -60,70 +94,139 @@ static void slow_shuffle4(uint32_t *rs, uint32_t *a, uint32_t *b,
     rs[3] = (w < 4 ? a[w] : b[w - 4]);
 }
 
-static void slow_convert_to_format4f(float *data, cl_channel_type type)
+static void slow_convert_to_format4f(void *dest, float *data,
+                                     cl_channel_type type, unsigned int channels)
 {
     // Convert always the four components of source to target
     if (type == CL_FLOAT)
-        return;
+        std::memcpy(dest, data, channels * sizeof(float));
 
-    // NOTE: We can read and write at the same time in data because
-    //       we always begin wy reading 4 bytes (float) and never write
-    //       more than 4 bytes, so no data is corrupted
-    for (unsigned int i=0; i<3; ++i)
+    for (unsigned int i=0; i<channels; ++i)
     {
         switch (type)
         {
             case CL_SNORM_INT8:
-                ((int8_t *)data)[i] = data[i] * 128.0f;
+                ((int8_t *)dest)[i] = data[i] * 128.0f;
                 break;
             case CL_SNORM_INT16:
-                ((int16_t *)data)[i] = data[i] * 32767.0f;
+                ((int16_t *)dest)[i] = data[i] * 32767.0f;
                 break;
             case CL_UNORM_INT8:
-                ((uint8_t *)data)[i] = data[i] * 256.0f;
+                ((uint8_t *)dest)[i] = data[i] * 255.0f;
                 break;
             case CL_UNORM_INT16:
-                ((uint16_t *)data)[i] = data[i] * 65535.0f;
+                ((uint16_t *)dest)[i] = data[i] * 65535.0f;
                 break;
         }
     }
 }
 
-static void slow_convert_to_format4i(int *data, cl_channel_type type)
+static void slow_convert_from_format4f(float *data, void *source,
+                                       cl_channel_type type, unsigned int channels)
+{
+    // Convert always the four components of source to target
+    if (type == CL_FLOAT)
+        std::memcpy(data, source, channels * sizeof(float));
+
+    for (unsigned int i=0; i<channels; ++i)
+    {
+        switch (type)
+        {
+            case CL_SNORM_INT8:
+                data[i] = (float)((int8_t *)source)[i] / 127.0f;
+                break;
+            case CL_SNORM_INT16:
+                data[i] = (float)((int16_t *)source)[i] / 32767.0f;
+                break;
+            case CL_UNORM_INT8:
+                data[i] = (float)((uint8_t *)source)[i] / 127.0f;
+                break;
+            case CL_UNORM_INT16:
+                data[i] = (float)((uint16_t *)source)[i] / 127.0f;
+                break;
+        }
+    }
+}
+
+static void slow_convert_to_format4i(void *dest, int *data,
+                                     cl_channel_type type, unsigned int channels)
 {
     // Convert always the four components of source to target
     if (type == CL_SIGNED_INT32)
-        return;
+        std::memcpy(dest, data, channels * sizeof(int32_t));
 
-    for (unsigned int i=0; i<3; ++i)
+    for (unsigned int i=0; i<channels; ++i)
     {
         switch (type)
         {
             case CL_SIGNED_INT8:
-                ((int8_t *)data)[i] = data[i];
+                ((int8_t *)dest)[i] = data[i];
                 break;
             case CL_SIGNED_INT16:
-                ((int16_t *)data)[i] = data[i];
+                ((int16_t *)dest)[i] = data[i];
                 break;
         }
     }
 }
 
-static void slow_convert_to_format4ui(uint32_t *data, cl_channel_type type)
+static void slow_convert_from_format4i(int32_t *data, void *source,
+                                       cl_channel_type type, unsigned int channels)
+{
+    // Convert always the four components of source to target
+    if (type == CL_SIGNED_INT32)
+        std::memcpy(data, source, channels * sizeof(int32_t));
+
+    for (unsigned int i=0; i<channels; ++i)
+    {
+        switch (type)
+        {
+            case CL_SIGNED_INT8:
+                data[i] = ((int8_t *)source)[i];
+                break;
+            case CL_SIGNED_INT16:
+                data[i] = ((int16_t *)source)[i];
+                break;
+        }
+    }
+}
+
+static void slow_convert_to_format4ui(void *dest, uint32_t *data,
+                                      cl_channel_type type, unsigned int channels)
 {
     // Convert always the four components of source to target
     if (type == CL_UNSIGNED_INT32)
-        return;
+        std::memcpy(dest, data, channels * sizeof(uint32_t));
 
     for (unsigned int i=0; i<3; ++i)
     {
         switch (type)
         {
             case CL_UNSIGNED_INT8:
-                ((uint8_t *)data)[i] = data[i];
+                ((uint8_t *)dest)[i] = data[i];
                 break;
             case CL_UNSIGNED_INT16:
-                ((uint16_t *)data)[i] = data[i];
+                ((uint16_t *)dest)[i] = data[i];
+                break;
+        }
+    }
+}
+
+static void slow_convert_from_format4ui(uint32_t *data, void *source,
+                                        cl_channel_type type, unsigned int channels)
+{
+    // Convert always the four components of source to target
+    if (type == CL_UNSIGNED_INT32)
+        std::memcpy(data, source, channels * sizeof(uint32_t));
+
+    for (unsigned int i=0; i<channels; ++i)
+    {
+        switch (type)
+        {
+            case CL_UNSIGNED_INT8:
+                data[i] = ((uint8_t *)source)[i];
+                break;
+            case CL_UNSIGNED_INT16:
+                data[i] = ((uint16_t *)source)[i];
                 break;
         }
     }
@@ -138,14 +241,23 @@ static void slow_convert_to_format4ui(uint32_t *data, cl_channel_type type)
         slow_shuffle4(rs, a, b, x, y, z, w)
 #endif
 
-    #define convert_to_format4f(data, type) \
-        slow_convert_to_format4f(data, type)
+    #define convert_to_format4f(dest, data, type, channels) \
+        slow_convert_to_format4f(dest, data, type, channels)
 
-    #define convert_to_format4i(data, type) \
-        slow_convert_to_format4i(data, type)
+    #define convert_to_format4i(dest, data, type, channels) \
+        slow_convert_to_format4i(dest, data, type, channels)
 
-    #define convert_to_format4ui(data, type) \
-        slow_convert_to_format4ui(data, type)
+    #define convert_to_format4ui(data, source, type, channels) \
+        slow_convert_to_format4ui(data, source, type, channels)
+
+    #define convert_from_format4f(data, source, type, channels) \
+        slow_convert_from_format4f(data, source, type, channels)
+
+    #define convert_from_format4i(data, source, type, channels) \
+        slow_convert_from_format4i(data, source, type, channels)
+
+    #define convert_from_format4ui(data, source, type, channels) \
+        slow_convert_from_format4ui(data, source, type, channels)
 
 static void swizzle(uint32_t *target, uint32_t *source,
                     cl_channel_order order, bool reading, uint32_t t_max)
@@ -250,14 +362,14 @@ void CPUKernelWorkGroup::writeImage(Image2D *image, int x, int y, int z,
     swizzle((uint32_t *)converted, (uint32_t *)color,
             image->format().image_channel_order, false, 0);
 
-    // Convert color to the correct format
-    convert_to_format4f(converted, image->format().image_channel_data_type);
-
     // Get a pointer in the image where to write the data
     void *target = getImageData(image, x, y, z);
 
-    // Copy the converted data to the image
-    std::memcpy(target, converted, image->pixel_size());
+    // Convert color to the correct format
+    convert_to_format4f(target,
+                        converted,
+                        image->format().image_channel_data_type,
+                        image->channels());
 }
 
 void CPUKernelWorkGroup::writeImage(Image2D *image, int x, int y, int z,
@@ -270,14 +382,14 @@ void CPUKernelWorkGroup::writeImage(Image2D *image, int x, int y, int z,
     swizzle((uint32_t *)converted, (uint32_t *)color,
             image->format().image_channel_order, false, 0);
 
-    // Convert color to the correct format
-    convert_to_format4i(converted, image->format().image_channel_data_type);
-
     // Get a pointer in the image where to write the data
     void *target = getImageData(image, x, y, z);
 
-    // Copy the converted data to the image
-    std::memcpy(target, converted, image->pixel_size());
+    // Convert color to the correct format
+    convert_to_format4i(target,
+                        converted,
+                        image->format().image_channel_data_type,
+                        image->channels());
 }
 
 void CPUKernelWorkGroup::writeImage(Image2D *image, int x, int y, int z,
@@ -287,15 +399,134 @@ void CPUKernelWorkGroup::writeImage(Image2D *image, int x, int y, int z,
 
     // Swizzle to the correct order (float, int and uint are 32-bit, so the
     // type has no importance
-    swizzle((uint32_t *)converted, (uint32_t *)color,
-            image->format().image_channel_order, false, 0);
-
-    // Convert color to the correct format
-    convert_to_format4ui(converted, image->format().image_channel_data_type);
+    swizzle(converted, color, image->format().image_channel_order, false, 0);
 
     // Get a pointer in the image where to write the data
     void *target = getImageData(image, x, y, z);
 
-    // Copy the converted data to the image
-    std::memcpy(target, converted, image->pixel_size());
+    // Convert color to the correct format
+    convert_to_format4ui(target,
+                         converted,
+                         image->format().image_channel_data_type,
+                         image->channels());
+}
+
+void CPUKernelWorkGroup::readImage(float *result, Image2D *image, int x, int y,
+                                   int z, int32_t sampler) const
+{
+    // Handle the addressing mode of the sampler
+    if (handle_address_mode(image, x, y, z, sampler))
+    {
+        // Border color
+        result[0] = 0.0f;
+        result[1] = 0.0f;
+        result[2] = 0.0f;
+
+        switch (image->format().image_channel_order)
+        {
+            case CL_R:
+            case CL_RG:
+            case CL_RGB:
+            case CL_LUMINANCE:
+                result[3] = 1.0f;
+                break;
+            default:
+                result[3] = 0.0f;
+        }
+
+        return;
+    }
+
+    // Load the data from the image, converting it
+    void *source = getImageData(image, x, y, z);
+    float converted[4];
+
+    convert_from_format4f(converted,
+                          source,
+                          image->format().image_channel_data_type,
+                          image->channels());
+
+    // Swizzle the pixel just read and place it in result
+    swizzle((uint32_t *)result, (uint32_t *)converted,
+            image->format().image_channel_order, true, 1065353216 /* 1.0f */);
+}
+
+void CPUKernelWorkGroup::readImage(int32_t *result, Image2D *image, int x, int y,
+                                   int z, int32_t sampler) const
+{
+    // Handle the addressing mode of the sampler
+    if (handle_address_mode(image, x, y, z, sampler))
+    {
+        // Border color
+        result[0] = 0;
+        result[1] = 0;
+        result[2] = 0;
+
+        switch (image->format().image_channel_order)
+        {
+            case CL_R:
+            case CL_RG:
+            case CL_RGB:
+            case CL_LUMINANCE:
+                result[3] = 0x7fffffff;
+                break;
+            default:
+                result[3] = 0;
+        }
+
+        return;
+    }
+
+    // Load the data from the image, converting it
+    void *source = getImageData(image, x, y, z);
+    int32_t converted[4];
+
+    convert_from_format4i(converted,
+                          source,
+                          image->format().image_channel_data_type,
+                          image->channels());
+
+    // Swizzle the pixel just read and place it in result
+    swizzle((uint32_t *)result, (uint32_t *)converted,
+            image->format().image_channel_order, true, 0x7fffffff);
+}
+
+void CPUKernelWorkGroup::readImage(uint32_t *result, Image2D *image, int x, int y,
+                                   int z, int32_t sampler) const
+{
+    // Handle the addressing mode of the sampler
+    if (handle_address_mode(image, x, y, z, sampler))
+    {
+        // Border color
+        result[0] = 0;
+        result[1] = 0;
+        result[2] = 0;
+
+        switch (image->format().image_channel_order)
+        {
+            case CL_R:
+            case CL_RG:
+            case CL_RGB:
+            case CL_LUMINANCE:
+                result[3] = 0xffffffff;
+                break;
+            default:
+                result[3] = 0;
+        }
+
+        return;
+    }
+
+    // Load the data from the image, converting it
+    void *source = getImageData(image, x, y, z);
+    uint32_t converted[4];
+
+    convert_from_format4ui(converted,
+                           source,
+                           image->format().image_channel_data_type,
+                           image->channels());
+
+    // Swizzle the pixel just read and place it in result
+    swizzle(result, converted, image->format().image_channel_order, true,
+            0x7fffffff);
 }

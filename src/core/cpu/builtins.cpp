@@ -353,6 +353,24 @@ static void write_imageui(Image2D *image, int x, int y, int z, uint32_t *color)
     g_work_group->writeImage(image, x, y, z, color);
 }
 
+static void read_imagefi(float *result, Image2D *image, int x, int y, int z,
+                         int32_t sampler)
+{
+    g_work_group->readImage(result, image, x, y, z, sampler);
+}
+
+static void read_imageii(int32_t *result, Image2D *image, int x, int y, int z,
+                         int32_t sampler)
+{
+    g_work_group->readImage(result, image, x, y, z, sampler);
+}
+
+static void read_imageuii(uint32_t *result, Image2D *image, int x, int y, int z,
+                         int32_t sampler)
+{
+    g_work_group->readImage(result, image, x, y, z, sampler);
+}
+
 /*
  * Bridge between LLVM and us
  */
@@ -401,6 +419,12 @@ void *getBuiltin(const std::string &name)
         return (void *)&write_imagei;
     else if (name == "__cpu_write_imageui")
         return (void *)&write_imageui;
+    else if (name == "__cpu_read_imagefi")
+        return (void *)&read_imagefi;
+    else if (name == "__cpu_read_imageii")
+        return (void *)&read_imageii;
+    else if (name == "__cpu_read_imageuii")
+        return (void *)&read_imageuii;
 
     else if (name == "debug")
         return (void *)&printf;

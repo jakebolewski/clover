@@ -230,9 +230,12 @@ class Image2D : public MemObject
                          void *param_value,
                          size_t *param_value_size_ret) const;
 
-        static size_t element_size(const cl_image_format &format); /*!< \brief Size in bytes of each channel of \p format */
-        static size_t pixel_size(const cl_image_format &format);   /*!< \brief Size in bytes of a pixel in \p format */
-        size_t pixel_size() const;                                 /*!< \brief Pixel size of this image */
+        static size_t element_size(const cl_image_format &format);  /*!< \brief Size in bytes of each channel of \p format */
+        static unsigned int channels(const cl_image_format &format);/*!< \brief Number of channels of \p format */
+        static size_t pixel_size(const cl_image_format &format);    /*!< \brief Size in bytes of a pixel in \p format */
+        size_t pixel_size() const;                                  /*!< \brief Pixel size of this image */
+        size_t element_size() const;                                /*!< \brief Channel size of this image */
+        unsigned int channels() const;                              /*!< \brief Number of channels of this image */
 
     private:
         size_t p_width, p_height, p_row_pitch;

@@ -109,6 +109,13 @@ class CPUKernelWorkGroup
         void writeImage(Image2D *image, int x, int y, int z, int32_t *color) const;
         void writeImage(Image2D *image, int x, int y, int z, uint32_t *color) const;
 
+        void readImage(float *result, Image2D *image, int x, int y, int z,
+                       int32_t sampler) const;
+        void readImage(int32_t *result, Image2D *image, int x, int y, int z,
+                       int32_t sampler) const;
+        void readImage(uint32_t *result, Image2D *image, int x, int y, int z,
+                       int32_t sampler) const;
+
         void builtinNotFound(const std::string &name) const;
 
     private:

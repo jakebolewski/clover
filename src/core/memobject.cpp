@@ -713,10 +713,8 @@ size_t Image2D::element_size(const cl_image_format &format)
     }
 }
 
-size_t Image2D::pixel_size(const cl_image_format &format)
+unsigned int Image2D::channels(const cl_image_format &format)
 {
-    size_t multiplier;
-
     switch (format.image_channel_order)
     {
         case CL_R:
@@ -724,30 +722,33 @@ size_t Image2D::pixel_size(const cl_image_format &format)
         case CL_A:
         case CL_INTENSITY:
         case CL_LUMINANCE:
-            multiplier = 1;
+            return 1;
             break;
 
         case CL_RG:
         case CL_RGx:
         case CL_RA:
-            multiplier = 2;
+            return 2;
             break;
 
         case CL_RGBA:
         case CL_ARGB:
         case CL_BGRA:
-            multiplier = 4;
+            return 4;
             break;
 
         case CL_RGBx:
         case CL_RGB:
-            multiplier = 0; // Only special data types allowed (565, 555, etc)
+            return 1; // Only special data types allowed (565, 555, etc)
             break;
 
         default:
             return 0;
     }
+}
 
+size_t Image2D::pixel_size(const cl_image_format &format)
+{
     switch (format.image_channel_data_type)
     {
         case CL_UNORM_SHORT_565:
@@ -756,13 +757,23 @@ size_t Image2D::pixel_size(const cl_image_format &format)
         case CL_UNORM_INT_101010:
             return 4;
         default:
-            return multiplier * element_size(format);
+            return channels(format) * element_size(format);
     }
+}
+
+size_t Image2D::element_size() const
+{
+    return element_size(p_format);
 }
 
 size_t Image2D::pixel_size() const
 {
     return pixel_size(p_format);
+}
+
+unsigned int Image2D::channels() const
+{
+    return channels(p_format);
 }
 
 /*
