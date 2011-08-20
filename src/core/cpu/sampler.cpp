@@ -41,6 +41,7 @@
 #include "builtins.h"
 
 #include <cstdlib>
+#include <cmath>
 #include <immintrin.h>
 
 using namespace Coal;
@@ -52,6 +53,26 @@ using namespace Coal;
 static int clamp(int a, int b, int c)
 {
     return (a < b) ? b : ((a > c) ? c : a);
+}
+
+static int min(int a, int b)
+{
+    return (a < b ? a : b);
+}
+
+static int max(int a, int b)
+{
+    return (a > b ? a : b);
+}
+
+static float frac(float x)
+{
+    return x - std::floor(x);
+}
+
+static float round(float x)
+{
+    return (float)(int)x;
 }
 
 static bool handle_address_mode(Image2D *image, int &x, int &y, int &z,
@@ -94,7 +115,7 @@ static void slow_shuffle4(uint32_t *rs, uint32_t *a, uint32_t *b,
     rs[3] = (w < 4 ? a[w] : b[w - 4]);
 }
 
-static void slow_convert_to_format(void *dest, float *data,
+static void convert_to_format(void *dest, float *data,
                                    cl_channel_type type, unsigned int channels)
 {
     // Convert always the four components of source to target
@@ -121,7 +142,7 @@ static void slow_convert_to_format(void *dest, float *data,
     }
 }
 
-static void slow_convert_from_format(float *data, void *source,
+static void convert_from_format(float *data, void *source,
                                      cl_channel_type type, unsigned int channels)
 {
     // Convert always the four components of source to target
@@ -148,7 +169,7 @@ static void slow_convert_from_format(float *data, void *source,
     }
 }
 
-static void slow_convert_to_format(void *dest, int *data,
+static void convert_to_format(void *dest, int *data,
                                    cl_channel_type type, unsigned int channels)
 {
     // Convert always the four components of source to target
@@ -169,7 +190,7 @@ static void slow_convert_to_format(void *dest, int *data,
     }
 }
 
-static void slow_convert_from_format(int32_t *data, void *source,
+static void convert_from_format(int32_t *data, void *source,
                                      cl_channel_type type, unsigned int channels)
 {
     // Convert always the four components of source to target
@@ -190,7 +211,7 @@ static void slow_convert_from_format(int32_t *data, void *source,
     }
 }
 
-static void slow_convert_to_format(void *dest, uint32_t *data,
+static void convert_to_format(void *dest, uint32_t *data,
                                    cl_channel_type type, unsigned int channels)
 {
     // Convert always the four components of source to target
@@ -211,7 +232,7 @@ static void slow_convert_to_format(void *dest, uint32_t *data,
     }
 }
 
-static void slow_convert_from_format(uint32_t *data, void *source,
+static void convert_from_format(uint32_t *data, void *source,
                                      cl_channel_type type, unsigned int channels)
 {
     // Convert always the four components of source to target
@@ -232,6 +253,81 @@ static void slow_convert_from_format(uint32_t *data, void *source,
     }
 }
 
+template<typename T>
+static void vec4_scalar_mul(T *vec, float val)
+{
+    for (unsigned int i=0; i<4; ++i)
+        vec[i] *= val;
+}
+
+template<typename T>
+static void vec4_add(T *vec1, T *vec2)
+{
+    for (unsigned int i=0; i<4; ++i)
+        vec1[i] += vec2[i];
+}
+
+template<typename T>
+void CPUKernelWorkGroup::linear3D(T *result, float a, float b, float c,
+              int i0, int j0, int k0, int i1, int j1, int k1,
+              Image3D *image) const
+{
+    T accum[4];
+
+    readImageImplI<T>(result, image, i0, j0, k0, 0);
+    vec4_scalar_mul(result, (1.0f - a) * (1.0f - b) * (1.0f - c ));
+
+    readImageImplI<T>(accum, image, i1, j0, k0, 0);
+    vec4_scalar_mul(accum, a * (1.0f - b) * (1.0f - c ));
+    vec4_add(result, accum);
+
+    readImageImplI<T>(accum, image, i0, j1, k0, 0);
+    vec4_scalar_mul(accum, (1.0f - a) * b * (1.0f - c ));
+    vec4_add(result, accum);
+
+    readImageImplI<T>(accum, image, i1, j1, k0, 0);
+    vec4_scalar_mul(accum, a * b * (1.0f -c ));
+    vec4_add(result, accum);
+
+    readImageImplI<T>(accum, image, i0, j0, k1, 0);
+    vec4_scalar_mul(accum, (1.0f - a) * (1.0f - b) * c);
+    vec4_add(result, accum);
+
+    readImageImplI<T>(accum, image, i1, j0, k1, 0);
+    vec4_scalar_mul(accum, a * (1.0f - b) * c);
+    vec4_add(result, accum);
+
+    readImageImplI<T>(accum, image, i0, j1, k1, 0);
+    vec4_scalar_mul(accum, (1.0f - a) * b * c);
+    vec4_add(result, accum);
+
+    readImageImplI<T>(accum, image, i1, j1, k1, 0);
+    vec4_scalar_mul(accum, a * b * c);
+    vec4_add(result, accum);
+}
+
+template<typename T>
+void CPUKernelWorkGroup::linear2D(T *result, float a, float b, float c, int i0, int j0,
+              int i1, int j1, Image2D *image) const
+{
+    T accum[4];
+
+    readImageImplI<T>(result, image, i0, j0, 0, 0);
+    vec4_scalar_mul(result, (1.0f - a) * (1.0f - b));
+
+    readImageImplI<T>(accum, image, i1, j0, 0, 0);
+    vec4_scalar_mul(accum, a * (1.0f - b));
+    vec4_add(result, accum);
+
+    readImageImplI<T>(accum, image, i0, j1, 0, 0);
+    vec4_scalar_mul(accum, (1.0f - a) * b);
+    vec4_add(result, accum);
+
+    readImageImplI<T>(accum, image, i1, j1, 0, 0);
+    vec4_scalar_mul(accum, a * b);
+    vec4_add(result, accum);
+}
+
 #if __has_builtin(__builtin_shufflevector)
     #define shuffle4(rs, a, b, x, y, z, w) \
         *(__v4sf *)rs = __builtin_shufflevector(*(__v4sf *)a, *(__v4sf *)b, \
@@ -240,12 +336,6 @@ static void slow_convert_from_format(uint32_t *data, void *source,
     #define shuffle4(rs, a, b, x, y, z, w) \
         slow_shuffle4(rs, a, b, x, y, z, w)
 #endif
-
-    #define convert_to_format(dest, data, type, channels) \
-        slow_convert_to_format(dest, data, type, channels)
-
-    #define convert_from_format(data, source, type, channels) \
-        slow_convert_from_format(data, source, type, channels)
 
 static void swizzle(uint32_t *target, uint32_t *source,
                     cl_channel_order order, bool reading, uint32_t t_max)
@@ -460,4 +550,220 @@ void CPUKernelWorkGroup::readImage(uint32_t *result, Image2D *image, int x, int 
                                    int z, uint32_t sampler) const
 {
     readImageImplI<uint32_t>(result, image, x, y, z, sampler);
+}
+
+template<typename T>
+void CPUKernelWorkGroup::readImageImplF(T *result, Image2D *image, float x,
+                                        float y, float z, uint32_t sampler) const
+{
+    bool is_3d = (image->type() == MemObject::Image3D);
+    Image3D *image3d = (Image3D *)image;
+
+    int w = image->width(),
+        h = image->height(),
+        d = (is_3d ? image3d->depth() : 1);
+
+    switch (sampler & 0xf0)
+    {
+        case CLK_ADDRESS_NONE:
+        case CLK_ADDRESS_CLAMP:
+        case CLK_ADDRESS_CLAMP_TO_EDGE:
+            /* De-normalize coordinates */
+            if ((sampler & 0xf) == CLK_NORMALIZED_COORDS_TRUE)
+            {
+                x *= (float)w;
+                y *= (float)h;
+                if (is_3d) z *= (float)d;
+            }
+
+            switch (sampler & 0xf00)
+            {
+                case CLK_FILTER_NEAREST:
+                {
+                    readImageImplI<T>(result, image, std::floor(x),
+                                      std::floor(y), std::floor(z), sampler);
+                }
+                case CLK_FILTER_LINEAR:
+                {
+                    float a, b, c;
+
+                    a = frac(x - 0.5f);
+                    b = frac(y - 0.5f);
+                    c = frac(z - 0.5f);
+
+                    if (is_3d)
+                    {
+                        linear3D<T>(result, a, b, c,
+                                    std::floor(x - 0.5f),
+                                    std::floor(y - 0.5f),
+                                    std::floor(z - 0.5f),
+                                    std::floor(x - 0.5f) + 1,
+                                    std::floor(y - 0.5f) + 1,
+                                    std::floor(z - 0.5f) + 1,
+                                    image3d);
+                    }
+                    else
+                    {
+                        linear2D<T>(result, a, b, c,
+                                    std::floor(x - 0.5f),
+                                    std::floor(y - 0.5f),
+                                    std::floor(x - 0.5f) + 1,
+                                    std::floor(y - 0.5f) + 1,
+                                    image);
+                    }
+                }
+            }
+            break;
+        case CLK_ADDRESS_REPEAT:
+            switch (sampler & 0xf00)
+            {
+                case CLK_FILTER_NEAREST:
+                {
+                    int i, j, k;
+
+                    x = (x - std::floor(x)) * (float)w;
+                    i = std::floor(x);
+                    if (i > w - 1)
+                        i = i - w;
+
+                    y = (y - std::floor(y)) * (float)h;
+                    j = std::floor(y);
+                    if (j > h - 1)
+                        j = j - h;
+
+                    if (is_3d)
+                    {
+                        z = (z - std::floor(z)) * (float)d;
+                        k = std::floor(z);
+                        if (k > d - 1)
+                            k = k - d;
+                    }
+
+                    readImageImplI<T>(result, image, i, j, k, sampler);
+                }
+                case CLK_FILTER_LINEAR:
+                {
+                    float a, b, c;
+                    int i0, i1, j0, j1, k0, k1;
+
+                    x = (x - std::floor(x)) * (float)w;
+                    i0 = std::floor(x - 0.5f);
+                    i1 = i0 + 1;
+                    if (i0 < 0)
+                        i0 = w + i0;
+                    if (i1 > w - 1)
+                        i1 = i1 - w;
+
+                    y = (y - std::floor(y)) * (float)h;
+                    j0 = std::floor(y - 0.5f);
+                    j1 = j0 + 1;
+                    if (j0 < 0)
+                        j0 = h + j0;
+                    if (j1 > h - 1)
+                        j1 = j1 - h;
+
+                    if (is_3d)
+                    {
+                        z = (z - std::floor(z)) * (float)d;
+                        k0 = std::floor(z - 0.5f);
+                        k1 = k0 + 1;
+                        if (k0 < 0)
+                            k0 = d + k0;
+                        if (k1 > d - 1)
+                            k1 = k1 - d;
+                    }
+
+                    a = frac(x - 0.5f);
+                    b = frac(y - 0.5f);
+                    c = frac(z - 0.5f);
+
+                    if (is_3d)
+                    {
+                        linear3D<T>(result, a, b, c, i0, j0, k0, i1, j1, k1,
+                                    image3d);
+                    }
+                    else
+                    {
+                        linear2D<T>(result, a, b, c, i0, j0, i1, j1, image);
+                    }
+                }
+            }
+            break;
+        case CLK_ADDRESS_MIRRORED_REPEAT:
+            switch (sampler & 0xf00)
+            {
+                case CLK_FILTER_NEAREST:
+                {
+                    x = std::fabs(x - 2.0f * round(0.5f * x)) * (float)w;
+                    y = std::fabs(y - 2.0f * round(0.5f * y)) * (float)h;
+                    if (is_3d)
+                        z = std::fabs(z - 2.0f * round(0.5f * z)) * (float)d;
+
+                    readImageImplI<T>(result, image,
+                                      min(std::floor(x), w - 1),
+                                      min(std::floor(y), h - 1),
+                                      min(std::floor(z), d - 1),
+                                      sampler);
+                }
+                case CLK_FILTER_LINEAR:
+                {
+                    float a, b, c;
+                    int i0, i1, j0, j1, k0, k1;
+
+                    x = std::fabs(x - 2.0f * round(0.5f * x)) * (float)w;
+                    i0 = std::floor(x - 0.5f);
+                    i1 = i0 + 1;
+                    i0 = max(i0, 0);
+                    i1 = min(i1, w - 1);
+
+                    y = std::fabs(y - 2.0f * round(0.5f * y)) * (float)h;
+                    j0 = std::floor(y - 0.5f);
+                    j1 = j0 + 1;
+                    j0 = max(j0, 0);
+                    j1 = min(j1, h - 1);
+
+                    if (is_3d)
+                    {
+                        z = std::fabs(z - 2.0f * round(0.5f * z)) * (float)d;
+                        k0 = std::floor(z - 0.5f);
+                        k1 = k0 + 1;
+                        k0 = max(k0, 0);
+                        k1 = min(k1, d - 1);
+                    }
+
+                    a = frac(x - 0.5f);
+                    b = frac(y - 0.5f);
+                    c = frac(z - 0.5f);
+
+                    if (is_3d)
+                    {
+                        linear3D<T>(result, a, b, c, i0, j0, k0, i1, j1, k1,
+                                    image3d);
+                    }
+                    else
+                    {
+                        linear2D<T>(result, a, b, c, i0, j0, i1, j1, image);
+                    }
+                }
+            }
+            break;
+    }
+}
+
+void CPUKernelWorkGroup::readImage(float *result, Image2D *image, float x,
+                                   float y, float z, uint32_t sampler) const
+{
+    readImageImplF<float>(result, image, x, y, z, sampler);
+}
+
+void CPUKernelWorkGroup::readImage(int32_t *result, Image2D *image, float x,
+                                   float y, float z, uint32_t sampler) const
+{
+    readImageImplF<int32_t>(result, image, x, y, z, sampler);
+}
+
+void CPUKernelWorkGroup::readImage(uint32_t *result, Image2D *image, float x,
+                                   float y, float z, uint32_t sampler) const
+{
+    readImageImplF<uint32_t>(result, image, x, y, z, sampler);
 }

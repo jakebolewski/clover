@@ -371,6 +371,24 @@ static void read_imageuii(uint32_t *result, Image2D *image, int x, int y, int z,
     g_work_group->readImage(result, image, x, y, z, sampler);
 }
 
+static void read_imageff(float *result, Image2D *image, float x, float y,
+                         float z, int32_t sampler)
+{
+    g_work_group->readImage(result, image, x, y, z, sampler);
+}
+
+static void read_imageif(int32_t *result, Image2D *image, float x, float y,
+                         float z, int32_t sampler)
+{
+    g_work_group->readImage(result, image, x, y, z, sampler);
+}
+
+static void read_imageuif(uint32_t *result, Image2D *image, float x, float y,
+                          float z, int32_t sampler)
+{
+    g_work_group->readImage(result, image, x, y, z, sampler);
+}
+
 /*
  * Bridge between LLVM and us
  */
@@ -425,6 +443,12 @@ void *getBuiltin(const std::string &name)
         return (void *)&read_imageii;
     else if (name == "__cpu_read_imageuii")
         return (void *)&read_imageuii;
+    else if (name == "__cpu_read_imageff")
+        return (void *)&read_imageff;
+    else if (name == "__cpu_read_imageif")
+        return (void *)&read_imageif;
+    else if (name == "__cpu_read_imageuif")
+        return (void *)&read_imageuif;
 
     else if (name == "debug")
         return (void *)&printf;

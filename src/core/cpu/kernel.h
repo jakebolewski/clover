@@ -51,6 +51,7 @@ class CPUDevice;
 class Kernel;
 class KernelEvent;
 class Image2D;
+class Image3D;
 
 class CPUKernel : public DeviceKernel
 {
@@ -117,6 +118,13 @@ class CPUKernelWorkGroup
         void readImage(uint32_t *result, Image2D *image, int x, int y, int z,
                        uint32_t sampler) const;
 
+        void readImage(float *result, Image2D *image, float x, float y, float z,
+                       uint32_t sampler) const;
+        void readImage(int32_t *result, Image2D *image, float x, float y, float z,
+                       uint32_t sampler) const;
+        void readImage(uint32_t *result, Image2D *image, float x, float y, float z,
+                       uint32_t sampler) const;
+
         void builtinNotFound(const std::string &name) const;
 
     private:
@@ -125,6 +133,16 @@ class CPUKernelWorkGroup
         template<typename T>
         void readImageImplI(T *result, Image2D *image, int x, int y, int z,
                             uint32_t sampler) const;
+        template<typename T>
+        void readImageImplF(T *result, Image2D *image, float x, float y, float z,
+                            uint32_t sampler) const;
+        template<typename T>
+        void linear3D(T *result, float a, float b, float c,
+                       int i0, int j0, int k0, int i1, int j1, int k1,
+                       Image3D *image) const;
+        template<typename T>
+        void linear2D(T *result, float a, float b, float c, int i0, int j0,
+                      int i1, int j1, Image2D *image) const;
 
     private:
         CPUKernel *p_kernel;

@@ -91,7 +91,7 @@ const char image_source[] =
     "\n"
     "   float2 fcoords;\n"
     "   fcoords.x = 0.31f;\n"
-    "   fcoords.y = 3.1415f;\n"
+    "   fcoords.y = 0.1415f;\n"
     "   fcolor = read_imagef(image3, sampler, fcoords);\n"
     "}\n";
 
