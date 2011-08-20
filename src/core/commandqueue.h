@@ -51,7 +51,9 @@ class Event;
 /**
  * \brief Command queue
  *
- * This class holds a list of events that will be pushed on a given device
+ * This class holds a list of events that will be pushed on a given device.
+ *
+ * More details are given on the \ref events page.
  */
 class CommandQueue : public Object
 {
