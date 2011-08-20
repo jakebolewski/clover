@@ -105,18 +105,26 @@ class CPUKernelWorkGroup
         void barrier(unsigned int flags);
 
         void *getImageData(Image2D *image, int x, int y, int z) const;
+
         void writeImage(Image2D *image, int x, int y, int z, float *color) const;
         void writeImage(Image2D *image, int x, int y, int z, int32_t *color) const;
         void writeImage(Image2D *image, int x, int y, int z, uint32_t *color) const;
 
         void readImage(float *result, Image2D *image, int x, int y, int z,
-                       int32_t sampler) const;
+                       uint32_t sampler) const;
         void readImage(int32_t *result, Image2D *image, int x, int y, int z,
-                       int32_t sampler) const;
+                       uint32_t sampler) const;
         void readImage(uint32_t *result, Image2D *image, int x, int y, int z,
-                       int32_t sampler) const;
+                       uint32_t sampler) const;
 
         void builtinNotFound(const std::string &name) const;
+
+    private:
+        template<typename T>
+        void writeImageImpl(Image2D *image, int x, int y, int z, T *color) const;
+        template<typename T>
+        void readImageImplI(T *result, Image2D *image, int x, int y, int z,
+                            uint32_t sampler) const;
 
     private:
         CPUKernel *p_kernel;
