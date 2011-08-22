@@ -28,6 +28,12 @@
 /**
  * \file cpu/builtins.cpp
  * \brief Native OpenCL C built-in functions
+ *
+ * All these built-ins are directly called by kernels. When the LLVM JIT
+ * sees a function name it doesn't know, it calls \c getBuiltin() with this
+ * name as parameter. This function then returns the address of an actual
+ * function implementation, that finally gets called by the kernel when
+ * it is run.
  */
 
 #include "builtins.h"
@@ -64,9 +70,9 @@ unsigned char *imageData(unsigned char *base, size_t x, size_t y, size_t z,
 /*
  * TLS-related functions
  */
-__thread Coal::CPUKernelWorkGroup *g_work_group;
-__thread void *work_items_data;
-__thread size_t work_items_size;
+__thread Coal::CPUKernelWorkGroup *g_work_group;    /*!< \brief \c Coal::CPUKernelWorkGroup currently running on this thread */
+__thread void *work_items_data;                     /*!< \brief Space allocated for work-items stacks, see \ref barrier */
+__thread size_t work_items_size;                    /*!< \brief Size of \c work_items_data, see \ref barrier */
 
 void setThreadLocalWorkGroup(Coal::CPUKernelWorkGroup *current)
 {

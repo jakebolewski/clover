@@ -25,6 +25,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file cpu/device.h
+ * \brief CPU device
+ */
+
 #ifndef __CPU_DEVICE_H__
 #define __CPU_DEVICE_H__
 
@@ -41,12 +46,31 @@ class Event;
 class Program;
 class Kernel;
 
+/**
+ * \brief CPU device
+ *
+ * This class is the base of all the CPU-accelerated OpenCL processing. It
+ * creates and manages subclasses such as \c Coal::DeviceBuffer,
+ * \c Coal::DeviceProgram and \c Coal::DeviceKernel.
+ *
+ * This class and the aforementioned ones work together to compile and run
+ * kernels using the LLVM JIT, manage buffers, provide built-in functions
+ * and do all of this in a multithreaded fashion using worker threads.
+ *
+ * \see \ref events
+ */
 class CPUDevice : public DeviceInterface
 {
     public:
         CPUDevice();
         ~CPUDevice();
 
+        /**
+         * \brief Initialize the CPU device
+         *
+         * This function creates the worker threads and get information about
+         * the host system for the \c numCPUs() and \c cpuMhz functions.
+         */
         void init();
 
         cl_int info(cl_device_info param_name,
@@ -65,8 +89,8 @@ class CPUDevice : public DeviceInterface
         void pushEvent(Event *event);
         Event *getEvent(bool &stop);
 
-        unsigned int numCPUs() const;
-        float cpuMhz() const;
+        unsigned int numCPUs() const;   /*!< \brief Number of logical CPU cores on the system */
+        float cpuMhz() const;           /*!< \brief Speed of the CPU in Mhz */
 
     private:
         unsigned int p_cores, p_num_events;
