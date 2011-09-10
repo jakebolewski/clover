@@ -37,7 +37,7 @@
 #include <cstring>
 #include <cstdlib>
 
-#include <llvm/Target/TargetSelect.h>
+#include <llvm/Support/TargetSelect.h>
 
 using namespace Coal;
 
