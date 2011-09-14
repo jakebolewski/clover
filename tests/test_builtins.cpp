@@ -95,6 +95,17 @@ const char image_source[] =
     "   fcolor = read_imagef(image3, sampler, fcoords);\n"
     "}\n";
 
+const char builtins_source[] =
+    "__kernel void test_case(__global uint *rs) {\n"
+    "   float2 f2;\n"
+    "\n"
+    "   f2.x = 1.0f;\n"
+    "   f2.y = 0.0f;\n"
+    "\n"
+    "   if (cos(f2).y != 1.0f) { *rs = 1; return; }\n"
+    "   if (cos(0.0f) != 1.0f) { *rs = 2; return; }\n"
+    "}\n";
+
 enum TestCaseKind
 {
     NormalKind,
@@ -357,6 +368,30 @@ START_TEST (test_image)
 }
 END_TEST
 
+START_TEST (test_builtins)
+{
+    uint32_t rs = run_kernel(builtins_source, NormalKind);
+    const char *errstr = 0;
+
+    switch (rs)
+    {
+        case 1:
+            errstr = "float2 cos(float2) doesn't behave correctly";
+            break;
+        case 2:
+            errstr = "float cos(float) doesn't behave correctly";
+            break;
+        default:
+            errstr = default_error(rs);
+    }
+
+    fail_if(
+        errstr != 0,
+        errstr
+    );
+}
+END_TEST
+
 TCase *cl_builtins_tcase_create(void)
 {
     TCase *tc = NULL;
@@ -364,5 +399,6 @@ TCase *cl_builtins_tcase_create(void)
     tcase_add_test(tc, test_sampler);
     tcase_add_test(tc, test_barrier);
     tcase_add_test(tc, test_image);
+    tcase_add_test(tc, test_builtins);
     return tc;
 }

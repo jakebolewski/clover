@@ -45,6 +45,10 @@ set(COAL_SRC_FILES
 
     ${CMAKE_CURRENT_BINARY_DIR}/runtime/stdlib.h.embed.h
     ${CMAKE_CURRENT_BINARY_DIR}/runtime/stdlib.c.bc.embed.h
+    ${CMAKE_CURRENT_BINARY_DIR}/runtime/builtins_impl.h
+    ${CMAKE_CURRENT_BINARY_DIR}/runtime/builtins_def.h
+    ${CMAKE_CURRENT_BINARY_DIR}/runtime/stdlib_impl.h
+    ${CMAKE_CURRENT_BINARY_DIR}/runtime/stdlib_def.h
 )
 
 add_subdirectory(runtime)
@@ -55,8 +59,18 @@ set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/runtime/stdlib.h.embed.h
                             PROPERTIES GENERATED 1)
 set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/runtime/stdlib.c.bc.embed.h
                             PROPERTIES GENERATED 1)
+set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/runtime/builtins_impl.h
+                            PROPERTIES GENERATED 1)
+set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/runtime/builtins_def.h
+                            PROPERTIES GENERATED 1)
+set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/runtime/stdlib_impl.h
+                            PROPERTIES GENERATED 1)
+set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/runtime/stdlib_def.h
+                            PROPERTIES GENERATED 1)
+
 add_dependencies(OpenCL generate_stdlib_h)
 add_dependencies(OpenCL generate_stdlib_c)
+add_dependencies(OpenCL generate_builtins)
 
 SET(LIBRARY_OUTPUT_PATH ${Coal_BINARY_DIR}/lib)
 

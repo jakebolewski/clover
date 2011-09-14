@@ -1,0 +1,18 @@
+def vecf : float2 float3 float4 float8 float16
+def veci : int2 int3 int4 int8 int16
+
+def vec : $vecf $veci
+def gentype : float $vecf
+
+func $type fmin $gentype : x:$type y:$type
+    return (x < y ? x : y);
+end
+
+native float cos float : x:float
+    return std::cos(x);
+end
+
+native $type cos $vecf : x:$type
+    for (unsigned int i=0; i<$vecdim; ++i)
+        result[i] = std::cos(x[i]);
+end
