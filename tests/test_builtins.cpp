@@ -98,12 +98,17 @@ const char image_source[] =
 const char builtins_source[] =
     "__kernel void test_case(__global uint *rs) {\n"
     "   float2 f2;\n"
+    "   float2 f2b;\n"
     "\n"
     "   f2.x = 1.0f;\n"
     "   f2.y = 0.0f;\n"
+    "   f2b.x = -0.5f;\n"
+    "   f2b.y = (float)M_PI;\n"
     "\n"
     "   if (cos(f2).y != 1.0f) { *rs = 1; return; }\n"
     "   if (cos(0.0f) != 1.0f) { *rs = 2; return; }\n"
+    "   if (copysign(1.0f, -0.5f) != -1.0f) { *rs = 3; return; }\n"
+    "   if (copysign(f2, f2b).x != -1.0f) { *rs = 4; return; }\n"
     "}\n";
 
 enum TestCaseKind
@@ -380,6 +385,12 @@ START_TEST (test_builtins)
             break;
         case 2:
             errstr = "float cos(float) doesn't behave correctly";
+            break;
+        case 3:
+            errstr = "float copysign(float) doesn't behave correctly";
+            break;
+        case 4:
+            errstr = "float2 copysign(float2) doesn't behave correctly";
             break;
         default:
             errstr = default_error(rs);

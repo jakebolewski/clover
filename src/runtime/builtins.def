@@ -4,15 +4,183 @@ def veci : int2 int3 int4 int8 int16
 def vec : $vecf $veci
 def gentype : float $vecf
 
-func $type fmin $gentype : x:$type y:$type
-    return (x < y ? x : y);
+// gentype acos(gentype)
+// REPL is defined in src/core/cpu/builtins.cpp
+native float acos float : x:float
+    return std::acos(x);
 end
 
+native $type acos $vecf : x:$type
+    REPL($vecdim)
+        result[i] = std::acos(x[i]);
+end
+
+// gentype acosh(gentype)
+native float acosh float : x:float
+    return boost::math::acosh(x);
+end
+
+native $type acosh $vecf : x:$type
+    REPL($vecdim)
+        result[i] = boost::math::acosh(x[i]);
+end
+
+// gentype acospi(gentype)
+func float acospi float : x:float
+    return acos(x) / M_PI;
+end
+
+native $type acospi $vecf : x:$type
+    REPL($vecdim)
+        result[i] = std::acos(x[i]) / M_PI;
+end
+
+// gentype asin (gentype)
+native float asin float : x:float
+    return std::asin(x);
+end
+
+native $type asin $vecf : x:$type
+    REPL($vecdim)
+        result[i] = std::asin(x[i]);
+end
+
+// gentype asinh (gentype)
+native float asinh float : x:float
+    return boost::math::asinh(x);
+end
+
+native $type asinh $vecf : x:$type
+    REPL($vecdim)
+        result[i] = boost::math::asinh(x[i]);
+end
+
+// gentype asinpi (gentype x)
+func float asinpi float : x:float
+    return asin(x) / M_PI;
+end
+
+native $type asinpi $vecf : x:$type
+    REPL($vecdim)
+        result[i] = std::asin(x[i]) / M_PI;
+end
+
+// gentype atan (gentype y_over_x)
+native float atan float : y_over_x:float
+    return std::atan(y_over_x);
+end
+
+native $type atan $vecf : y_over_x:$type
+    REPL($vecdim)
+        result[i] = std::atan(y_over_x[i]);
+end
+
+// gentype atan2 (gentype y, gentype x)
+func float atan2 float : x:float y:float
+    return atan(y / x);
+end
+
+native $type atan2 $vecf : x:$type y:$type
+    REPL($vecdim)
+        result[i] = std::atan(y[i] / x[i]);
+end
+
+// gentype atanh (gentype)
+native float atanh float : x:float
+    return boost::math::atanh(x);
+end
+
+native $type atanh $vecf : x:$type
+    REPL($vecdim)
+        result[i] = boost::math::atanh(x[i]);
+end
+
+// gentype atanpi (gentype x)
+func float atanpi float : x:float
+    return atan(x) / M_PI;
+end
+
+native $type atanpi $vecf : x:$type
+    REPL($vecdim)
+        result[i] = std::atan(x[i]) / M_PI;
+end
+
+// gentype atan2pi (gentype y, gentype x)
+func float atan2pi float : x:float y:float
+    return atan2(y, x) / M_PI;
+end
+
+native $type atan2pi $vecf : x:$type y:$type
+    REPL($vecdim)
+        result[i] = std::atan(y[i] / x[i]) / M_PI;
+end
+
+// gentype cbrt (gentype)
+native float cbrt float : x:float
+    return boost::math::cbrt(x);
+end
+
+native $type cbrt $vecf : x:$type
+    REPL($vecdim)
+        result[i] = boost::math::cbrt(x[i]);
+end
+
+// gentype ceil (gentype)
+native float ceil float : x:float
+    return std::ceil(x);
+end
+
+native $type ceil $vecf : x:$type
+    REPL($vecdim)
+        result[i] = std::ceil(x[i]);
+end
+
+// gentype copysign (gentype x, gentype y)
+func float copysign float : x:float y:float
+    if ((x < 0.0f && y > 0.0f) ||
+        (x > 0.0f && y < 0.0f))
+        return -x;
+end
+
+native $type copysign $vecf : x:$type y:$type
+    REPL($vecdim)
+    {
+        if ((x[i] < 0.0f && y[i] > 0.0f) ||
+            (x[i] > 0.0f && y[i] < 0.0f))
+            result[i] = -x[i];
+        else
+            result[i] = x[i];
+    }
+end
+
+//gentype cos (gentype)
 native float cos float : x:float
     return std::cos(x);
 end
 
 native $type cos $vecf : x:$type
-    for (unsigned int i=0; i<$vecdim; ++i)
+    REPL($vecdim)
         result[i] = std::cos(x[i]);
+end
+
+// gentype cosh (gentype)
+native float cosh float : x:float
+    return std::cosh(x);
+end
+
+native $type cosh $vecf : x:$type
+    REPL($vecdim)
+        result[i] = std::cosh(x[i]);
+end
+
+// gentype cospi (gentype x)
+func $type cospi $gentype : x:$type
+    return cos(x * M_PI);
+end
+
+// TODO: gentype erfc (gentype)
+// TODO: gentype erf (gentype)
+
+func $type fmin $gentype : x:$type y:$type
+    return (x < y ? x : y);
 end

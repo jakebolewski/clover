@@ -17,7 +17,8 @@ add_custom_command(
             ${CMAKE_CURRENT_SOURCE_DIR}/stdlib.c
             -I${CMAKE_CURRENT_BINARY_DIR}
             -o ${CMAKE_CURRENT_BINARY_DIR}/stdlib.c.bc
-    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/stdlib.c)
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/stdlib.c
+            ${CMAKE_CURRENT_BINARY_DIR}/stdlib_impl.h)
 
 add_custom_command(
     OUTPUT stdlib.c.bc.embed.h
