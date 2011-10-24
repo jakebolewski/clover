@@ -109,6 +109,7 @@ const char builtins_source[] =
     "   if (cos(0.0f) != 1.0f) { *rs = 2; return; }\n"
     "   if (copysign(1.0f, -0.5f) != -1.0f) { *rs = 3; return; }\n"
     "   if (copysign(f2, f2b).x != -1.0f) { *rs = 4; return; }\n"
+    "   if (exp2(3.0f) != 8.0f) { *rs = 5; return; }\n"
     "}\n";
 
 enum TestCaseKind
@@ -391,6 +392,9 @@ START_TEST (test_builtins)
             break;
         case 4:
             errstr = "float2 copysign(float2) doesn't behave correctly";
+            break;
+        case 5:
+            errstr = "exp2() doesn't behave correctly";
             break;
         default:
             errstr = default_error(rs);

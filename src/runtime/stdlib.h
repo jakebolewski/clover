@@ -25,6 +25,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
+
 /* Types */
 
 /* Standard types from Clang's stddef and stdint, Copyright (C) 2008 Eli Friedman */

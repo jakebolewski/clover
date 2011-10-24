@@ -140,6 +140,7 @@ func float copysign float : x:float y:float
     if ((x < 0.0f && y > 0.0f) ||
         (x > 0.0f && y < 0.0f))
         return -x;
+    return x;
 end
 
 native $type copysign $vecf : x:$type y:$type
@@ -175,11 +176,31 @@ end
 
 // gentype cospi (gentype x)
 func $type cospi $gentype : x:$type
-    return cos(x * M_PI);
+    return cos(x * (float)M_PI);
 end
 
 // TODO: gentype erfc (gentype)
 // TODO: gentype erf (gentype)
+
+// gentype exp(gentype x)
+native float exp float : x:float
+    return std::exp(x);
+end
+
+native $type exp $vecf : x:$type
+    REPL($vecdim)
+        result[i] = std::exp(x[i]);
+end
+
+// gentype exp2(gentype x)
+native float exp2 float : x:float
+    //return std::ldexp(x, 2);
+end
+
+native $type exp2 $vecf : x:$type
+    //REPL($vecdim)
+    //    result[i] = std::ldexp(x[i], 2);
+end
 
 func $type fmin $gentype : x:$type y:$type
     return (x < y ? x : y);
