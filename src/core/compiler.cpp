@@ -97,7 +97,7 @@ bool Compiler::compile(const std::string &options,
     // Set header search options
     header_opts.Verbose = false;
     header_opts.UseBuiltinIncludes = false;
-    header_opts.UseStandardIncludes = false;
+    header_opts.UseStandardSystemIncludes = false;
     header_opts.UseStandardCXXIncludes = false;
 
     // Set preprocessor options
@@ -106,6 +106,7 @@ bool Compiler::compile(const std::string &options,
     // Set lang options
     lang_opts.NoBuiltin = true;
     lang_opts.OpenCL = true;
+    lang_opts.CPlusPlus = false;
 
     // Set target options
     target_opts.Triple = llvm::sys::getHostTriple();

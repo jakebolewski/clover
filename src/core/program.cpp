@@ -381,7 +381,8 @@ cl_int Program::build(const char *options,
 
             // Link
             if (!stdlib ||
-                llvm::Linker::LinkModules(dep.linked_module, stdlib, &errMsg))
+                llvm::Linker::LinkModules(dep.linked_module, stdlib,
+                                          llvm::Linker::DestroySource, &errMsg))
             {
                 dep.compiler->appendLog("link error: ");
                 dep.compiler->appendLog(errMsg);
