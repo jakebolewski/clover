@@ -20,6 +20,8 @@ else (LLVM_INCLUDE_DIR)
 find_program(LLVM_CONFIG_EXECUTABLE
   NAMES llvm-config
   PATHS
+  /usr/bin
+  /usr/local/bin
   /opt/local/bin
 )
 

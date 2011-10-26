@@ -136,22 +136,11 @@ native $type ceil $vecf : x:$type
 end
 
 // gentype copysign (gentype x, gentype y)
-func float copysign float : x:float y:float
-    if ((x < 0.0f && y > 0.0f) ||
-        (x > 0.0f && y < 0.0f))
-        return -x;
-    return x;
-end
-
-native $type copysign $vecf : x:$type y:$type
-    REPL($vecdim)
-    {
-        if ((x[i] < 0.0f && y[i] > 0.0f) ||
-            (x[i] > 0.0f && y[i] < 0.0f))
-            result[i] = -x[i];
-        else
-            result[i] = x[i];
-    }
+func $type copysign $gentype : x:$type y:$type
+    return (
+            (x < 0.0f & y > 0.0f) |
+            (x > 0.0f & y < 0.0f)
+           ? -x : x);
 end
 
 //gentype cos (gentype)
@@ -194,14 +183,126 @@ end
 
 // gentype exp2(gentype x)
 native float exp2 float : x:float
-    //return std::ldexp(x, 2);
+    return exp2f(x);
 end
 
 native $type exp2 $vecf : x:$type
-    //REPL($vecdim)
-    //    result[i] = std::ldexp(x[i], 2);
+    REPL($vecdim)
+        result[i] = exp2f(x[i]);
 end
 
+// gentype exp10(gentype x)
+native float exp10 float : x:float
+    return exp10f(x);
+end
+
+native $type exp10 $vecf : x:$type
+    REPL($vecdim)
+        result[i] = exp10f(x[i]);
+end
+
+// gentype expm1(gentype x)
+func $type expm1 $gentype : x:$type
+    return exp(x) - 1.0f;
+end
+
+// gentype fabs(gentype x)
+func $type fabs $gentype : x:$type
+    return (x < 0.0f ? -x : x);
+end
+
+// gentype fdim(x, y)
+func $type fdim $gentype : x:$type y:$type
+    return (x > y ? x - y : 0.0f);
+end
+
+// gentype floor(gentype x) (TODO: SSE fast path : float->int->float)
+native float floor float : x:float
+    return std::floor(x);
+end
+
+native $type floor $vecf : x:$type
+    REPL($vecdim)
+        result[i] = std::floor(x[i]);
+end
+
+// gentype fma(a, b, c) : a*b + c (TODO)
+func $type fma $gentype : a:$type b:$type c:$type
+    return (a * b) + c;
+end
+
+// gentype fmax(x, y)
+func $type fmax $gentype : x:$type y:$type
+    return (x > y ? x : y);
+end
+
+// gentype fmin(x, y)
 func $type fmin $gentype : x:$type y:$type
     return (x < y ? x : y);
+end
+
+// gentype trunc(x)
+native float trunc float : x:float
+    return boost::math::trunc(x);
+end
+
+native $type trunc $vecf : x:$type
+    REPL($vecdim)
+        result[i] = boost::math::trunc(x[i]);
+end
+
+// gentype fmod(x, y)
+func $type fmod $gentype : x:$type y:$type
+    return x - y * trunc(x / y);
+end
+
+// gentype fract(gentype x, gentype *iptr)
+func $type fract $gentype : x:$type iptr:*$type
+    *iptr = floor(x);
+    return fmin(x - *iptr, 0x1.fffffep-1f);
+end
+
+// gentype frexp(gentype x, intn *exp)
+native float frexp float : x:float exp:*int
+    return std::frexp(x, exp);
+end
+
+native $type frexp $vecf : x:$type exp:*int$vecdim
+    REPL($vecdim)
+        result[i] = std::frexp(x[i], &exp[i]);
+end
+
+// gentype sqrt(gentype x)
+native float sqrt float : x:float
+    return std::sqrt(x);
+end
+
+native $type sqrt $vecf : x:$type
+    REPL($vecdim)
+        result[i] = std::sqrt(x[i]);
+end
+
+// gentype hypot(gentype x, gentype y)
+func $type hypot $gentype : x:$type y:$type
+    return sqrt(x*x + y*y);
+end
+
+// intn ilogb(gentype x)
+native int ilogb float : x:float
+    return ilogb(x);
+end
+
+native int$vecdim ilogb $vecf : x:$type
+    REPL($vecdim)
+        result[i] = ilogb(x[i]);
+end
+
+// gentype ldexp(gentype x, intn n)
+native float ldexp float : x:float n:int
+    return std::ldexp(x, n);
+end
+
+native $type ldexp $vecf : x:$type n:int$vecdim
+    REPL($vecdim)
+        result[i] = std::ldexp(x[i], n[i]);
 end

@@ -66,9 +66,7 @@ class Function:
         self.types.append(ty)
 
     def mangled_name(self, current_type):
-        return_type = self.return_type
-        if return_type == '$type':
-            return_type = current_type
+        return_type = self.process_type_name(current_type, self.return_type)
 
         rs = return_type + '_' + self.name
         first = True
@@ -78,12 +76,23 @@ class Function:
                 rs += '_'
             first = False
 
-            arg_type = a.t
-            if arg_type == '$type':
-                arg_type = current_type
-            rs += arg_type
+            arg_type = self.process_type_name(current_type, a.t)
+            rs += arg_type.replace('*', 'p')
 
         return rs
+
+    def process_type_name(self, current_type, type_name):
+        # Current vector dimension
+        vecdim = '1'
+
+        if current_type[-1].isdigit():
+            if current_type[-2].isdigit():
+                vecdim = current_type[-2:]
+            else:
+                vecdim = current_type[-1]
+
+        # $vecdim expansion
+        return type_name.replace('$vecdim', vecdim).replace('$type', current_type)
 
     def arg_list(self, current_type, handle_first_arg):
         rs = ''
@@ -92,25 +101,26 @@ class Function:
 
         # We may need a first "result" arg
         if handle_first_arg:
-            return_type = self.return_type
-            if return_type == '$type':
-                return_type = current_type
+            return_type = self.process_type_name(current_type, self.return_type)
 
             if return_type[-1].isdigit():
                 # Return is a vector
                 append_arg = self.Arg('result', return_type)
 
         if append_arg:
-            args = [append_arg]
-            args.extend(self.args)
+            args = [append_arg] + self.args
         else:
             args = self.args
 
         for arg in args:
             # Resolve type
-            arg_type = arg.t
-            if arg_type == '$type':
-                arg_type = current_type
+            arg_type = self.process_type_name(current_type, arg.t)
+
+            if arg_type[0] == '*':
+                arg_ptr = True
+                arg_type = arg_type[1:]
+            else:
+                arg_ptr = False
 
             # We need to pass vector arguments as pointers
             arg_vector = False
@@ -125,7 +135,7 @@ class Function:
 
             rs += arg_type + ' '
 
-            if arg_vector:
+            if arg_vector or arg_ptr:
                 rs += '*'
 
             rs += arg.name
@@ -147,9 +157,7 @@ class Function:
             return rs
 
         # Calculate return type
-        return_type = self.return_type
-        if return_type == '$type':
-            return_type = current_type
+        return_type = self.process_type_name(current_type, self.return_type)
 
         if (kind == self.KIND_BUILTINS_IMPL or kind == self.KIND_STDLIB_STUB_DEF) \
             and return_type[-1].isdigit():
@@ -204,9 +212,13 @@ class Function:
             # Append the args
             for arg in self.args:
                 # Resolve type
-                arg_type = arg.t
-                if arg_type == '$type':
-                    arg_type = current_type
+                arg_type = self.process_type_name(current_type, arg.t)
+
+                arg_ptr = False
+                if arg_type[0] == '*':
+                    arg_type = arg_type[1:]
+                    arg_ptr = True
+                    
                 arg_vector = arg_type[-1].isdigit()
 
                 if not first:
@@ -215,9 +227,11 @@ class Function:
 
                 # We need to pass vector arguments as pointers
                 if arg_vector:
-                    rs += '(' + arg_type.rstrip('0123456789') + ' *)&' + arg.name
-                else:
-                    rs += arg.name
+                    rs += '(' + arg_type.rstrip('0123456789') + ' *)'
+                    if not arg_ptr:
+                        rs += '&'
+
+                rs += arg.name
 
             # End the call
             rs += ');\n'
